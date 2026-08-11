@@ -7,7 +7,9 @@ This module provides convenient wrappers for common file I/O operations includin
 
 All functions include proper error handling and validation.
 """
+from typing import Any
 import pathlib
+import pickle
 import json
 import yaml
 import pandas as pd
@@ -113,3 +115,70 @@ def save_dataframe(
         df.to_excel(filename, index=False, sheet_name="Sheet1")
     else:
         raise ValueError(f"Unsupported file extension: {ext}")
+
+def save_pickle(
+    obj: Any,
+    path: str | pathlib.Path,
+    *,
+    create_parent: bool = True,
+) -> pathlib.Path:
+    """Serialize an object to a pickle file.
+
+    Parameters
+    ----------
+    obj
+        Python object to serialize.
+    path
+        Destination path for the pickle file.
+    create_parent
+        If True, create missing parent directories.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to the created pickle file.
+
+    Raises
+    ------
+    TypeError
+        If the object cannot be pickled.
+    OSError
+        If the destination file cannot be written.
+    """
+    path = pathlib.Path(path)
+    if create_parent:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with path.open("wb") as file:
+            pickle.dump(obj, file, protocol=pickle.HIGHEST_PROTOCOL)
+    except pickle.PicklingError as exc:
+        raise TypeError(
+            f"Object of type {type(obj).__name__!r} cannot be pickled."
+        ) from exc
+    return path
+
+
+def read_pickle(path: str | pathlib.Path) -> Any:
+    """Deserialize an object from a pickle file.
+
+    Parameters
+    ----------
+    path
+        Path to the pickle file.
+
+    Returns
+    -------
+    Any
+        Deserialized Python object.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the pickle file does not exist.
+    OSError
+        If the file cannot be opened or read.
+    pickle.UnpicklingError
+        If the file contains invalid or corrupted pickle data.
+    """
+    with pathlib.Path(path).open("rb") as file:
+        return pickle.load(file)
