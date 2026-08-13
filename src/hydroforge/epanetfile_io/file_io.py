@@ -19,7 +19,7 @@ import pathlib
 import collections
 from collections import OrderedDict
 from rich import print as rprint
-from hydroforge.auxiliary.utils import log
+from ..auxiliary.utils import log
 
 
 class EPANETFileReaderError(Exception):

@@ -20,9 +20,8 @@ The overall workflow this module enables is:
 import json
 from collections import OrderedDict
 from typing import Any, Dict
-
-from hydroforge.epanetfile_io.file_io import EPANETFileIO
-from hydroforge.epanetfile_io.model_wrapper import EPANETNetworkModel, NetworkCollection
+from .model_wrapper import EPANETNetworkModel, NetworkCollection
+from .file_io import EPANETFileIO
 
 
 class EPANETNetworkModelIO:
