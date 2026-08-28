@@ -20,90 +20,25 @@ but contains additional state required for transient simulation. A
 ``TransientModel`` should therefore be supplied to :class:`TSNetSimulator`,
 rather than an ordinary WNTR network model.
 """
-from __future__ import annotations
-import copy
 import glob
 import os
-from collections.abc import Sequence
+import copy
 from dataclasses import dataclass, field
-from typing import TypeAlias, Literal
 import tsnet
-from hydroforge.auxiliary.io_wrappers import save_pickle
-from .common import DemandModel, Simulator
+from .config import TSNetSimulatorConfig
+from .model import TSNetModel
 from .results import TSNetSimulationResults
+from ..common.simulator import Simulator
+from ...auxiliary.io import save_pickle
 
-# ---------------------------------------------------------------------------
-# Type aliases
-# ---------------------------------------------------------------------------
-
-TSNetNetworkModel: TypeAlias = tsnet.network.TransientModel
-WaveSpeed: TypeAlias = float | Sequence[float]
-FrictionModel: TypeAlias = Literal['steady', 'quasi-steady', 'unsteady']
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
 
 @dataclass(slots=True)
-class TSNetSimulatorConfig:
-    """Configuration for the TSNet transient simulator.
-
-    Parameters
-    ----------
-    duration : float
-        Duration of the transient simulation in seconds.
-    wave_speed : float or sequence of float
-        Wave speed in metres per second. A scalar applies the same wave speed
-        to all pipes. A sequence can be used to specify a wave speed for each
-        pipe.
-    friction_model : {'steady', 'quasi-steady', 'unsteady'}, optional
-        Friction model used by TSNet to calculate friction losses during the
-        transient simulation. Default is ``'steady'``.
-    time_step : float or None, optional
-        Initial time step in seconds. If ``None``, TSNet determines the
-        maximum allowable time step. TSNet subsequently adjusts the time
-        step and wave speeds during its discretization procedure.
-    steady_state_engine : DemandModel, optional
-        Hydraulic engine used by TSNet to calculate the steady-state initial
-        condition. The default is demand-driven (``DemandModel.DD``).
-    initial_time : float, optional
-        Time at which the steady-state initial condition is calculated.
-        Default is 0 seconds.
-    results_name : str, optional
-        Name used by TSNet when storing the transient results object.
-        Default is ``"results"``.
-    clean_files : bool, optional
-        If ``True``, temporary EPANET files created during the simulation are 
-        removed after the simulation completes. Default is ``True``.
-
-    Notes
-    -----
-    TSNet's ``set_time`` method accepts both the simulation duration and
-    time step. The time step may subsequently be modified by TSNet to
-    satisfy its spatial and temporal discretization requirements.
-
-    TSNet performs the steady-state initialization using WNTR before
-    starting the transient MOC simulation.
-    """
-    duration: float
-    wave_speed: WaveSpeed= 1_200.0
-    friction_model: FrictionModel = 'steady'
-    time_step: float | None = None
-    steady_state_engine: DemandModel = DemandModel.DD
-    initial_time: float = 0.0
-    results_name: str | None = "tsnet_simulation_results.obj"
-    clean_files: bool = True
-
-# ---------------------------------------------------------------------------
-# Simulator
-# ---------------------------------------------------------------------------
-
-@dataclass(slots=True)
-class TSNetSimulator(Simulator[TSNetNetworkModel, TSNetSimulationResults]):
+class TSNetSimulator(Simulator[TSNetModel, TSNetSimulationResults, TSNetSimulatorConfig]):
     """TSNet transient hydraulic simulator.
 
     Parameters
     ----------
-    config : TSNetSimulatorConfig, optional
+    config : TSNetSimulationConfig, optional
         Configuration for the transient simulation.
     inplace : bool, optional
         If ``True``, the supplied TSNet model is modified directly.
@@ -128,7 +63,7 @@ class TSNetSimulator(Simulator[TSNetNetworkModel, TSNetSimulationResults]):
     ...     duration=20.0,
     ...     time_step=0.1,
     ... )
-    >>> simulator = TSNetSimulator(config=config)
+    >>> simulator = TSNetPlusSimulator(config=config)
     >>> results = simulator.run(model)
     """
     config: TSNetSimulatorConfig = field(
@@ -137,6 +72,9 @@ class TSNetSimulator(Simulator[TSNetNetworkModel, TSNetSimulationResults]):
         )
     )
     inplace: bool = True
+
+    def configure(self, config: TSNetSimulatorConfig) -> None:
+        self.config = config
 
     def _cleanup_temp_files(self) -> None:
         """Remove temporary EPANET files created during simulation.
@@ -162,7 +100,12 @@ class TSNetSimulator(Simulator[TSNetNetworkModel, TSNetSimulationResults]):
                     # Ignore errors if file doesn't exist or can't be removed
                     pass
 
-    def run(self, model: TSNetNetworkModel) -> TSNetSimulationResults:
+    def initialize(self) -> None:
+        """Initialize the simulator before running a simulation.
+        This method generally applies to dynamic simulators such as TSnet, or PTSNet"""
+        pass
+
+    def run(self, model: TSNetModel) -> TSNetSimulationResults:
         """Run the TSNet transient simulation.
 
         Parameters
@@ -188,9 +131,7 @@ class TSNetSimulator(Simulator[TSNetNetworkModel, TSNetSimulationResults]):
         """
         tm = model if self.inplace else copy.deepcopy(model)
         # Configure transient wave speed.
-        tm.set_wavespeed(self.config.wave_speed)
-        # Configure simulation duration and time step.
-        tm.set_time(self.config.duration, self.config.time_step)
+        self.config.apply_to(tm)
         # Calculate the steady-state initial condition.
         tm = tsnet.simulation.Initializer(
             tm,
@@ -209,7 +150,3 @@ class TSNetSimulator(Simulator[TSNetNetworkModel, TSNetSimulationResults]):
         if self.config.results_name is not None:
             save_pickle(_results, self.config.results_name)
         return _results
-
-
-if __name__ == "__main__":
-    pass

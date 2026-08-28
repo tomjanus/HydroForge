@@ -1,4 +1,6 @@
 """ 
+Transient events for the TSNet backend.
+
 TransientEvent (ABC)
 │
 ├── ValveClosureEvent
@@ -8,46 +10,31 @@ TransientEvent (ABC)
 ├── BurstEvent
 └── DemandPulseEvent
 
+
+Example
+-------
 for event in self.events:
-    event.apply(model)
-
+    event.apply_to(target)
 """
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TypeAlias
-import tsnet
+from typing import ClassVar, Sequence
+from .model import TSNetModel
+from ..common.events import (
+    TransientEvent,
+    validate_curve,
+    validate_name,
+    validate_non_negative,
+    validate_opening,
+    validate_positive,
+)
 
-
-TransientModel: TypeAlias = tsnet.network.TransientModel
-
-
-class TransientEvent(ABC):
-    """Abstract base class for transient simulation events.
-
-    Transient events modify a TSNet ``TransientModel`` before the
-    transient simulation is executed.
-
-    Notes
-    -----
-    Concrete subclasses should implement :meth:`apply` using the
-    corresponding TSNet API.
-    """
-    @abstractmethod
-    def apply_to(self, model: TransientModel) -> None:
-        """apply_to the event to a transient model.
-
-        Parameters
-        ----------
-        model : tsnet.network.TransientModel
-            Transient model to modify.
-        """
 
 # ---------------------------------------------------------------------
 # Valve closure and opening events
 # ---------------------------------------------------------------------
 
 @dataclass(slots=True)
-class ValveClosureEvent(TransientEvent):
+class ValveClosureEvent(TransientEvent[TSNetModel]):
     """Valve closure transient event.
 
     Parameters
@@ -71,22 +58,22 @@ class ValveClosureEvent(TransientEvent):
     start_time: float = 0.0
     final_opening: float = 0.0
     exponent: float = 1.0
-    curve: list[tuple[float, float]] = None
+    curve: Sequence[tuple[float, float]] | None = None
+    target_type: ClassVar[type[TSNetModel]] = TSNetModel
 
-    def __post_init__(self):
-        if self.valve is None or self.valve == "":
-            raise ValueError("valve must be a non-empty string.")
-        if not (0.0 <= self.final_opening <= 1.0):
-            raise ValueError("final_opening must be between 0 and 1.")
-        if self.duration <= 0:
-            raise ValueError("duration must be positive.")
-        if self.start_time < 0:
-            raise ValueError("start_time must be non-negative.")
-        if self.exponent <= 0:
-            raise ValueError("exponent must be positive.")
+    def __post_init__(self) -> None:
+        self._validate_inputs()
+        
+    def _validate_inputs(self) -> None:
+        validate_name(self.valve, "valve")
+        validate_positive(self.duration, "duration")
+        validate_non_negative(self.start_time, "start_time")
+        validate_opening(self.final_opening)
+        validate_positive(self.exponent, "exponent")
+        validate_curve(self.curve)
 
-    def apply_to(self, model: TransientModel) -> None:
-        model.valve_closure(
+    def _apply_to(self, target: TSNetModel) -> None:
+        target.valve_closure(
             name=self.valve,
             rule=[
                 self.duration,
@@ -99,7 +86,7 @@ class ValveClosureEvent(TransientEvent):
 
 
 @dataclass(slots=True)
-class ValveOpeningEvent(TransientEvent):
+class ValveOpeningEvent(TransientEvent[TSNetModel]):
     """Valve opening transient event.
 
     Parameters
@@ -123,10 +110,19 @@ class ValveOpeningEvent(TransientEvent):
     start_time: float = 0.0
     final_opening: float = 1.0
     exponent: float = 1.0
-    curve: list[tuple[float, float]] = None
+    curve: Sequence[tuple[float, float]] | None = None
+    target_type: ClassVar[type[TSNetModel]] = TSNetModel
 
-    def apply_to(self, model: TransientModel) -> None:
-        model.valve_opening(
+    def __post_init__(self) -> None:
+        validate_name(self.valve, "valve")
+        validate_positive(self.duration, "duration")
+        validate_non_negative(self.start_time, "start_time")
+        validate_opening(self.final_opening)
+        validate_positive(self.exponent, "exponent")
+        validate_curve(self.curve)
+
+    def _apply_to(self, target: TSNetModel) -> None:
+        target.valve_opening(
             name=self.valve,
             rule=[
                 self.duration,
@@ -142,7 +138,7 @@ class ValveOpeningEvent(TransientEvent):
 # ---------------------------------------------------------------------
 
 @dataclass(slots=True)
-class PumpShutdownEvent(TransientEvent):
+class PumpShutdownEvent(TransientEvent[TSNetModel]):
     """Pump shutdown event.
 
     Parameters
@@ -163,9 +159,17 @@ class PumpShutdownEvent(TransientEvent):
     start_time: float = 0.0
     final_opening: float = 0.0
     exponent: float = 1.0
+    target_type: ClassVar[type[TSNetModel]] = TSNetModel
 
-    def apply_to(self, model: TransientModel) -> None:
-        model.pump_shut_off(
+    def __post_init__(self) -> None:
+        validate_name(self.pump, "pump")
+        validate_positive(self.duration, "duration")
+        validate_non_negative(self.start_time, "start_time")
+        validate_opening(self.final_opening)
+        validate_positive(self.exponent, "exponent")
+
+    def _apply_to(self, target: TSNetModel) -> None:
+        target.pump_shut_off(
             name = self.pump,
             rule = [
                 self.duration,
@@ -177,7 +181,7 @@ class PumpShutdownEvent(TransientEvent):
 
 
 @dataclass(slots=True)
-class PumpStartupEvent(TransientEvent):
+class PumpStartupEvent(TransientEvent[TSNetModel]):
     """Pump startup event.
 
     Parameters
@@ -198,9 +202,17 @@ class PumpStartupEvent(TransientEvent):
     start_time: float = 0.0
     final_opening: float = 1.0
     exponent: float = 1.0
+    target_type: ClassVar[type[TSNetModel]] = TSNetModel
 
-    def apply_to(self, model: TransientModel) -> None:
-        model.pump_start_up(
+    def __post_init__(self) -> None:
+        validate_name(self.pump, "pump")
+        validate_positive(self.duration, "duration")
+        validate_non_negative(self.start_time, "start_time")
+        validate_opening(self.final_opening)
+        validate_positive(self.exponent, "exponent")
+
+    def _apply_to(self, target: TSNetModel) -> None:
+        target.pump_start_up(
             name=self.pump,
             rule = [
                 self.duration,
@@ -215,7 +227,7 @@ class PumpStartupEvent(TransientEvent):
 # ---------------------------------------------------------------------
 
 @dataclass(slots=True)
-class BurstEvent(TransientEvent):
+class BurstEvent(TransientEvent[TSNetModel]):
     """Burst event.
 
     Parameters
@@ -233,9 +245,16 @@ class BurstEvent(TransientEvent):
     start_time: float
     burst_development_time: float
     final_burst_coeff: float
+    target_type: ClassVar[type[TSNetModel]] = TSNetModel
 
-    def apply_to(self, model: TransientModel) -> None:
-        model.add_burst(
+    def __post_init__(self) -> None:
+        validate_name(self.node, "node")
+        validate_non_negative(self.start_time, "start_time")
+        validate_positive(self.burst_development_time, "burst_development_time")
+        validate_non_negative(self.final_burst_coeff, "final_burst_coeff")
+
+    def _apply_to(self, target: TSNetModel) -> None:
+        target.add_burst(
             name=self.node,
             ts = self.start_time,
             tc = self.burst_development_time,
@@ -247,7 +266,7 @@ class BurstEvent(TransientEvent):
 # ---------------------------------------------------------------------
 
 @dataclass(slots=True)
-class DemandPulseEvent(TransientEvent):
+class DemandPulseEvent(TransientEvent[TSNetModel]):
     """Demand pulse event.
 
     Parameters
@@ -268,9 +287,17 @@ class DemandPulseEvent(TransientEvent):
     start_time: float
     duration_time: float
     multiplier: float = 1.0
+    target_type: ClassVar[type[TSNetModel]] = TSNetModel
+
+    def __post_init__(self) -> None:
+        validate_name(self.node, "node")
+        validate_positive(self.pulse_duration, "pulse_duration")
+        validate_non_negative(self.start_time, "start_time")
+        validate_positive(self.duration_time, "duration_time")
+        validate_non_negative(self.multiplier, "multiplier")
     
-    def apply_to(self, model: TransientModel) -> None:
-        model.add_demand_pulse(
+    def _apply_to(self, target: TSNetModel) -> None:
+        target.add_demand_pulse(
             name=self.node,
             rule=[
                 self.pulse_duration,
