@@ -16,6 +16,7 @@ These aliases improve type checking, readability, and documentation while
 remaining compatible with NumPy 2.0.
 """
 from typing import TypeAlias, Union, Any, TypeVar
+import collections.abc
 import numpy as np
 import numpy.typing as npt
 
@@ -31,9 +32,12 @@ CatValue: TypeAlias = Union[CatScalar, CatArray]
 NumValue: TypeAlias = Union[Scalar, Array]  # numeric values only
 Value: TypeAlias = Union[Scalar, Array, CatValue]  # last Any for categorical cases
 
+
 T = TypeVar("T", bound=Value)
 S = TypeVar("S", bound=NumValue)
 C = TypeVar("C", bound=CatValue)
+
+
 
 def is_array_like(x: Any) -> bool:
     """
@@ -55,6 +59,46 @@ def is_array_like(x: Any) -> bool:
         ``bytes``; otherwise ``False``.
     """
     return np.iterable(x) and not isinstance(x, (str, bytes))
+
+
+def is_iterable(value: object) -> bool:
+    """
+    Check whether a value is an iterable and not a scalar.
+
+    Parameters
+    ----------
+    value : object
+        The value to check.
+
+    Returns
+    -------
+    bool
+        ``True`` when ``value`` is an iterable that is not a scalar, string,
+        or bytes object.
+    """
+    # Exclude numpy scalars and Python scalars
+    if np.isscalar(value):
+        return False
+    # Exclude strings and bytes if needed
+    if isinstance(value, (str, bytes)):
+        return False
+    return isinstance(value, collections.abc.Iterable)
+
+
+class TheoreticalCDFAbsent(NotImplementedError):
+    """Raised when a theoretical CDF is not available for a distribution."""
+
+
+class CDFNotAvailable(NotImplementedError):
+    """Raised when a CDF is not available for a parameter or uncertainty model.
+    
+    This exception indicates that a CDF cannot be computed for a parameter because:
+    - The underlying uncertainty model doesn't support CDF transformation, or
+    - The parameter type (e.g., categorical) doesn't have a well-defined CDF
+    
+    This typically occurs when using stratified or advanced sampling methods that
+    require CDF evaluation.
+    """
 
 
 if __name__ == "__main__":

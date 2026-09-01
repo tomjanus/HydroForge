@@ -44,8 +44,8 @@ from abc import ABC, abstractmethod
 import threading
 import numpy as np
 from numpy.typing import NDArray
-from hydroforge.uncertainty.common import T, S, is_array_like, CatValue, CatScalar
-from hydroforge.uncertainty.distributions import Distribution
+from .common import T, S, is_array_like, CatValue, CatScalar, CDFNotAvailable
+from .distributions import Distribution
 
 
 # --- per-thread cache for sampling ---
@@ -111,6 +111,43 @@ class Uncertainty(ABC, Generic[T]):
             Perturbed value(s).
         """
 
+    def transform_cdf(self, x, nominal_value):
+        """Transform a value through the uncertainty model to compute CDF.
+        
+        This method computes F_Y(x) where Y = uncertainty.apply(nominal_value, u).
+        It enables stratified and advanced sampling methods that require CDF evaluation.
+        
+        Parameters
+        ----------
+        x : float or array-like
+            Value(s) at which to evaluate the CDF.
+        nominal_value : float
+            The base (unperturbed) value used in the uncertainty model.
+        
+        Returns
+        -------
+        numpy.ndarray
+            CDF values F_Y(x) as a float64 array matching the shape of x.
+        
+        Raises
+        ------
+        CDFNotAvailable
+            If the CDF transformation is not available for this uncertainty type.
+        
+        Notes
+        -----
+        The default implementation raises CDFNotAvailable. Subclasses should override
+        this method if they support CDF transformation. The transformation depends on
+        the specific uncertainty model:
+        
+        - Additive (Y = x + ε): F_Y(y) = F_ε(y - x)
+        - Multiplicative (Y = x(1 + ε)): F_Y(y) = F_ε(y/x - 1)
+        """
+        raise CDFNotAvailable(
+            f"{self.__class__.__name__} does not support CDF transformation. "
+            f"Stratified and advanced sampling methods requiring CDF evaluation are not available."
+        )
+
 # ================================================================
 #  Dummy uncertainty class following Uncertainty interface 
 #  but leaving the quantity unchanged
@@ -123,6 +160,15 @@ class NoUncertainty(Uncertainty[T]):
     def apply(self, value: T, u: float | Sequence[float] | None = None) -> np.array:
         value = np.atleast_1d(value)
         return value.item() if value.size == 1 else value
+    
+    def transform_cdf(self, x, nominal_value):
+        """CDF of deterministic value: step function at nominal_value.
+        
+        For no uncertainty, F(x) = 1 if x >= nominal_value, else 0.
+        """
+        x_arr = np.asarray(x, dtype=float)
+        result = np.where(x_arr >= nominal_value, 1.0, 0.0)
+        return np.asarray(result, dtype=np.float64).reshape(x_arr.shape)
 
 
 @dataclass
@@ -151,6 +197,57 @@ class _BaseDistributionUncertainty(Uncertainty[T], ABC):
         numpy.ndarray
             Perturbed values.
         """
+
+    @abstractmethod
+    def transform_cdf_value(self, y, nominal_value):
+        """Transform a value to the uncertainty distribution's domain.
+        
+        For additive: return y - nominal_value
+        For multiplicative: return y / nominal_value - 1
+        
+        Parameters
+        ----------
+        y : float or array-like
+            The value to transform.
+        nominal_value : float
+            The base (unperturbed) value.
+        
+        Returns
+        -------
+        float or array
+            The transformed value in the distribution's domain.
+        """
+
+    def transform_cdf(self, x, nominal_value):
+        """Transform CDF of uncertainty distribution to parameter CDF.
+        
+        For Y = combine(nominal_value, ε) where ε ~ distribution,
+        compute F_Y(y) by transforming y to the distribution domain
+        and evaluating the distribution's CDF.
+        
+        Parameters
+        ----------
+        x : float or array-like
+            Value(s) at which to evaluate the CDF.
+        nominal_value : float
+            The base (unperturbed) value.
+        
+        Returns
+        -------
+        numpy.ndarray
+            CDF values as a float64 array.
+        """
+        try:
+            x_arr = np.asarray(x, dtype=float)
+            # Transform x to distribution's domain
+            z = self.transform_cdf_value(x_arr, nominal_value)
+            # Evaluate distribution's CDF at transformed value
+            cdf_result = self.distribution.cdf(z)
+            return np.asarray(cdf_result, dtype=np.float64)
+        except Exception as e:
+            raise CDFNotAvailable(
+                f"Could not compute CDF for {self.__class__.__name__}: {str(e)}"
+            ) from e
 
     def apply(self, value: T, u: float | Sequence[float] | None = None) -> np.array:
         """
@@ -195,6 +292,8 @@ class _BaseDistributionUncertainty(Uncertainty[T], ABC):
                 f"Shape of u {u_arr.shape} must match value {x.shape} or be a scalar."
             )
         eps = self.distribution.sample_from_unit(u)
+        # Ensure eps is always a numpy array for consistent operations
+        eps = np.atleast_1d(eps) if not np.isscalar(eps) else eps
         result = self._combine(x, eps)
         return result.item() if is_scalar else result
 
@@ -213,9 +312,16 @@ class AdditiveUncertainty(_BaseDistributionUncertainty[S]):
     .. math::
 
         x' = x + \varepsilon
+    
+    CDF transformation:
+        F_Y(y) = F_ε(y - x) where x is the nominal value
     """
     def _combine(self, x, eps):
         return x + eps
+    
+    def transform_cdf_value(self, y, nominal_value):
+        """Transform: z = y - nominal_value."""
+        return y - nominal_value
 
 
 @dataclass
@@ -228,9 +334,22 @@ class MultiplicativeUncertainty(_BaseDistributionUncertainty[S]):
     .. math::
 
         x' = x (1 + \varepsilon)
+    
+    CDF transformation:
+        F_Y(y) = F_ε(y/x - 1) where x is the nominal value
     """
     def _combine(self, x, eps):
         return x * (1 + eps)
+    
+    def transform_cdf_value(self, y, nominal_value):
+        """Transform: z = y/nominal_value - 1."""
+        # Guard against division by zero
+        if nominal_value == 0:
+            raise ValueError(
+                "Cannot compute CDF for multiplicative uncertainty with nominal_value=0. "
+                "The parameter's nominal value must be non-zero for CDF evaluation."
+            )
+        return y / nominal_value - 1
 
 
 @dataclass
@@ -242,6 +361,13 @@ class BiasUncertainty(Uncertainty[S]):
     ----------
     bias
         Fixed bias added to every value.
+    
+    Notes
+    -----
+    BiasUncertainty applies a constant (deterministic) transformation and thus
+    has a step-function CDF. However, CDF transformation is not available for
+    stratified sampling because the result is deterministic (no randomness).
+    Use empirical CDF if stratified sampling is needed.
     """
     bias: S = 0.0
 
@@ -250,6 +376,21 @@ class BiasUncertainty(Uncertainty[S]):
         bias_arr = np.asarray(self.bias, dtype=float)
         result = value_arr + bias_arr
         return result
+    
+    def transform_cdf(self, x, nominal_value):
+        """BiasUncertainty has deterministic CDF (step function).
+        
+        Raises
+        ------
+        CDFNotAvailable
+            BiasUncertainty produces deterministic results with no variability,
+            so CDF transformation for stratified sampling is not applicable.
+        """
+        raise CDFNotAvailable(
+            "BiasUncertainty applies deterministic bias and does not produce "
+            "a probabilistic CDF suitable for stratified sampling. "
+            "Consider using a distribution-based uncertainty model instead."
+        )
 
 # ================================================================
 #  Categorical Uncertainties

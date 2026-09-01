@@ -10,10 +10,7 @@ from hydroforge.uncertainty.distributions import (
     CategoricalUniformDistribution,
     CategoricalHistogramDistribution,
     CategoricalNormalDistribution,
-    is_continuous,
-    is_discrete,
-    is_categorical,
-    is_bounded
+    DistributionChecker
 )
 
 def main() -> None:
@@ -70,7 +67,7 @@ def main() -> None:
     categories = ("Low", "Medium", "High", "Very High")
     
     # Categorical Uniform
-    cat_uniform = CategoricalUniformDistribution(categories=categories)
+    cat_uniform = CategoricalUniformDistribution(categories=categories, nominal_category="High")
     rprint(f"Categorical Uniform: {cat_uniform}")
     rprint(f"Nominal Value: {cat_uniform.nominal_value}")
     rprint(f"Samples (5): {cat_uniform.sample(5)}")
@@ -85,7 +82,7 @@ def main() -> None:
     rprint(f"Nominal Index: {cat_hist.nominal_index}")
     
     # Categorical Normal (centered around 'Medium')
-    cat_normal = CategoricalNormalDistribution(categories=categories, mean=1.0, std_dev=0.5)
+    cat_normal = CategoricalNormalDistribution(categories=categories, spread=1.5, nominal_category='High')
     rprint(f"\nCategorical Normal: {cat_normal}")
     rprint(f"Nominal Value: {cat_normal.nominal_value}")
     rprint(f"Samples (10): {cat_normal.sample(10)}")
@@ -93,10 +90,10 @@ def main() -> None:
 
     # 4. Helper Functions
     rprint("\n[bold green]4. Helper Functions[/bold green]")
-    rprint(f"Is Normal Continuous? {is_continuous(normal_dist)}")
-    rprint(f"Is Discrete Normal Discrete? {is_discrete(disc_normal)}")
-    rprint(f"Is Categorical Uniform Categorical? {is_categorical(cat_uniform)}")
-    rprint(f"Is Uniform Bounded? {is_bounded(uniform_dist)}")
+    rprint(f"Is Normal Continuous? {DistributionChecker.is_continuous(normal_dist)}")
+    rprint(f"Is Discrete Normal Discrete? {DistributionChecker.is_discrete(disc_normal)}")
+    rprint(f"Is Categorical Uniform Categorical? {DistributionChecker.is_categorical(cat_uniform)}")
+    rprint(f"Is Uniform Bounded? {DistributionChecker.is_bounded(uniform_dist)}")
     
     # sample_from_unit demonstration and integration with sampling methodologies like LHS and Sobol
     # Define a problem for SALib to generate samples in the unit interval

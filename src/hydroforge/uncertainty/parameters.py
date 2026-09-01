@@ -13,23 +13,41 @@ Uncertainty Definition:
     - uncertainty : An instance of Uncertainty defining how to perturb the nominal_value
     - metadata : Optional dictionary for additional information
 
-Locking Behavior:
+Locking Behaviour:
     When lock is in place, multiple calls to sample() return the same cached value
     within the lock scope. New samples can be generated only if the lock is disabled.
 """
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Optional, Sequence
+from typing import Any, Generic, Optional, Sequence, TypeAlias, TypeVar
 from enum import Enum, auto
 from numbers import Integral
 import threading
 import numpy as np
-from hydroforge.uncertainty.common import T
-from hydroforge.uncertainty.uncertainties import Uncertainty, NoUncertainty
+from .uncertainties import Uncertainty, NoUncertainty
+from .uncertainties import (
+    BinaryStateFlipUncertainty,
+    CategoricalRandomReplacementUncertainty,
+    CategoricalReplacementUncertainty
+)
+from .common import CDFNotAvailable
+from ..auxiliary import get_logger
+
+logger = get_logger(__name__)
+
+ScalarValue: TypeAlias = (
+    str | int | float | np.integer | np.floating | Enum
+)
+
+T = TypeVar("T", bound=ScalarValue)
 
 # --- per-thread cache for sampling (currently not used) ---
 _local = threading.local()
 _local.cache = None  # dict | None
+
+CDFInput = float | Sequence[float] | np.ndarray
+CDFResult = float | np.ndarray
+
 
 class ParameterType(Enum):
     """Enumeration of parameter types for validation and arithmetic rules.
@@ -88,7 +106,21 @@ class IUncertainParameter(ABC, Generic[T]):
             A sample of the parameter with uncertainty applied.
         """
 
+    @abstractmethod
+    def sample_from_unit(self, u: float | Sequence[float]) -> T:
+        """Return a realised parameter value with uncertainty applied.
 
+        Returns
+        -------
+        T
+            A sample of the parameter with uncertainty applied.
+        """
+
+    @abstractmethod
+    def cdf(self, x: CDFInput) -> CDFResult:
+        """Evaluate the CDF of the realised parameter value."""
+
+        
 @dataclass
 class Parameter(IUncertainParameter[T], Generic[T]):
     """Uncertain parameter with sampling and locking support.
@@ -108,6 +140,9 @@ class Parameter(IUncertainParameter[T], Generic[T]):
     type : ParameterType
         Classification of the parameter (numerical, discrete, categorical, binary, undefined).
         Defaults to UNDEFINED.
+    infer_type_from_data : bool
+        Whether to infer the parameter type from the nominal value and uncertainty if the type is undefined.
+        Defaults to True.
     metadata : dict[str, Any]
         Optional dictionary for additional information about the parameter.
         Defaults to empty dict.
@@ -116,9 +151,10 @@ class Parameter(IUncertainParameter[T], Generic[T]):
     nominal_value: T
     uncertainty: Uncertainty[T] = field(default_factory=NoUncertainty)
     type: ParameterType = ParameterType.UNDEFINED
+    infer_type_from_data: bool = field(default=True)
     metadata: dict[str, Any] = field(default_factory=dict) # Additional metadata for the parameter
     
-    _sampled_value: Optional[T] = field(init=False, default=None, repr=False)
+    _sampled_value: Optional = field(init=False, default=None, repr=False)
     _locked: bool = field(init=False, default=False, repr=False)
     _lock: threading.Lock = field(init=False, default_factory=threading.Lock, repr=False)
     
@@ -132,10 +168,170 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         """
         if not isinstance(self.uncertainty, Uncertainty):
             raise TypeError("uncertainty must be an instance of Uncertainty")
+        if self.type == ParameterType.UNDEFINED and self.infer_type_from_data:
+            inferred_type = self._infer_parameter_type()
+            logger.info(
+                "Parameter type is undefined. Inferring type from nominal value and uncertainty. "
+                f"Inferred type: {inferred_type}"
+            )
+            self.type = inferred_type
+
+
+    def _infer_parameter_type(self) -> ParameterType:
+        """Infer the parameter type based on the nominal value."""
+        if isinstance(self.nominal_value, (int, float)):
+            return ParameterType.NUMERICAL
+        if isinstance(self.nominal_value, bool) or isinstance(self.uncertainty, BinaryStateFlipUncertainty):
+            return ParameterType.BINARY
+        if (
+            isinstance(self.nominal_value, str) or 
+            isinstance(
+                self.uncertainty, 
+                (CategoricalRandomReplacementUncertainty, CategoricalReplacementUncertainty)
+            )
+        ):
+            return ParameterType.CATEGORICAL
+        if isinstance(self.nominal_value, (list, np.ndarray)):
+            return ParameterType.DISCRETE
+        return ParameterType.UNDEFINED
 
     # --------------------------------------------------
     # Core API
     # --------------------------------------------------
+    
+    def cdf(self, x: CDFInput, *, empirical: bool = False, n_samples: int = 10_000, 
+            random_state: int | np.random.Generator | None = None) -> CDFResult:
+        """Evaluate the CDF of the realised parameter value.
+        
+        Computes F_Y(x) where Y = uncertainty.apply(nominal_value, u).
+        
+        The CDF depends on both the nominal value and the uncertainty model.
+        For example, with additive uncertainty Y = x + ε, the CDF is F_Y(y) = F_ε(y - x).
+        
+        Parameters
+        ----------
+        x : float or array-like
+            Value(s) at which to evaluate the CDF.
+        empirical : bool, default=False
+            If False, use theoretical CDF transformation if available.
+            If True, estimate CDF empirically from samples.
+        n_samples : int, default=10_000
+            Number of samples for empirical CDF estimation.
+        random_state : int, numpy.random.Generator, or None, default=None
+            Random seed or generator for empirical estimation.
+        
+        Returns
+        -------
+        CDFResult
+            CDF values F_Y(x) as a float64 array matching the shape of x.
+        
+        Raises
+        ------
+        CDFNotAvailable
+            If the parameter type (e.g., categorical) or uncertainty model does not
+            support CDF evaluation and empirical=False.
+        ValueError
+            If empirical CDF estimation fails.
+        
+        Examples
+        --------
+        >>> from hydroforge.uncertainty import (
+        ...     Parameter, ParameterType, AdditiveUncertainty, NormalDistribution
+        ... )
+        >>> p = Parameter(
+        ...     name="diameter",
+        ...     nominal_value=100.0,
+        ...     uncertainty=AdditiveUncertainty(NormalDistribution(0, 5)),
+        ...     type=ParameterType.NUMERICAL
+        ... )
+        >>> # CDF at value 105.0
+        >>> cdf_at_105 = p.cdf(105.0)
+        >>> print(f"P(Diameter <= 105) = {cdf_at_105:.4f}")
+        P(Diameter <= 105) = 0.8413
+        
+        >>> # Multiple values
+        >>> cdf_values = p.cdf([90.0, 100.0, 110.0])
+        >>> print(cdf_values)
+        [0.0228 0.5    0.9772]
+        
+        Notes
+        -----
+        Theoretical CDF is preferred for efficiency. It is available for:
+        - Distribution-based uncertainties (Additive, Multiplicative)
+        - NoUncertainty (deterministic)
+        
+        For other uncertainty types or when empirical=True, samples are generated
+        and an empirical CDF is computed.
+        """
+        # Check if parameter is categorical
+        if self.is_categorical():
+            raise CDFNotAvailable(
+                f"CDF is not defined for categorical parameters like '{self.name}'. "
+                f"Stratified sampling and advanced sampling methods requiring CDF evaluation "
+                f"are not supported for categorical parameters."
+            )
+        
+        # Try theoretical CDF first (unless empirical is explicitly requested)
+        if not empirical:
+            try:
+                return self.uncertainty.transform_cdf(x, self.nominal_value)
+            except CDFNotAvailable:
+                # Fall through to empirical if theoretical not available
+                if empirical is False:
+                    # User didn't explicitly request empirical, so raise the error
+                    raise
+                # Otherwise, continue to empirical computation
+        
+        # Compute empirical CDF if theoretical failed or was requested
+        return self._empirical_cdf(x, n_samples=n_samples, random_state=random_state)
+    
+    def _empirical_cdf(
+        self, 
+        x: CDFInput, 
+        *, 
+        n_samples: int, 
+        random_state: int | np.random.Generator | None
+    ) -> CDFResult:
+        """Estimate CDF empirically by sampling the parameter.
+        
+        Parameters
+        ----------
+        x : float or array-like
+            Points at which to evaluate the CDF.
+        n_samples : int
+            Number of parameter samples to generate for empirical CDF.
+        random_state : int, Generator, or None
+            Random seed or generator.
+        
+        Returns
+        -------
+        CDFResult
+            Empirical CDF values.
+        """
+        if n_samples <= 0:
+            raise ValueError("n_samples must be greater than zero")
+        
+        # Generate samples
+        rng = (
+            random_state
+            if isinstance(random_state, np.random.Generator)
+            else np.random.default_rng(random_state)
+        )
+        
+        # Create unit-interval samples
+        unit_samples = rng.random(int(n_samples))
+        samples = np.array([self.sample_from_unit(u) for u in unit_samples])
+        
+        # Sort samples for ECDF computation
+        sorted_samples = np.sort(samples)
+        
+        # Evaluate ECDF at requested points
+        x_array = np.asarray(x, dtype=float)
+        flat_x = x_array.reshape(-1)
+        indices = np.searchsorted(sorted_samples, flat_x, side="right")
+        result = indices / len(sorted_samples)
+        
+        return np.asarray(result, dtype=np.float64).reshape(x_array.shape)
     
     def nominal(self) -> T:
         """Return the nominal (unperturbed) value.

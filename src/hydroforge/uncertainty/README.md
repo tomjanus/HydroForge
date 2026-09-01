@@ -26,6 +26,7 @@ A `Distribution` represents a probability distribution. It is the fundamental so
 -   **Key Methods**:
     -   : `nominal_value` : Returns the most probable or representative value.
     -   : `sample(n)` : Draws `n` random samples from the distribution.
+    -   : `cdf(x)` : Calculate a cumulative probability for x
     -   : `reduce()` : Collapses the distribution into a deterministic `DiracDeltaDistribution` at its nominal value.
 
 **Example:** Creating a Normal (Gaussian) distribution.
@@ -89,7 +90,7 @@ diameter = Parameter(
     name="Pipe Diameter",
     nominal_value=200.0,
     uncertainty=AdditiveUncertainty(NormalDistribution(0, 2.5)),
-    typ=ParameterType.NUMERICAL
+    type=ParameterType.NUMERICAL
 )
 print(f"Parameter definition: {diameter}")
 # > Parameter definition: Parameter(name='Pipe Diameter', nominal=200.0, ...)
@@ -112,6 +113,126 @@ diameter.reset()
 print(f"New sampled diameter: {diameter.sample()}")
 # > New sampled diameter: 198.55
 ```
+
+---
+
+## Probability Functions (PDFs and CDFs)
+
+The uncertainty module provides systematic handling of cumulative distribution functions (CDFs) across distributions, uncertainties, and parameters. This is essential for advanced sampling strategies like stratified sampling that require CDF evaluation.
+
+### CDF Architecture
+
+CDFs are computed at three levels:
+
+1. **Distribution CDF** (`Distribution.cdf(x)`): The CDF of the underlying uncertainty distribution.
+   - Example: For `NormalDistribution(mean=0, std_dev=1)`, `cdf(1.0)` ≈ 0.841
+
+2. **Uncertainty Transformation**: Maps a distribution's CDF to the parameter's CDF through a transformation that depends on the uncertainty type:
+   - **Additive**: Y = x + ε, so F_Y(y) = F_ε(y - x)
+   - **Multiplicative**: Y = x(1 + ε), so F_Y(y) = F_ε(y/x - 1)
+   - **Deterministic (No Uncertainty)**: F_Y(y) = step function at y = x
+
+3. **Parameter CDF** (`Parameter.cdf(x)`): The CDF of the final sampled parameter value, accounting for both nominal value and uncertainty.
+
+### Example: Understanding Parameter CDFs
+
+```python
+from hydroforge.uncertainty import (
+    Parameter, ParameterType, 
+    AdditiveUncertainty, NormalDistribution
+)
+
+# Create a parameter with additive uncertainty
+param = Parameter(
+    name="diameter",
+    nominal_value=100.0,
+    uncertainty=AdditiveUncertainty(NormalDistribution(mean=0, std_dev=5)),
+    type=ParameterType.NUMERICAL
+)
+
+# Evaluate CDFs
+print(f"P(Diameter ≤ 100.0) = {param.cdf(100.0):.4f}")  # ≈ 0.5 (median)
+print(f"P(Diameter ≤ 105.0) = {param.cdf(105.0):.4f}")  # ≈ 0.8413
+print(f"P(Diameter ≤ 95.0)  = {param.cdf(95.0):.4f}")   # ≈ 0.1587
+
+# Multiple values at once
+import numpy as np
+values = np.array([95, 100, 105])
+cdf_values = param.cdf(values)
+print(f"CDFs: {cdf_values}")  # [0.1587 0.5 0.8413]
+
+# With multiplicative uncertainty
+mult_param = Parameter(
+    name="roughness",
+    nominal_value=100.0,
+    uncertainty=MultiplicativeUncertainty(UniformDistribution(-0.1, 0.1)),
+    type=ParameterType.NUMERICAL
+)
+
+# CDF for multiplicative: F(y) = F_ε(y/x - 1)
+print(f"P(Roughness ≤ 100.0) = {mult_param.cdf(100.0):.4f}")  # ≈ 0.5
+```
+
+### CDF Availability and Limitations
+
+**Available for:**
+- Parameters with **NoUncertainty** (deterministic)
+- Parameters with **AdditiveUncertainty** (distribution-based)
+- Parameters with **MultiplicativeUncertainty** (distribution-based, nominal_value ≠ 0)
+
+**Not available for:**
+- **Categorical parameters**: No well-defined CDF for non-numeric domains
+- **BiasUncertainty**: Produces deterministic results with no variability
+- Other categorical uncertainty models
+
+### Using CDFs with Stratified Sampling
+
+Stratified sampling divides the parameter space into regions (strata) and samples from each stratum. It requires evaluating the parameter's CDF at stratum boundaries.
+
+```python
+from hydroforge.sampling import StratifiedSampler, Stratum
+
+# Define strata based on parameter bounds
+strata = [
+    Stratum(name="low", bounds={"diameter": (90.0, 100.0)}, weight=0.25),
+    Stratum(name="mid", bounds={"diameter": (100.0, 110.0)}, weight=0.50),
+    Stratum(name="high", bounds={"diameter": (110.0, 120.0)}, weight=0.25),
+]
+
+# Create sampler (requires CDF evaluation internally)
+sampler = StratifiedSampler([param], strata)
+
+# Generate 100 scenarios distributed across strata
+for scenario in sampler.generate(100):
+    print(scenario.values)
+```
+
+Stratified sampling will raise `CDFNotAvailable` if:
+- A parameter has categorical type
+- A parameter uses BiasUncertainty
+- A parameter uses categorical-based uncertainties
+
+### Empirical CDF Fallback
+
+For parameters where theoretical CDFs are unavailable, an empirical CDF can be computed from samples:
+
+```python
+# For a parameter with unavailable theoretical CDF
+param = ...
+
+# Use empirical CDF estimation
+empirical_cdf = param.cdf(105.0, empirical=True, n_samples=10_000)
+
+# Specify random seed for reproducibility
+empirical_cdf = param.cdf(105.0, empirical=True, n_samples=10_000, random_state=42)
+```
+
+The empirical CDF is computed by:
+1. Generating n_samples from the parameter
+2. Sorting the samples
+3. Computing the proportion of samples ≤ x
+
+This is slower but applicable to any parameter type.
 
 ---
 
@@ -143,6 +264,7 @@ The `sample_from_unit()` method enables integration with:
 - Latin Hypercube Sampling (LHS)
 - Sobol sequences
 - Halton sequences
+- Stratified sampling
 - Other quasi-random methods
 
 ---
