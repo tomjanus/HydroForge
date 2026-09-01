@@ -10,15 +10,15 @@ The available methods range from independent random sampling to low-discrepancy 
 
 For a WDN model represented by
 
-$$
+```math
 \mathbf{y} = f(\mathbf{x}),
-$$
+```
 
-where $\mathbf{x}=(x_1,\ldots,x_d)$ denotes uncertain model parameters and \(f\) is the hydraulic, water-quality, or other simulation model, sampling defines a finite set of realizations
+where $\mathbf{x}=(x_1,\ldots,x_d)$ denotes uncertain model parameters and $f$ is the hydraulic, water-quality, or other simulation model, sampling defines a finite set of realizations
 
-$$
+```math
 \{\mathbf{x}^{(1)},\ldots,\mathbf{x}^{(N)}\}
-$$
+```
 
 from which the distribution of model outputs can be approximated.
 
@@ -81,31 +81,31 @@ All sampling strategies ultimately generate `Scenario` objects containing parame
 
 Monte Carlo (MC) sampling generates independent realizations from the specified probability distributions:
 
-$$
+```math
 \mathbf{X}^{(i)} \overset{\mathrm{iid}}{\sim} p(\mathbf{x}),
 \qquad i=1,\ldots,N.
-$$
+```
 
 For an output quantity
 
-$$
+```math
 Y=f(\mathbf{X}),
-$$
+```
 
 the expectation can be estimated by
 
-$$
+```math
 \widehat{\mathbb{E}}[Y]
 =
 \frac{1}{N}
 \sum_{i=1}^{N} f(\mathbf{X}^{(i)}).
-$$
+```
 
 Under the usual finite-variance assumptions, the standard error of the Monte Carlo estimator decreases at a rate proportional to
 
-$$
+```math
 O(N^{-1/2}).
-$$
+```
 
 This makes MC statistically robust and broadly applicable, but convergence can require a large number of expensive model evaluations.
 
@@ -150,18 +150,18 @@ for scenario in sampler.generate(n=1000):
 
 Latin Hypercube Sampling (LHS) is a stratified sampling method designed to improve coverage of the marginal distributions compared with independent random sampling.
 
-For a parameter \(X_j\), its cumulative distribution function \(F_j\) can be divided into \(N\) intervals of equal probability:
+For a parameter $X_j$, its cumulative distribution function $F_j$ can be divided into $N$ intervals of equal probability:
 
-$$
+```math
 I_k =
 \left[
 \frac{k-1}{N},
 \frac{k}{N}
 \right],
 \qquad k=1,\ldots,N.
-$$
+```
 
-One value is selected from each interval. The resulting values are then randomly permuted across dimensions to construct the \(N\) multidimensional samples.
+One value is selected from each interval. The resulting values are then randomly permuted across dimensions to construct the $N$ multidimensional samples.
 
 The method was introduced by McKay, Beckman and Conover (1979) as a sampling strategy for computer experiments and has subsequently become widely used for uncertainty and sensitivity analysis.
 
@@ -209,20 +209,20 @@ Sobol sampling is a **quasi-Monte Carlo (QMC)** method based on low-discrepancy 
 
 Instead of generating independent random points, a deterministic sequence
 
-$$
+```math
 \mathbf{u}^{(1)},\mathbf{u}^{(2)},\ldots
 \in [0,1]^d
-$$
+```
 
 is constructed to provide more uniform coverage of the unit hypercube than typical pseudorandom sequences.
 
 The samples are subsequently transformed to the required parameter distributions using the inverse CDF:
 
-$$
+```math
 x_j^{(i)}
 =
 F_j^{-1}(u_j^{(i)}).
-$$
+```
 
 Sobol sequences were introduced by Sobol for multidimensional numerical integration and are now widely used in uncertainty and global sensitivity analysis.
 
@@ -262,7 +262,7 @@ Sobol sequences are particularly useful when the generated samples are subsequen
 
 ### Practical considerations
 
-Powers of two are commonly used when constructing Sobol designs because many Sobol implementations are naturally extensible in blocks of \(2^m\) points. This is a **design recommendation rather than a mathematical requirement**.
+Powers of two are commonly used when constructing Sobol designs because many Sobol implementations are naturally extensible in blocks of $2^m$ points. This is a **design recommendation rather than a mathematical requirement**.
 
 For example:
 
@@ -278,26 +278,26 @@ The `skip_values` option can be used to omit an initial part of the sequence.
 
 **Implementation:** `HaltonSampler`
 
-Halton sampling is another quasi-Monte Carlo method. An \(d\)-dimensional Halton sequence is constructed using radical-inverse functions in distinct prime bases.
+Halton sampling is another quasi-Monte Carlo method. An $d$-dimensional Halton sequence is constructed using radical-inverse functions in distinct prime bases.
 
-For a prime base \(b\), the radical-inverse function is
+For a prime base $b$, the radical-inverse function is
 
-$$
+```math
 \phi_b(n)
 =
 \sum_{k=0}^{\infty}
 a_k b^{-(k+1)},
-$$
+```
 
 where
 
-$$
+```math
 n=\sum_{k=0}^{\infty}a_k b^k.
-$$
+```
 
 A multidimensional Halton point can therefore be written as
 
-$$
+```math
 \mathbf{u}^{(n)}
 =
 \left[
@@ -306,7 +306,7 @@ $$
 \ldots,
 \phi_{b_d}(n)
 \right],
-$$
+```
 
 typically using successive prime numbers as the bases.
 
@@ -364,13 +364,13 @@ HydroForge uses conditional sampling to represent **hierarchical parameter depen
 
 For parameters ordered as
 
-$$
+```math
 X_1,X_2,\ldots,X_d,
-$$
+```
 
 the joint distribution can be factorised as
 
-$$
+```math
 p(x_1,\ldots,x_d)
 =
 p(x_1)
@@ -378,19 +378,19 @@ p(x_2\mid x_1)
 p(x_3\mid x_1,x_2)
 \cdots
 p(x_d\mid x_1,\ldots,x_{d-1}).
-$$
+```
 
 Sampling therefore proceeds sequentially:
 
-$$
+```math
 X_1\sim p(X_1),
-$$
+```
 
 followed by
 
-$$
+```math
 X_2\sim p(X_2\mid X_1),
-$$
+```
 
 and so forth.
 
@@ -464,9 +464,9 @@ The conditional functions should represent scientifically defensible relationshi
 
 Nested Monte Carlo is appropriate when uncertainty exists at multiple levels.
 
-Let \(X\) represent an outer or macro-scale uncertainty and \(Y\) represent an inner uncertainty conditional on \(X\). For a model output \(f(X,Y)\),
+Let $X$ represent an outer or macro-scale uncertainty and $Y$ represent an inner uncertainty conditional on $X$. For a model output $f(X,Y)$,
 
-$$
+```math
 \mathbb{E}[f(X,Y)]
 =
 \mathbb{E}_X
@@ -477,7 +477,7 @@ f(X,Y)
 \mid X
 \right]
 \right].
-$$
+```
 
 HydroForge represents this structure explicitly through outer and inner parameter groups.
 
@@ -510,13 +510,13 @@ This is useful when the quantity of interest explicitly depends on multiple unce
 
 ### Computational cost
 
-With \(N_\mathrm{out}\) outer samples and \(N_\mathrm{in}\) inner samples, the number of model evaluations is approximately
+With $N_\mathrm{out}$ outer samples and $N_\mathrm{in}$ inner samples, the number of model evaluations is approximately
 
-$$
+```math
 N_\mathrm{sim}
 =
 N_\mathrm{out}N_\mathrm{in}.
-$$
+```
 
 Consequently, nested sampling can become computationally expensive very quickly.
 
@@ -542,26 +542,26 @@ Consequently, nested sampling can become computationally expensive very quickly.
 
 Stratified sampling partitions the input space into predefined regions, or **strata**, and samples separately within each region.
 
-For strata \(S_h\), with probability \(W_h=P(X\in S_h)\), an expectation can be decomposed as
+For strata $S_h$, with probability $W_h=P(X\in S_h)$, an expectation can be decomposed as
 
-$$
+```math
 \mathbb{E}[Y]
 =
 \sum_{h=1}^{H}
 W_h
 \mathbb{E}[Y\mid X\in S_h].
-$$
+```
 
 An estimator is therefore
 
-$$
+```math
 \hat{\mu}
 =
 \sum_{h=1}^{H}
 W_h
 \frac{1}{n_h}
 \sum_{i=1}^{n_h}Y_{hi}.
-$$
+```
 
 HydroForge allows strata to be defined using parameter bounds and either relative weights or explicit sample counts.
 
@@ -712,13 +712,13 @@ Gibbs sampling is a Markov chain Monte Carlo (MCMC) method for generating sample
 
 For a parameter vector
 
-$$
+```math
 \mathbf{X}=(X_1,\ldots,X_d),
-$$
+```
 
 a Gibbs iteration updates each component conditionally on the current values of the remaining components:
 
-$$
+```math
 X_i^{(t+1)}
 \sim
 p\left(
@@ -727,7 +727,7 @@ X_i
 X_1^{(t+1)},\ldots,X_{i-1}^{(t+1)},
 X_{i+1}^{(t)},\ldots,X_d^{(t)}
 \right).
-$$
+```
 
 After an appropriate burn-in period and under suitable regularity conditions, the chain can be used to approximate the target joint distribution.
 
@@ -785,20 +785,20 @@ A scenario tree represents uncertainty as a finite set of discrete paths through
 
 For a path
 
-$$
+```math
 \omega_k
 =
 (x_1,x_2,\ldots,x_T),
-$$
+```
 
 its probability is obtained from the product of conditional branch probabilities:
 
-$$
+```math
 P(\omega_k)
 =
 \prod_{t=1}^{T}
 P(x_t\mid x_1,\ldots,x_{t-1}).
-$$
+```
 
 Scenario trees therefore provide an explicit representation of both **uncertainty and information revelation**.
 
@@ -866,13 +866,13 @@ t0
 
 The number of nodes can grow rapidly with the number of stages and branches:
 
-$$
+```math
 N_\mathrm{nodes}
 \sim
 O(B^T),
-$$
+```
 
-for a tree with approximately \(B\) branches per stage and \(T\) stages.
+for a tree with approximately $B$ branches per stage and $T$ stages.
 
 Consequently, scenario reduction or pruning may become necessary for large multistage problems.
 
@@ -943,15 +943,15 @@ param.sample_from_unit(u)
 
 to transform a value
 
-$$
+```math
 u\in[0,1]
-$$
+```
 
 from the sampling design into a realization of the parameter distribution:
 
-$$
+```math
 x = F_X^{-1}(u).
-$$
+```
 
 This allows the same parameter and uncertainty definitions to be used with random, stratified and quasi-random sampling methods.
 
@@ -1155,26 +1155,26 @@ Applications of sampling and decision-tree approaches to uncertain WDS design ha
 
 The computational cost of a sampling strategy should be considered together with the cost of evaluating the underlying WDN model.
 
-For \(N\) scenarios and \(C_f\) computational cost per simulation, the dominant model-evaluation cost is approximately
+For $N$ scenarios and $C_f$ computational cost per simulation, the dominant model-evaluation cost is approximately
 
-$$
+```math
 C_\mathrm{model}
 \approx
 N C_f.
-$$
+```
 
 Consequently, reducing the number of simulations can be particularly valuable for transient or extended-period hydraulic models.
 
 | Strategy      |                 Approximate sampling cost | Scenario independence     |
 | ------------- | ----------------------------------------: | ------------------------- |
-| Monte Carlo   |                                  \(O(N)\) | Yes                       |
-| LHS           | \(O(N\log N)\) in typical implementations | Yes                       |
-| Sobol         |                    approximately \(O(N)\) | Yes                       |
-| Halton        |                    approximately \(O(N)\) | Yes                       |
-| Conditional   |                                 \(O(NL)\) | Across scenarios          |
-| Nested        |        \(O(N_\mathrm{out}N_\mathrm{in})\) | Across outer/inner groups |
-| Stratified    |                    approximately \(O(N)\) | Yes                       |
-| Gibbs         |                   \(O(Nd)\), plus burn-in | No, within chain          |
+| Monte Carlo   |                                  $O(N)$ | Yes                       |
+| LHS           | $O(N\log N)$ in typical implementations | Yes                       |
+| Sobol         |                    approximately $O(N)$ | Yes                       |
+| Halton        |                    approximately $O(N)$ | Yes                       |
+| Conditional   |                                 $O(NL)$ | Across scenarios          |
+| Nested        |        $O(N_\mathrm{out}N_\mathrm{in})$ | Across outer/inner groups |
+| Stratified    |                    approximately $O(N)$ | Yes                       |
+| Gibbs         |                   $O(Nd)$, plus burn-in | No, within chain          |
 | Scenario tree |                Depends on number of nodes | Paths can be independent  |
 | Mixed         |           Depends on component strategies | Usually yes               |
 
@@ -1320,12 +1320,12 @@ Do not select a sample size solely from a generic rule of thumb.
 
 Instead, examine convergence of quantities of interest such as:
 
-$$
+```math
 \hat{\mu}_N,\qquad
 \hat{\sigma}_N^2,\qquad
 \hat{q}_{0.05,N},\qquad
 \hat{q}_{0.95,N}.
-$$
+```
 
 ### 5. Treat MCMC differently
 
