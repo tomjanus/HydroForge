@@ -1,12 +1,14 @@
 """
 Configuration for PTSNet simulations.
 """
+
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .model import PTSNetModel
+
 
 @dataclass(slots=True)
 class PTSNetConfig:
@@ -50,5 +52,3 @@ class PTSNetConfig:
         """Apply settings to an existing PTSNet simulation model."""
         for name, value in self._to_settings().items():
             setattr(model.settings, name, value)
-
-

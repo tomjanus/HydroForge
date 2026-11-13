@@ -1,4 +1,5 @@
 """WNTR backend wrapper for HydroForge."""
+
 from __future__ import annotations
 
 import pathlib
@@ -18,14 +19,12 @@ from .wntr.config import WNTRConfig as WNTRSimulationConfig
 from .wntr.loader import load_wntr_model
 from .wntr.simulator import EPANETSimulator, WNTRSimulator
 
-
 WNTRRunConfig = WNTRSimulatorConfig | EPANETSimulatorConfig
 
 
-class WNTRBackend(
-    Backend[WNTRModel, WNTRSimulationResults, WNTRConfig, WNTRRunConfig]
-):
+class WNTRBackend(Backend[WNTRModel, WNTRSimulationResults, WNTRConfig, WNTRRunConfig]):
     """Concrete backend adapter for the WNTR hydraulic solver."""
+
     package_name = "wntr"
 
     def __init__(self, simulator: Literal["wntr", "epanet"] = "wntr") -> None:
@@ -70,4 +69,5 @@ class WNTRBackend(
             )
             return self.simulator
         raise ValueError(
-            f"Invalid simulator type: {self._simulator_type}. Must be 'wntr' or 'epanet'.")
+            f"Invalid simulator type: {self._simulator_type}. Must be 'wntr' or 'epanet'."
+        )

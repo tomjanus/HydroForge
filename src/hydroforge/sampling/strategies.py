@@ -14,6 +14,7 @@ from uncertain parameters, including:
 - Scenario trees: Discretized branching for decision analysis
 - Mixed strategies: Different sampling methods for different parameter groups
 """
+
 from typing import Protocol, Any, Mapping, Optional, Sequence, Callable
 from typing import Generator
 import warnings
@@ -31,6 +32,7 @@ from ..uncertainty.parameters import Parameter
 
 class SamplingStrategy(Enum):
     """Enumeration of available sampling strategies."""
+
     MONTE_CARLO = auto()
     LATIN_HYPERCUBE = auto()
     SOBOL = auto()
@@ -45,6 +47,7 @@ class SamplingStrategy(Enum):
 
 class IDGenerator(Protocol):
     """Protocol for unique ID generators."""
+
     def generate(self) -> str:
         """Generate a new unique ID."""
 
@@ -52,6 +55,7 @@ class IDGenerator(Protocol):
 @dataclass
 class UUIDGenerator:
     """Generates unique scenario IDs."""
+
     prefix: str = "scenario"
 
     def generate(self) -> str:
@@ -62,6 +66,7 @@ class UUIDGenerator:
 @dataclass
 class DeterministicHashGenerator:
     """Generates unique scenario IDs based on parameter values."""
+
     scenario: Mapping[str, Any]
     prefix: str = "scenario"
     hash_len: int = 10
@@ -82,12 +87,13 @@ class DeterministicHashGenerator:
         digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         return f"{self.prefix}-{digest[:self.hash_len]}"
 
-    
+
 @dataclass(frozen=True)
 class Scenario:
     """One sampled realization of all parameters."""
-    values: dict[str, Any]     # parameter name → sampled value
-    id: str                    # scenario id
+
+    values: dict[str, Any]  # parameter name → sampled value
+    id: str  # scenario id
     metadata: dict[str, Any] | None = field(default=None)
 
 
@@ -95,34 +101,39 @@ class Scenario:
 #  Base Sampler Class
 # ================================================================
 
+
 class Sampler(ABC):
     """Base class for all sampling strategies.
-    
+
     Provides an interface for sampling scenarios given a set of parameters.
     Each sampling strategy must implement the `generate` method.
-    
+
     Attributes:
         parameters: List of Parameter objects to sample from
         id_generator: Strategy for generating scenario IDs (can be an instance or class)
-    
+
     Raises:
         ValueError: If parameters list is empty in subclass methods
     """
 
-    def __init__(self, parameters: Parameter | Sequence[Parameter], id_generator: IDGenerator | type[IDGenerator] | None = None):
+    def __init__(
+        self,
+        parameters: Parameter | Sequence[Parameter],
+        id_generator: IDGenerator | type[IDGenerator] | None = None,
+    ):
         self.parameters = list(parameters)
         self.id_generator = id_generator or UUIDGenerator()
-        
+
         if not self.parameters:
             warnings.warn("Sampler initialized with empty parameter list", UserWarning)
 
     @abstractmethod
     def generate(self, n: int) -> Generator[Scenario, None, None]:
         """Generate n scenarios.
-        
+
         Args:
             n: Number of scenarios to generate
-            
+
         Yields:
             Scenario objects with sampled parameter values
         """
@@ -134,14 +145,16 @@ class Sampler(ABC):
 
     def _create_scenario_id(self, scenario_values: dict[str, Any]) -> str:
         """Create a scenario ID using the configured ID generator.
-        
+
         Args:
             scenario_values: Dictionary of parameter names to values
-            
+
         Returns:
             Generated scenario ID string
         """
-        if isinstance(self.id_generator, type) and issubclass(self.id_generator, DeterministicHashGenerator):
+        if isinstance(self.id_generator, type) and issubclass(
+            self.id_generator, DeterministicHashGenerator
+        ):
             id_gen = self.id_generator(scenario=scenario_values)
             return id_gen.generate()
         return self.id_generator.generate()
@@ -151,9 +164,10 @@ class Sampler(ABC):
 #  Monte Carlo Sampler
 # ================================================================
 
+
 class MonteCarloSampler(Sampler):
     """Monte Carlo sampling strategy using random sampling.
-    
+
     This is the simplest sampling strategy where each parameter is sampled
     independently using its own distribution with random u values.
     """
@@ -174,9 +188,10 @@ class MonteCarloSampler(Sampler):
 #  Latin Hypercube Sampler
 # ================================================================
 
+
 class LatinHypercubeSampler(Sampler):
     """Latin Hypercube Sampling (LHS) strategy.
-    
+
     LHS ensures better space-filling properties by dividing the sample space
     into equally probable intervals and sampling once from each interval.
     """
@@ -185,21 +200,21 @@ class LatinHypercubeSampler(Sampler):
         """Generate n scenarios using Latin Hypercube Sampling."""
         if n <= 0:
             raise ValueError(f"Number of samples must be positive, got {n}")
-        
+
         n_params = len(self.parameters)
         if n_params == 0:
             raise ValueError("No parameters provided for sampling")
-        
+
         # Generate LHS samples in [0, 1]^d space
         problem = {
-            'num_vars': n_params,
-            'names': [p.name for p in self.parameters],
-            'bounds': [[0, 1]] * n_params
+            "num_vars": n_params,
+            "names": [p.name for p in self.parameters],
+            "bounds": [[0, 1]] * n_params,
         }
-        
+
         # SALib's latin.sample returns shape (n, n_params)
         unit_samples = salib_latin.sample(problem, n)
-        
+
         # Convert unit samples to parameter values
         for i in range(n):
             self._reset_parameters()
@@ -207,7 +222,7 @@ class LatinHypercubeSampler(Sampler):
             for j, param in enumerate(self.parameters):
                 u = unit_samples[i, j]
                 scenario_values[param.name] = param.sample_from_unit(u)
-            
+
             scenario_id = self._create_scenario_id(scenario_values)
             yield Scenario(values=scenario_values, id=scenario_id)
 
@@ -216,23 +231,24 @@ class LatinHypercubeSampler(Sampler):
 #  Sobol Sampler
 # ================================================================
 
+
 class SobolSampler(Sampler):
     """Sobol sequence sampler for quasi-random low-discrepancy sampling.
-    
+
     Sobol sequences provide better coverage of the parameter space than
     random sampling, especially for sensitivity analysis.
-    
+
     Attributes:
         calc_second_order: If True, generate samples for second-order indices
         skip_values: Number of initial sequence values to skip (improves quality)
     """
-    
+
     def __init__(
-        self, 
-        parameters: Sequence[Parameter], 
+        self,
+        parameters: Sequence[Parameter],
         id_generator: IDGenerator | type[IDGenerator] | None = None,
         calc_second_order: bool = False,
-        skip_values: int = 0
+        skip_values: int = 0,
     ):
         super().__init__(parameters, id_generator)
         if not parameters:
@@ -244,26 +260,26 @@ class SobolSampler(Sampler):
         """Generate n scenarios using Sobol sequences."""
         if n <= 0:
             raise ValueError(f"Number of samples must be positive, got {n}")
-        
+
         n_params = len(self.parameters)
         if n_params == 0:
             raise ValueError("No parameters provided for sampling")
-        
+
         # Generate Sobol samples in [0, 1]^d space
         problem = {
-            'num_vars': n_params,
-            'names': [p.name for p in self.parameters],
-            'bounds': [[0, 1]] * n_params
+            "num_vars": n_params,
+            "names": [p.name for p in self.parameters],
+            "bounds": [[0, 1]] * n_params,
         }
-        
+
         # SALib's sobol.sample returns shape (n, n_params)
         unit_samples = salib_sobol.sample(
-            problem, 
-            n, 
+            problem,
+            n,
             calc_second_order=self.calc_second_order,
-            skip_values=self.skip_values
+            skip_values=self.skip_values,
         )
-        
+
         # Convert unit samples to parameter values
         for i in range(n):
             self._reset_parameters()
@@ -271,7 +287,7 @@ class SobolSampler(Sampler):
             for j, param in enumerate(self.parameters):
                 u = unit_samples[i, j]
                 scenario_values[param.name] = param.sample_from_unit(u)
-            
+
             scenario_id = self._create_scenario_id(scenario_values)
             yield Scenario(values=scenario_values, id=scenario_id)
 
@@ -280,23 +296,24 @@ class SobolSampler(Sampler):
 #  Halton Sampler
 # ================================================================
 
+
 class HaltonSampler(Sampler):
     """Halton sequence sampler for quasi-random sampling.
-    
+
     Halton sequences are another type of low-discrepancy sequence,
     often used as an alternative to Sobol sequences.
-    
+
     Attributes:
         skip_values: Number of initial sequence values to skip
         primes: List of prime numbers to use as bases (one per parameter)
     """
-    
+
     def __init__(
-        self, 
-        parameters: Sequence[Parameter], 
+        self,
+        parameters: Sequence[Parameter],
         id_generator: IDGenerator | type[IDGenerator] | None = None,
         skip_values: int = 0,
-        primes: Optional[Sequence[int]] = None
+        primes: Optional[Sequence[int]] = None,
     ):
         super().__init__(parameters, id_generator)
         if not parameters:
@@ -304,8 +321,8 @@ class HaltonSampler(Sampler):
         self.skip_values = skip_values
         # Use default primes if not provided
         default_primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]
-        self.primes = primes or default_primes[:len(parameters)]
-        
+        self.primes = primes or default_primes[: len(parameters)]
+
         if len(self.primes) < len(parameters):
             raise ValueError(
                 f"Need at least {len(parameters)} primes for Halton sequence, "
@@ -327,15 +344,15 @@ class HaltonSampler(Sampler):
         """Generate n scenarios using Halton sequences."""
         if n <= 0:
             raise ValueError(f"Number of samples must be positive, got {n}")
-        
+
         for i in range(self.skip_values, self.skip_values + n):
             self._reset_parameters()
             scenario_values = {}
-            
+
             for j, param in enumerate(self.parameters):
                 u = self._halton_sequence(i, self.primes[j])
                 scenario_values[param.name] = param.sample_from_unit(u)
-            
+
             scenario_id = self._create_scenario_id(scenario_values)
             yield Scenario(values=scenario_values, id=scenario_id)
 
@@ -344,60 +361,64 @@ class HaltonSampler(Sampler):
 #  Conditional/Hierarchical Monte Carlo Sampler
 # ================================================================
 
+
 @dataclass
 class ConditionalLayer:
     """Defines a layer in conditional/hierarchical sampling.
-    
+
     Attributes:
         parameters: Parameters to sample in this layer
         condition_func: Optional function to compute values based on previous layers
                        Signature: condition_func(previous_values: dict) -> dict
                        Returns dict mapping parameter names to conditional values
     """
+
     parameters: Sequence[Parameter]
     condition_func: Optional[Callable[[dict], dict]] = None
 
 
 class ConditionalMonteCarloSampler(Sampler):
     """Conditional/Hierarchical Monte Carlo sampling.
-    
+
     Samples parameters in layers where later layers can depend on earlier ones.
     This implements p(X₁)p(X₂|X₁)p(X₃|X₁,X₂)...
-    
+
     Example:
         # Layer 1: Sample climate regime
         # Layer 2: Sample temperature conditional on regime
         # Layer 3: Sample demand conditional on temperature
-        
+
     Attributes:
         layers: Ordered sequence of ConditionalLayer objects
     """
-    
+
     def __init__(
         self,
         layers: Sequence[ConditionalLayer],
-        id_generator: IDGenerator | type[IDGenerator] | None = None
+        id_generator: IDGenerator | type[IDGenerator] | None = None,
     ):
         # Collect all parameters from all layers
         all_parameters = []
         for layer in layers:
             all_parameters.extend(layer.parameters)
-        
+
         if not all_parameters:
-            raise ValueError("ConditionalMonteCarloSampler requires at least one parameter across all layers")
-        
+            raise ValueError(
+                "ConditionalMonteCarloSampler requires at least one parameter across all layers"
+            )
+
         super().__init__(all_parameters, id_generator)
         self.layers = list(layers)
-    
+
     def generate(self, n: int) -> Generator[Scenario, None, None]:
         """Generate n scenarios using conditional sampling."""
         if n <= 0:
             raise ValueError(f"Number of samples must be positive, got {n}")
-        
+
         for _ in range(n):
             self._reset_parameters()
             scenario_values = {}
-            
+
             # Sample layer by layer
             for layer in self.layers:
                 # Apply conditioning if provided
@@ -409,12 +430,12 @@ class ConditionalMonteCarloSampler(Sampler):
                             # Store the conditional value
                             scenario_values[param.name] = conditional_values[param.name]
                             continue
-                
+
                 # Sample parameters in this layer
                 for param in layer.parameters:
                     if param.name not in scenario_values:
                         scenario_values[param.name] = param.sample()
-            
+
             scenario_id = self._create_scenario_id(scenario_values)
             yield Scenario(values=scenario_values, id=scenario_id)
 
@@ -423,10 +444,11 @@ class ConditionalMonteCarloSampler(Sampler):
 #  Nested Monte Carlo Sampler
 # ================================================================
 
+
 @dataclass
 class NestedSamplingSpec:
     """Specification for nested (inner-outer) sampling.
-    
+
     Attributes:
         outer_parameters: Parameters for outer loop (macro-level uncertainties)
         inner_parameters: Parameters for inner loop (conditional uncertainties)
@@ -434,6 +456,7 @@ class NestedSamplingSpec:
         inner_sampler_class: Sampler class for inner loop (default: MonteCarloSampler)
         inner_sampler_kwargs: Additional kwargs for inner sampler
     """
+
     outer_parameters: Sequence[Parameter]
     inner_parameters: Sequence[Parameter]
     n_inner: int = 10
@@ -443,46 +466,46 @@ class NestedSamplingSpec:
 
 class NestedMonteCarloSampler(Sampler):
     """Nested Monte Carlo sampling (inner-outer sampling).
-    
+
     Useful for evaluating E_X[E_{Y|X}[f(X,Y)]]:
     - Outer loop: sample macro-level uncertainties (e.g., climate scenarios)
     - Inner loop: sample conditional uncertainties (e.g., operational outcomes)
-    
+
     Each outer sample generates n_inner inner samples.
-    
+
     Attributes:
         spec: NestedSamplingSpec defining the nested structure
     """
-    
+
     def __init__(
         self,
         spec: NestedSamplingSpec,
-        id_generator: IDGenerator | type[IDGenerator] | None = None
+        id_generator: IDGenerator | type[IDGenerator] | None = None,
     ):
         all_parameters = list(spec.outer_parameters) + list(spec.inner_parameters)
         super().__init__(all_parameters, id_generator)
         self.spec = spec
-        
+
         # Set default inner sampler
         if spec.inner_sampler_class is None:
             self.spec.inner_sampler_class = MonteCarloSampler
-        
+
         # Validate n_inner
         if spec.n_inner <= 0:
             raise ValueError(f"n_inner must be positive, got {spec.n_inner}")
-    
+
     def generate(self, n: int) -> Generator[Scenario, None, None]:
         """Generate scenarios using nested sampling.
-        
+
         Args:
             n: Number of outer loop samples
-            
+
         Yields:
             Scenarios with metadata indicating outer/inner indices
         """
         if n <= 0:
             raise ValueError(f"Number of outer samples must be positive, got {n}")
-        
+
         for outer_idx in range(n):
             # Sample outer parameters
             self._reset_parameters()
@@ -490,32 +513,34 @@ class NestedMonteCarloSampler(Sampler):
             for param in self.spec.outer_parameters:
                 param.reset()
                 outer_values[param.name] = param.sample()
-            
+
             # Create inner sampler
             inner_sampler = self.spec.inner_sampler_class(
                 self.spec.inner_parameters,
                 id_generator=None,
-                **self.spec.inner_sampler_kwargs
+                **self.spec.inner_sampler_kwargs,
             )
-            
+
             # Generate inner samples
-            for inner_idx, inner_scenario in enumerate(inner_sampler.generate(self.spec.n_inner)):
+            for inner_idx, inner_scenario in enumerate(
+                inner_sampler.generate(self.spec.n_inner)
+            ):
                 # Combine outer and inner values
                 combined_values = {**outer_values, **inner_scenario.values}
-                
+
                 # Create scenario with nested structure metadata
                 scenario_id = self._create_scenario_id(combined_values)
                 metadata = {
-                    'outer_index': outer_idx,
-                    'inner_index': inner_idx,
-                    'outer_values': outer_values,
-                    'inner_values': inner_scenario.values
+                    "outer_index": outer_idx,
+                    "inner_index": inner_idx,
+                    "outer_values": outer_values,
+                    "inner_values": inner_scenario.values,
                 }
-                
+
                 yield Scenario(
                     values=combined_values,
                     id=f"{scenario_id}-o{outer_idx}-i{inner_idx}",
-                    metadata=metadata
+                    metadata=metadata,
                 )
 
 
@@ -523,72 +548,76 @@ class NestedMonteCarloSampler(Sampler):
 #  Stratified Sampler
 # ================================================================
 
+
 @dataclass(frozen=True)
 class Stratum:
-    """Definition of a stratum in the parameter space. 
-    
-    A stratum defines a region of the parameter space from which scenarios are 
-    sampled. Bounds are interpreted as value-space bounds and sampling within a 
-    bounded parameter is performed from the parameter's conditional distribution 
+    """Definition of a stratum in the parameter space.
+
+    A stratum defines a region of the parameter space from which scenarios are
+    sampled. Bounds are interpreted as value-space bounds and sampling within a
+    bounded parameter is performed from the parameter's conditional distribution
     within those bounds.
-    
+
     Parameters
     ----------
     name
         Unique name identifying the stratum.
     bounds
-        Mapping from parameter names to ``(lower, upper)`` bounds. 
+        Mapping from parameter names to ``(lower, upper)`` bounds.
         Parameters not included in ``bounds`` retain their original distribution.
     weight
-        Relative probability assigned to the stratum when ``n_samples`` is not 
+        Relative probability assigned to the stratum when ``n_samples`` is not
         specified. Weights are normalized across all weighted strata.
     n_samples
-        Fixed number of samples to generate from the stratum. If specified, 
+        Fixed number of samples to generate from the stratum. If specified,
         ``weight`` is ignored for sample allocation.
-        
+
     Notes
     -----
-    For a parameter ``X`` with CDF ``F`` and stratum bounds ``(L, U)``, sampling is performed according to 
-    .. math:: X \\mid L \\leq X \\leq U 
-    using the transformation 
-    .. math:: X = F^{-1}\\left[ F(L) + u\\{F(U)-F(L)\\} \\right], 
-    where ``u ~ Uniform(0, 1)``. This preserves the original parameter distribution conditional 
+    For a parameter ``X`` with CDF ``F`` and stratum bounds ``(L, U)``, sampling is performed according to
+    .. math:: X \\mid L \\leq X \\leq U
+    using the transformation
+    .. math:: X = F^{-1}\\left[ F(L) + u\\{F(U)-F(L)\\} \\right],
+    where ``u ~ Uniform(0, 1)``. This preserves the original parameter distribution conditional
     on the stratum rather than replacing it with a uniform distribution.
     """
+
     name: str
     bounds: dict[str, tuple[float, float]]
     weight: float = 1.0
     n_samples: Optional[int] = None
 
+
 def __post_init__(self) -> None:
     """Validate the stratum definition."""
-    if not self.name: 
+    if not self.name:
         raise ValueError("Stratum name must not be empty.")
     if self.weight < 0:
         raise ValueError(
-            f"Stratum '{self.name}' has negative weight: "
-            f"{self.weight}."
+            f"Stratum '{self.name}' has negative weight: " f"{self.weight}."
         )
     if self.n_samples is not None and self.n_samples < 0:
         raise ValueError(
-            f"Stratum '{self.name}' has negative n_samples: "
-            f"{self.n_samples}."
+            f"Stratum '{self.name}' has negative n_samples: " f"{self.n_samples}."
         )
     for parameter_name, bounds in self.bounds.items():
         if len(bounds) != 2:
             raise ValueError(
                 f"Bounds for parameter '{parameter_name}' in stratum "
-                f"'{self.name}' must contain exactly two values." )
+                f"'{self.name}' must contain exactly two values."
+            )
         lower, upper = bounds
         if not np.isfinite(lower) or not np.isfinite(upper):
             raise ValueError(
                 f"Bounds for parameter '{parameter_name}' in stratum "
-                f"'{self.name}' must be finite." )
+                f"'{self.name}' must be finite."
+            )
         if lower > upper:
             raise ValueError(
                 f"Invalid bounds for parameter '{parameter_name}' "
                 f"in stratum '{self.name}': "
-                f"lower={lower} > upper={upper}." )
+                f"lower={lower} > upper={upper}."
+            )
 
 
 class StratifiedSampler(Sampler):
@@ -642,7 +671,7 @@ class StratifiedSampler(Sampler):
     >>> sampler = StratifiedSampler(parameters, strata)
     >>> scenarios = list(sampler.generate(100))
     """
-    
+
     def __init__(
         self,
         parameters: Sequence[Parameter],
@@ -652,18 +681,14 @@ class StratifiedSampler(Sampler):
     ) -> None:
         super().__init__(parameters, id_generator)
         if not strata:
-            raise ValueError(
-                "StratifiedSampler requires at least one stratum."
-            )
+            raise ValueError("StratifiedSampler requires at least one stratum.")
         self.strata = list(strata)
-        self.base_sampler_class = (
-            base_sampler_class or MonteCarloSampler
-        )
+        self.base_sampler_class = base_sampler_class or MonteCarloSampler
         self._validate_strata()
 
     def _validate_strata(self) -> None:
         """Validate the collection of strata and check CDF availability.
-        
+
         Raises
         ------
         ValueError
@@ -673,18 +698,13 @@ class StratifiedSampler(Sampler):
             If a parameter used in stratum bounds does not support CDF evaluation.
         """
         from hydroforge.uncertainty.common import CDFNotAvailable
-        
+
         names = [stratum.name for stratum in self.strata]
 
         if len(names) != len(set(names)):
-            raise ValueError(
-                "Stratum names must be unique."
-            )
+            raise ValueError("Stratum names must be unique.")
 
-        parameter_names = {
-            parameter.name
-            for parameter in self.parameters
-        }
+        parameter_names = {parameter.name for parameter in self.parameters}
 
         for stratum in self.strata:
             unknown_parameters = set(stratum.bounds) - parameter_names
@@ -695,7 +715,7 @@ class StratifiedSampler(Sampler):
                     f"Stratum '{stratum.name}' defines bounds for unknown "
                     f"parameter(s): {names_str}."
                 )
-            
+
             # Check that bounded parameters support CDF evaluation
             for param_name in stratum.bounds:
                 param = next(p for p in self.parameters if p.name == param_name)
@@ -708,16 +728,11 @@ class StratifiedSampler(Sampler):
                     ) from e
 
         weighted_strata = [
-            stratum
-            for stratum in self.strata
-            if stratum.n_samples is None
+            stratum for stratum in self.strata if stratum.n_samples is None
         ]
 
         if weighted_strata:
-            total_weight = sum(
-                stratum.weight
-                for stratum in weighted_strata
-            )
+            total_weight = sum(stratum.weight for stratum in weighted_strata)
 
             if total_weight <= 0:
                 raise ValueError(
@@ -732,10 +747,7 @@ class StratifiedSampler(Sampler):
         allocated proportionally to the weights using the largest-remainder
         method so that the final allocation sums exactly to ``n``.
         """
-        allocation = {
-            stratum.name: 0
-            for stratum in self.strata
-        }
+        allocation = {stratum.name: 0 for stratum in self.strata}
 
         fixed_total = sum(
             stratum.n_samples
@@ -757,53 +769,37 @@ class StratifiedSampler(Sampler):
         remaining = n - fixed_total
 
         weighted_strata = [
-            stratum
-            for stratum in self.strata
-            if stratum.n_samples is None
+            stratum for stratum in self.strata if stratum.n_samples is None
         ]
 
         if not weighted_strata or remaining == 0:
             return allocation
 
-        total_weight = sum(
-            stratum.weight
-            for stratum in weighted_strata
-        )
+        total_weight = sum(stratum.weight for stratum in weighted_strata)
 
         if total_weight <= 0:
             raise ValueError(
-                "The total weight of weighted strata must be greater "
-                "than zero."
+                "The total weight of weighted strata must be greater " "than zero."
             )
 
         # Compute ideal allocations.
         ideal = {
-            stratum.name: (
-                remaining * stratum.weight / total_weight
-            )
+            stratum.name: (remaining * stratum.weight / total_weight)
             for stratum in weighted_strata
         }
 
         # Allocate integer parts first.
         for stratum in weighted_strata:
-            allocation[stratum.name] = int(
-                np.floor(ideal[stratum.name])
-            )
+            allocation[stratum.name] = int(np.floor(ideal[stratum.name]))
 
         # Distribute the remaining samples according to largest remainders.
-        allocated = sum(
-            allocation[stratum.name]
-            for stratum in weighted_strata
-        )
+        allocated = sum(allocation[stratum.name] for stratum in weighted_strata)
 
         remainder = remaining - allocated
 
         ranked = sorted(
             weighted_strata,
-            key=lambda stratum: (
-                ideal[stratum.name]
-                - allocation[stratum.name]
-            ),
+            key=lambda stratum: (ideal[stratum.name] - allocation[stratum.name]),
             reverse=True,
         )
 
@@ -844,7 +840,7 @@ class StratifiedSampler(Sampler):
             If the CDF values are invalid or the stratum bounds are inconsistent.
         """
         from hydroforge.uncertainty.common import CDFNotAvailable
-        
+
         try:
             # Evaluate CDF at stratum bounds
             lower_cdf = float(parameter.cdf(lower))
@@ -853,7 +849,7 @@ class StratifiedSampler(Sampler):
             raise CDFNotAvailable(
                 f"Cannot perform stratified sampling on parameter '{parameter.name}': {str(e)}"
             ) from e
-        
+
         if not 0.0 <= lower_cdf <= 1.0:
             raise ValueError(
                 f"CDF evaluated at lower bound {lower} returned "
@@ -872,28 +868,30 @@ class StratifiedSampler(Sampler):
                 f"F({lower})={lower_cdf} > F({upper})={upper_cdf}. "
                 f"Check that lower < upper and parameter is properly configured."
             )
-        
+
         return lower_cdf + u * (upper_cdf - lower_cdf)
 
-    def _sample_stratum(self, stratum: Stratum, n: int) -> Generator[dict[str, object], None, None]:
+    def _sample_stratum(
+        self, stratum: Stratum, n: int
+    ) -> Generator[dict[str, object], None, None]:
         """Generate parameter values for one stratum.
-        
+
         Samples from the conditional distribution within the stratum bounds.
         For bounded parameters, CDFs are used to map unit-interval samples
         to the conditional distribution.
-        
+
         Parameters
         ----------
         stratum : Stratum
             Stratum definition with bounds and allocation.
         n : int
             Number of samples to generate from this stratum.
-        
+
         Yields
         ------
         dict[str, object]
             Parameter values sampled from the stratum.
-        
+
         Raises
         ------
         CDFNotAvailable
@@ -902,23 +900,23 @@ class StratifiedSampler(Sampler):
             If parameter bounds are invalid or inconsistent.
         """
         from hydroforge.uncertainty.common import CDFNotAvailable
-        
+
         if n <= 0:
             return
-        
+
         # Generate an underlying sample design.
         base_sampler = self.base_sampler_class(
             self.parameters,
             id_generator=None,
         )
-        parameter_by_name = {
-            parameter.name: parameter
-            for parameter in self.parameters
-        }
-        
+        parameter_by_name = {parameter.name: parameter for parameter in self.parameters}
+
         for scenario in base_sampler.generate(n):
             values = dict(scenario.values)
-            for parameter_name, (lower, upper,) in stratum.bounds.items():
+            for parameter_name, (
+                lower,
+                upper,
+            ) in stratum.bounds.items():
                 parameter = parameter_by_name[parameter_name]
 
                 # Obtain a unit-space representation of the existing
@@ -929,9 +927,7 @@ class StratifiedSampler(Sampler):
                 # For Monte Carlo this should ideally come directly from
                 # the RNG rather than from an already transformed value.
                 if hasattr(scenario, "unit_values"):
-                    u = float(
-                        scenario.unit_values[parameter_name]
-                    )
+                    u = float(scenario.unit_values[parameter_name])
                 else:
                     # Fall back to a direct uniform draw. This preserves
                     # the conditional-distribution interpretation, although
@@ -951,10 +947,8 @@ class StratifiedSampler(Sampler):
                     raise type(e)(
                         f"Error sampling stratum '{stratum.name}' for parameter '{parameter_name}': {str(e)}"
                     ) from e
-                
-                values[parameter_name] = (
-                    parameter.sample_from_unit(conditional_u)
-                )
+
+                values[parameter_name] = parameter.sample_from_unit(conditional_u)
             yield values
 
     def generate(self, n: int) -> Generator[Scenario, None, None]:
@@ -998,32 +992,33 @@ class StratifiedSampler(Sampler):
 #  Gibbs Sampler (MCMC)
 # ================================================================
 
+
 class GibbsSampler(Sampler):
     """Gibbs sampling (Markov Chain Monte Carlo).
-    
+
     Samples parameters one at a time from conditional distributions:
     - X^(t+1) ~ p(X | Y^(t), Z^(t))
     - Y^(t+1) ~ p(Y | X^(t+1), Z^(t))
     - Z^(t+1) ~ p(Z | X^(t+1), Y^(t+1))
-    
+
     Useful when:
     - Joint distribution is hard to sample from
     - Conditional distributions are easy to sample from
     - Parameters have complex dependencies
-    
+
     Attributes:
         n_burn_in: Number of initial samples to discard (burn-in period)
         n_thin: Keep every n_thin samples (thinning to reduce autocorrelation)
         initial_values: Starting values for the chain (optional)
     """
-    
+
     def __init__(
         self,
         parameters: Sequence[Parameter],
         id_generator: IDGenerator | type[IDGenerator] | None = None,
         n_burn_in: int = 100,
         n_thin: int = 1,
-        initial_values: Optional[dict[str, Any]] = None
+        initial_values: Optional[dict[str, Any]] = None,
     ):
         super().__init__(parameters, id_generator)
         if n_burn_in < 0:
@@ -1033,10 +1028,10 @@ class GibbsSampler(Sampler):
         self.n_burn_in = n_burn_in
         self.n_thin = n_thin
         self.initial_values = initial_values or {}
-    
+
     def generate(self, n: int) -> Generator[Scenario, None, None]:
         """Generate n scenarios using Gibbs sampling.
-        
+
         Note: n samples after burn-in and thinning. Total iterations will be
         n_burn_in + n * n_thin.
         """
@@ -1044,7 +1039,7 @@ class GibbsSampler(Sampler):
             raise ValueError(f"Number of samples must be positive, got {n}")
         if self.n_thin <= 0:
             raise ValueError(f"Thinning parameter must be positive, got {self.n_thin}")
-        
+
         # Initialize chain
         current_values = {}
         for param in self.parameters:
@@ -1053,13 +1048,13 @@ class GibbsSampler(Sampler):
             else:
                 # Use nominal value as initial state
                 current_values[param.name] = param.nominal_value
-        
+
         iteration = 0
         samples_generated = 0
-        
+
         # Total iterations needed
         total_iterations = self.n_burn_in + n * self.n_thin
-        
+
         while samples_generated < n:
             # Update each parameter conditioned on others
             for param in self.parameters:
@@ -1067,9 +1062,9 @@ class GibbsSampler(Sampler):
                 # In a full implementation, we'd pass current_values to inform
                 # the conditional distribution. For now, just sample.
                 current_values[param.name] = param.sample()
-            
+
             iteration += 1
-            
+
             # Skip burn-in period
             if iteration <= self.n_burn_in:
                 continue
@@ -1080,15 +1075,12 @@ class GibbsSampler(Sampler):
 
             # Keep this sample
             scenario_id = self._create_scenario_id(current_values)
-            metadata = {
-                'iteration': iteration,
-                'chain_position': samples_generated
-            }
+            metadata = {"iteration": iteration, "chain_position": samples_generated}
 
             yield Scenario(
                 values=current_values.copy(),
                 id=f"{scenario_id}-iter{iteration}",
-                metadata=metadata
+                metadata=metadata,
             )
 
             samples_generated += 1
@@ -1098,10 +1090,11 @@ class GibbsSampler(Sampler):
 #  Scenario Tree Sampler
 # ================================================================
 
+
 @dataclass
 class ScenarioTreeNode:
     """Node in a scenario tree.
-    
+
     Attributes:
         name: Node identifier
         probability: Probability of this branch (conditional on parent)
@@ -1109,77 +1102,80 @@ class ScenarioTreeNode:
         children: Child nodes (sub-scenarios)
         level: Tree level (0 = root)
     """
+
     name: str
     probability: float
     parameter_values: dict[str, Any] = field(default_factory=dict)
-    children: list['ScenarioTreeNode'] = field(default_factory=list)
+    children: list["ScenarioTreeNode"] = field(default_factory=list)
     level: int = 0
-    
-    def add_child(self, child: 'ScenarioTreeNode'):
+
+    def add_child(self, child: "ScenarioTreeNode"):
         """Add a child node."""
         child.level = self.level + 1
         self.children.append(child)
-    
-    def get_paths(self) -> list[list['ScenarioTreeNode']]:
+
+    def get_paths(self) -> list[list["ScenarioTreeNode"]]:
         """Get all paths from this node to leaves."""
         if not self.children:
             return [[self]]
-        
+
         all_paths = []
         for child in self.children:
             child_paths = child.get_paths()
             for path in child_paths:
                 all_paths.append([self] + path)
-        
+
         return all_paths
 
 
 class ScenarioTreeSampler(Sampler):
     """Scenario tree sampling for sequential decision problems.
-    
+
     Discretizes uncertainty into a tree structure where:
     - Each node represents a state/decision point
     - Branches represent alternative scenarios
     - Probabilities are assigned to branches
-    
+
     Common in:
     - Stochastic programming
     - Energy/water system planning
     - Multi-stage decision analysis
-    
+
     Attributes:
         root: Root node of the scenario tree
     """
-    
+
     def __init__(
         self,
         parameters: Sequence[Parameter],
         root: ScenarioTreeNode,
-        id_generator: IDGenerator | type[IDGenerator] | None = None
+        id_generator: IDGenerator | type[IDGenerator] | None = None,
     ):
         super().__init__(parameters, id_generator)
         if root is None:
             raise ValueError("ScenarioTreeSampler requires a root node")
         self.root = root
-    
+
     def generate(self, n: Optional[int] = None) -> Generator[Scenario, None, None]:
         """Generate scenarios by traversing tree paths.
-        
+
         Args:
             n: Optional limit on number of scenarios. If None, generates all paths.
-        
+
         Yields:
             One scenario per tree path from root to leaf
         """
         if n is not None and n <= 0:
             raise ValueError(f"Number of samples must be positive, got {n}")
-        
+
         # Get all paths from root to leaves
         paths = self.root.get_paths()
-        
+
         if not paths:
-            raise ValueError("Scenario tree has no paths (tree is empty or has no leaf nodes)")
-        
+            raise ValueError(
+                "Scenario tree has no paths (tree is empty or has no leaf nodes)"
+            )
+
         # Optionally sample a subset of paths
         if n is not None and n < len(paths):
             # Sample paths based on their probabilities
@@ -1189,47 +1185,47 @@ class ScenarioTreeSampler(Sampler):
                 for node in path:
                     prob *= node.probability
                 path_probs.append(prob)
-            
+
             # Normalize probabilities
             total_prob = sum(path_probs)
             path_probs = [p / total_prob for p in path_probs]
-            
+
             # Sample paths
             indices = np.random.choice(len(paths), size=n, replace=True, p=path_probs)
             paths = [paths[i] for i in indices]
-        
+
         # Generate scenario for each path
         for path_idx, path in enumerate(paths):
             self._reset_parameters()
-            
+
             # Combine parameter values along the path
             scenario_values = {}
             path_probability = 1.0
             path_names = []
-            
+
             for node in path:
                 scenario_values.update(node.parameter_values)
                 path_probability *= node.probability
                 path_names.append(node.name)
-            
+
             # Sample any parameters not specified in tree
             for param in self.parameters:
                 if param.name not in scenario_values:
                     scenario_values[param.name] = param.sample()
-            
+
             scenario_id = self._create_scenario_id(scenario_values)
             path_str = "->".join(path_names)
-            
+
             metadata = {
-                'path': path_str,
-                'path_probability': path_probability,
-                'tree_depth': len(path) - 1
+                "path": path_str,
+                "path_probability": path_probability,
+                "tree_depth": len(path) - 1,
             }
-            
+
             yield Scenario(
                 values=scenario_values,
                 id=f"{scenario_id}-{path_str}",
-                metadata=metadata
+                metadata=metadata,
             )
 
 
@@ -1237,15 +1233,17 @@ class ScenarioTreeSampler(Sampler):
 #  Mixed Strategy Sampler
 # ================================================================
 
+
 @dataclass
 class ParameterGroup:
     """Group of parameters sharing the same sampling strategy.
-    
+
     Attributes:
         parameters: List of parameters in this group
         strategy: Sampling strategy for this group
         sampler_kwargs: Additional arguments for the sampler
     """
+
     parameters: Sequence[Parameter]
     strategy: SamplingStrategy
     sampler_kwargs: dict[str, Any] = field(default_factory=dict)
@@ -1253,40 +1251,42 @@ class ParameterGroup:
 
 class MixedStrategySampler(Sampler):
     """Sampler that uses different strategies for different parameter groups.
-    
+
     This allows combining multiple sampling strategies, for example:
     - Use Sobol sequences for continuous parameters
     - Use Monte Carlo for categorical parameters
     - Use LHS for discrete parameters
-    
+
     Attributes:
         groups: List of ParameterGroup objects defining sampling strategies
     """
-    
+
     def __init__(
-        self, 
+        self,
         groups: Sequence[ParameterGroup],
-        id_generator: IDGenerator | type[IDGenerator] | None = None
+        id_generator: IDGenerator | type[IDGenerator] | None = None,
     ):
         # Collect all parameters from all groups
         all_parameters = []
         for group in groups:
             all_parameters.extend(group.parameters)
-        
+
         if not all_parameters:
-            raise ValueError("MixedStrategySampler requires at least one parameter across all groups")
-        
+            raise ValueError(
+                "MixedStrategySampler requires at least one parameter across all groups"
+            )
+
         super().__init__(all_parameters, id_generator)
         self.groups = list(groups)
-        
+
         # Create sub-samplers for each group
         self.sub_samplers = []
         for group in self.groups:
             sampler_class = self._get_sampler_class(group.strategy)
             sub_sampler = sampler_class(
-                group.parameters, 
+                group.parameters,
                 id_generator=None,  # Don't generate IDs for sub-samplers
-                **group.sampler_kwargs
+                **group.sampler_kwargs,
             )
             self.sub_samplers.append(sub_sampler)
 
@@ -1304,22 +1304,18 @@ class MixedStrategySampler(Sampler):
         """Generate n scenarios using mixed sampling strategies."""
         if n <= 0:
             raise ValueError(f"Number of samples must be positive, got {n}")
-        
+
         # Generate samples from each sub-sampler
-        sub_generators = [
-            sub_sampler.generate(n) 
-            for sub_sampler in self.sub_samplers
-        ]
-        
+        sub_generators = [sub_sampler.generate(n) for sub_sampler in self.sub_samplers]
+
         # Combine samples from each group
         for _ in range(n):
             self._reset_parameters()
             scenario_values = {}
-            
+
             for sub_gen in sub_generators:
                 sub_scenario = next(sub_gen)
                 scenario_values.update(sub_scenario.values)
-            
+
             scenario_id = self._create_scenario_id(scenario_values)
             yield Scenario(values=scenario_values, id=scenario_id)
-

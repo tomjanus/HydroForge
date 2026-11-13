@@ -12,6 +12,7 @@ The EPANETFileIO class provides static methods for:
 EPANET input files are organized into sections marked by [SECTION_NAME] headers,
 with data lines following each header.
 """
+
 from typing import TextIO
 import itertools
 import string
@@ -42,6 +43,7 @@ class EPANETFileReaderError(Exception):
     --------
     >>> raise EPANETFileReaderError("Expected '[', found: 'TITLE'")
     """
+
     def __init__(self, message: str):
         """Initialize the exception.
 
@@ -61,8 +63,8 @@ class EPANETFileReaderError(Exception):
         str
             Formatted error message with 'EPANET File Parser Error:' prefix.
         """
-        return f'EPANET File Parser Error: {self.message}'
-    
+        return f"EPANET File Parser Error: {self.message}"
+
     def log(self) -> None:
         """Pretty-print the error using rich formatting.
 
@@ -129,7 +131,7 @@ class EPANETFileIO:
         >>> print(data.keys())
         odict_keys(['TITLE', 'JUNCTIONS', 'PIPES', ...])
         """
-        
+
         def _preprocess_input_lines(lines: list) -> list:
             """Preprocess lines from an EPANET input file.
 
@@ -146,16 +148,16 @@ class EPANETFileIO:
                 Preprocessed lines with comments and blank lines removed.
             """
             lines = map(
-                lambda line : ''.join(
-                    itertools.takewhile(lambda c : c not in ";\n\r", line)
-                    ), lines
-                )      # get rid of comments ...
+                lambda line: "".join(
+                    itertools.takewhile(lambda c: c not in ";\n\r", line)
+                ),
+                lines,
+            )  # get rid of comments ...
             lines = filter(
-                lambda line : any(
-                    map(lambda c : c in string.printable, line)), lines
-                )      # ... and blank lines
+                lambda line: any(map(lambda c: c in string.printable, line)), lines
+            )  # ... and blank lines
             return lines
-        
+
         def _input_read(file_handle: TextIO) -> OrderedDict:
             """Read an EPANET input file and return its contents as an OrderedDict.
 
@@ -193,7 +195,7 @@ class EPANETFileIO:
             while line_number < nlines:
                 line = lines[line_number]
                 if expect_header:
-                    if line[0] == '[' and line[-1] == ']':
+                    if line[0] == "[" and line[-1] == "]":
                         name = line[1:-1]
                         data = []
                         expect_header = False
@@ -202,7 +204,7 @@ class EPANETFileIO:
                             message=f"internal error: expected '[', found: '{line}'"
                         )
                 else:
-                    if line[0] == '[':
+                    if line[0] == "[":
                         inp[name] = data
                         expect_header = True
                         line_number -= 1
@@ -214,8 +216,8 @@ class EPANETFileIO:
             if data:
                 inp[name] = data
             return inp
-        
-        with open(path, 'r', encoding='utf-8') as file_handle:
+
+        with open(path, "r", encoding="utf-8") as file_handle:
             return _input_read(file_handle)
 
     @staticmethod
@@ -243,7 +245,7 @@ class EPANETFileIO:
         ...                     ('JUNCTIONS', [['J1', '100']])])
         >>> EPANETFileIO.write_inp_file('output.inp', data)
         """
-        
+
         def _input_write(file_handle: TextIO, model_data: OrderedDict) -> None:
             """Write EPANET input data to a file handle.
 
@@ -255,23 +257,26 @@ class EPANETFileIO:
                 Dictionary containing EPANET input data.
             """
             for name, lines in model_data.items():
-                file_handle.write('[' + name + ']\n')
+                file_handle.write("[" + name + "]\n")
                 for line in lines:
-                    file_handle.write(' '.join(line) + '\n')
-                file_handle.write('\n')
-        
-        with open(path, 'w', encoding='utf-8') as file_handle:
+                    file_handle.write(" ".join(line) + "\n")
+                file_handle.write("\n")
+
+        with open(path, "w", encoding="utf-8") as file_handle:
             _input_write(file_handle, model_data)
 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='EPANET Input File Parser')
-    parser.add_argument('input_file', type=str, help='Path to the EPANET input file')
-    parser.add_argument('output_file', type=str, help='Path to save the parsed output')
+
+    parser = argparse.ArgumentParser(description="EPANET Input File Parser")
+    parser.add_argument("input_file", type=str, help="Path to the EPANET input file")
+    parser.add_argument("output_file", type=str, help="Path to save the parsed output")
     args = parser.parse_args()
     # Read the EPANET file to a dictionary
     inp_data = EPANETFileIO.read_inp_file(args.input_file)
     # Write the dictionary back to EPANET file
     EPANETFileIO.write_inp_file(args.output_file, inp_data)
-    log('INFO', f'Successfully parsed {args.input_file} and saved to {args.output_file}')
+    log(
+        "INFO", f"Successfully parsed {args.input_file} and saved to {args.output_file}"
+    )

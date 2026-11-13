@@ -22,6 +22,7 @@ EPANET INP record, allowing generic conversion routines to construct objects
 directly from parsed token lists and serialize them back without requiring
 record-specific logic.
 """
+
 from __future__ import annotations
 from typing import Tuple, Any
 from dataclasses import dataclass
@@ -38,6 +39,7 @@ class TitleLine:
     items : tuple of str
         Whitespace-separated tokens making up the title line.
     """
+
     items: Tuple[str, ...]
 
     def __str__(self) -> str:
@@ -75,7 +77,7 @@ class TitleLine:
             List representation of the title tokens.
         """
         return list(self.items)
-    
+
 
 @dataclass(slots=True)
 class Junction(AutoDecimalMixin, ListConversionMixin):
@@ -92,6 +94,7 @@ class Junction(AutoDecimalMixin, ListConversionMixin):
     demand_pattern : str
         Associated demand pattern ID. Empty when unset.
     """
+
     id: str
     elevation: Decimal
     base_demand: Decimal
@@ -111,6 +114,7 @@ class Reservoir(AutoDecimalMixin, ListConversionMixin):
     pattern : str
         Optional head pattern ID. Empty when unset.
     """
+
     id: str
     head: Decimal
     pattern: str = ""
@@ -137,6 +141,7 @@ class Tank(AutoDecimalMixin, ListConversionMixin):
     min_vol : Decimal
         Minimum volume.
     """
+
     id: str
     elevation: Decimal
     init_level: Decimal
@@ -169,6 +174,7 @@ class Pipe(AutoDecimalMixin, ListConversionMixin):
     status : str
         Pipe status (``OPEN``/``CLOSED``).
     """
+
     id: str
     start_node: str
     end_node: str
@@ -197,6 +203,7 @@ class Pump(AutoDecimalMixin, ListConversionMixin):
         Parameter value or curve ID. Kept as ``str`` since it may reference
         either a numeric value or a curve identifier.
     """
+
     id: str
     start_node: str
     end_node: str
@@ -226,6 +233,7 @@ class Valve(AutoDecimalMixin, ListConversionMixin):
     minor_loss : Decimal
         Minor loss coefficient.
     """
+
     id: str
     start_node: str
     end_node: str
@@ -250,6 +258,7 @@ class Demand(AutoDecimalMixin, ListConversionMixin):
     category : str
         Demand category. Empty when unset.
     """
+
     node_id: str
     base_demand: Decimal
     demand_pattern: str
@@ -265,6 +274,7 @@ class Pattern(ListConversionMixin):
     items : tuple
         Pattern ID followed by multiplier values.
     """
+
     items: tuple
 
     @property
@@ -318,6 +328,7 @@ class Curve(AutoDecimalMixin, ListConversionMixin):
     y_value : Decimal
         Y-coordinate value.
     """
+
     id: str
     x_value: Decimal
     y_value: Decimal
@@ -332,6 +343,7 @@ class Control:
     items : tuple
         Control statement tokens.
     """
+
     items: tuple
 
     @classmethod
@@ -374,6 +386,7 @@ class Coordinate(AutoDecimalMixin, ListConversionMixin):
     y_coord : Decimal
         Y-coordinate.
     """
+
     node_id: str
     x_coord: Decimal
     y_coord: Decimal
@@ -394,6 +407,7 @@ class TokenizedLine:
     items : tuple of str
         Whitespace-separated tokens making up the line.
     """
+
     items: tuple
 
     @property
@@ -468,7 +482,8 @@ class Report(TokenizedLine):
 @dataclass(slots=True)
 class Option(TokenizedLine):
     """Hydraulic/quality analysis option line (e.g. ``UNITS GPM``)."""
-    
+
+
 @dataclass(slots=True)
 class Backdrop(TokenizedLine):
     """Network map backdrop setting line (e.g. ``DIMENSIONS 0 0 100 100``)."""

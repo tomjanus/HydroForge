@@ -26,7 +26,11 @@ def validate_positive(value: float, parameter: str) -> None:
 
 def validate_opening(value: float, parameter: str = "final_opening") -> None:
     """Validate an opening fraction."""
-    if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not 0 <= value <= 1
+    ):
         raise ValueError(f"{parameter} must be between 0 and 1.")
 
 
@@ -52,12 +56,12 @@ class TransientEvent(ABC, Generic[TargetT]):
     Parameters
     ----------
     target_type
-        Type of object to which the event can be applied - typically a subclass 
+        Type of object to which the event can be applied - typically a subclass
         of the transient model (as in TSNet) or simulator object (as in PTSNet).
     """
-    
+
     target_type: type[TargetT]
-    
+
     def apply_to(self, target: TargetT) -> None:
         """Apply the event to its target.
 

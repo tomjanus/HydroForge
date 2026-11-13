@@ -1,4 +1,5 @@
 """ """
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -97,9 +98,7 @@ class WNTRConfigSection:
         values: dict[str, Any] = {}
         for field in fields(cls):
             if hasattr(options, field.name):
-                values[field.name] = deepcopy(
-                    getattr(options, field.name)
-                )
+                values[field.name] = deepcopy(getattr(options, field.name))
         return cls(**values)
 
     def apply_to(
@@ -281,9 +280,7 @@ class WNTRConfig:
     graphics: WNTRGraphicsConfig | None = None
     user: WNTRUserConfig | None = None
 
-    _SECTION_TYPES: ClassVar[
-        dict[str, type[WNTRConfigSection]]
-    ] = {
+    _SECTION_TYPES: ClassVar[dict[str, type[WNTRConfigSection]]] = {
         "time": WNTRTimeConfig,
         "hydraulic": WNTRHydraulicConfig,
         "report": WNTRReportConfig,
@@ -303,18 +300,12 @@ class WNTRConfig:
 
         return cls(
             time=WNTRTimeConfig.from_options(options.time),
-            hydraulic=WNTRHydraulicConfig.from_options(
-                options.hydraulic
-            ),
+            hydraulic=WNTRHydraulicConfig.from_options(options.hydraulic),
             report=WNTRReportConfig.from_options(options.report),
             quality=WNTRQualityConfig.from_options(options.quality),
-            reaction=WNTRReactionConfig.from_options(
-                options.reaction
-            ),
+            reaction=WNTRReactionConfig.from_options(options.reaction),
             energy=WNTREnergyConfig.from_options(options.energy),
-            graphics=WNTRGraphicsConfig.from_options(
-                options.graphics
-            ),
+            graphics=WNTRGraphicsConfig.from_options(options.graphics),
             user=WNTRUserConfig.from_options(options.user),
         )
 
@@ -420,8 +411,7 @@ class WNTRConfig:
 
         if differences:
             raise ValueError(
-                "WNTR configuration was not applied correctly: "
-                f"{differences!r}"
+                "WNTR configuration was not applied correctly: " f"{differences!r}"
             )
 
     def as_table(
@@ -483,11 +473,7 @@ class WNTRConfig:
 
                 first = False
 
-                value_style = (
-                    "dim"
-                    if value is None
-                    else "green"
-                )
+                value_style = "dim" if value is None else "green"
 
                 table.add_row(
                     section,
@@ -496,7 +482,6 @@ class WNTRConfig:
                 )
 
         return table
-
 
     def print(
         self,
@@ -516,7 +501,6 @@ class WNTRConfig:
                 show_none=show_none,
             )
         )
-
 
     def comparison_table(
         self,
@@ -655,15 +639,10 @@ class WNTRConfig:
             ),
             Text(
                 "✓" if changed == 0 else "!",
-                style=(
-                    "bold green"
-                    if changed == 0
-                    else "bold yellow"
-                ),
+                style=("bold green" if changed == 0 else "bold yellow"),
             ),
         )
         return table
-
 
     def print_comparison_table(
         self,
@@ -679,9 +658,5 @@ class WNTRConfig:
             console = Console()
 
         console.print(
-            self.comparison_table(
-                options,
-                title=title,
-                show_unchanged=show_unchanged
-            )
+            self.comparison_table(options, title=title, show_unchanged=show_unchanged)
         )

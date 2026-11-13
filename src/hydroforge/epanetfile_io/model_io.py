@@ -17,6 +17,7 @@ The overall workflow this module enables is:
    by :class:`EPANETNetworkModel`.
 3. Write the (possibly modified) model back out to an ``.inp`` file.
 """
+
 import json
 from collections import OrderedDict
 from typing import Any, Dict
@@ -52,14 +53,13 @@ class EPANETNetworkModelIO:
         for field_mapping in EPANETNetworkModel.COLLECTION_MAPPINGS:
             if field_mapping.section in network_data:
                 kwargs[field_mapping.attr_name] = NetworkCollection(
-                    field_mapping.item_type,
-                    network_data[field_mapping.section]
+                    field_mapping.item_type, network_data[field_mapping.section]
                 )
         for field_mapping in EPANETNetworkModel.LIST_FIELD_MAPPINGS:
             if field_mapping.section in network_data:
                 kwargs[field_mapping.attr_name] = network_data[field_mapping.section]
         return EPANETNetworkModel(**kwargs)
-    
+
     @staticmethod
     def to_dict(model: EPANETNetworkModel) -> Dict[str, Any]:
         """Convert an :class:`EPANETNetworkModel` back to a section dictionary.
@@ -90,7 +90,7 @@ class EPANETNetworkModelIO:
         # Without it, section-ending parsers (such as
         # ``EPANETFileIO.read_inp_file``) cannot reliably detect the end of
         # the final data section.
-        result['END'] = []
+        result["END"] = []
         return result
 
     @staticmethod
@@ -107,7 +107,7 @@ class EPANETNetworkModelIO:
         EPANETNetworkModel
             Model populated from the JSON file contents.
         """
-        with open(filepath, 'r', encoding='utf-8') as file_handle:
+        with open(filepath, "r", encoding="utf-8") as file_handle:
             network_data = json.load(file_handle)
         return EPANETNetworkModelIO.from_dict(network_data)
 
@@ -124,7 +124,7 @@ class EPANETNetworkModelIO:
         indent : int, optional
             Indentation level passed to :func:`json.dump`. Default is 4.
         """
-        with open(filepath, 'w', encoding='utf-8') as file_handle:
+        with open(filepath, "w", encoding="utf-8") as file_handle:
             json.dump(EPANETNetworkModelIO.to_dict(model), file_handle, indent=indent)
 
     @staticmethod

@@ -1,4 +1,5 @@
 """ """
+
 import pathlib
 from rich import print as rprint
 from hydroforge.sensors.placement import (
@@ -9,11 +10,12 @@ from hydroforge.sensors.placement import (
     CentralityBasedSensorPlacement,
     CoverageBasedSensorPlacement,
     DominatingSetBasedSensorPlacement,
-    RandomSensorPlacement
+    RandomSensorPlacement,
 )
 from hydroforge.graphs.graph import EPANETNetworkGraph
 from hydroforge.epanetfile_io import EPANETNetworkModelIO
 from hydroforge.auxiliary.utils import get_package_root, timer
+
 
 def main():
     """ """

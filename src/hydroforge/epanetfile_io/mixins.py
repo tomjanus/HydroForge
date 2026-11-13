@@ -28,12 +28,13 @@ The :class:`AutoDecimalMixin` performs conversion using
 numeric values and avoid the precision issues associated with binary
 floating-point numbers.
 """
+
 from dataclasses import fields
 from typing import Type, TypeVar, ClassVar, Any, get_type_hints
 from decimal import Decimal
 
 # Type variable bound to the mixin, used for ``ListConversionMixin.from_list``.
-_ItemT = TypeVar('_ItemT', bound='ListConversionMixin')
+_ItemT = TypeVar("_ItemT", bound="ListConversionMixin")
 
 # Numeric types eligible for automatic string <-> number conversion.
 _NUMERIC_TYPES = (float, int, Decimal)
@@ -83,7 +84,7 @@ class ListConversionMixin:
     Implements the :class:`Item` protocol with generic ``to_list()`` and
     ``from_list()`` methods that work with any dataclass, automatically
     converting between the raw string tokens used in INP/JSON files and the
-    numeric (``float``/``int```/``Decimal``) types declared on the dataclass 
+    numeric (``float``/``int```/``Decimal``) types declared on the dataclass
     fields.
     """
 
@@ -97,8 +98,11 @@ class ListConversionMixin:
             back to strings via :func:`_format_numeric`.
         """
         out_list = [
-            _format_numeric_as_string(value) if isinstance(value, _NUMERIC_TYPES)
-            else value
+            (
+                _format_numeric_as_string(value)
+                if isinstance(value, _NUMERIC_TYPES)
+                else value
+            )
             for value in (getattr(self, f.name) for f in fields(self))
         ]
         return trim_trailing_empty_strings(out_list)
@@ -118,7 +122,7 @@ class ListConversionMixin:
         -------
         _ItemT
             New instance with fields populated from ``item_list``, coercing
-            values into ``float``/``int``/``Decimal`` where the corresponding 
+            values into ``float``/``int``/``Decimal`` where the corresponding
             field is annotated as such.
         """
         # ``get_type_hints`` resolves string annotations (e.g. when the
@@ -127,9 +131,12 @@ class ListConversionMixin:
         # which would otherwise yield the unresolved annotation string.
         type_hints = get_type_hints(cls)
         converted = [
-            type_hints[f.name](raw)
-            if type_hints[f.name] in _NUMERIC_TYPES and not isinstance(raw, type_hints[f.name])
-            else raw
+            (
+                type_hints[f.name](raw)
+                if type_hints[f.name] in _NUMERIC_TYPES
+                and not isinstance(raw, type_hints[f.name])
+                else raw
+            )
             for f, raw in zip(fields(cls), item_list)
         ]
         return cls(*converted)
@@ -137,6 +144,7 @@ class ListConversionMixin:
 
 class AutoDecimalMixin:
     """Automatically cast assigned values to Decimal."""
+
     __decimal_fields__: ClassVar[frozenset[str] | None] = None
 
     def __setattr__(self, name: str, value):
@@ -145,9 +153,7 @@ class AutoDecimalMixin:
         if decimal_fields is None:
             hints = get_type_hints(self.__class__)
             decimal_fields = frozenset(
-                field_name
-                for field_name, typ in hints.items()
-                if typ is Decimal
+                field_name for field_name, typ in hints.items() if typ is Decimal
             )
             self.__class__.__decimal_fields__ = decimal_fields
 

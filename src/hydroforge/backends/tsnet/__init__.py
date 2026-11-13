@@ -35,5 +35,5 @@ __all__ = [
     "TSNetConfig",
     "TSNetModel",
     "TSNetSimulationResults",
-    "load_tsnet_model"
+    "load_tsnet_model",
 ]

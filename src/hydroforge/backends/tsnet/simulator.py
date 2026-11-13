@@ -20,6 +20,7 @@ but contains additional state required for transient simulation. A
 ``TransientModel`` should therefore be supplied to :class:`TSNetSimulator`,
 rather than an ordinary WNTR network model.
 """
+
 import glob
 import os
 import copy
@@ -33,7 +34,9 @@ from ...auxiliary.io import save_pickle
 
 
 @dataclass(slots=True)
-class TSNetSimulator(Simulator[TSNetModel, TSNetSimulationResults, TSNetSimulatorConfig]):
+class TSNetSimulator(
+    Simulator[TSNetModel, TSNetSimulationResults, TSNetSimulatorConfig]
+):
     """TSNet transient hydraulic simulator.
 
     Parameters
@@ -56,7 +59,7 @@ class TSNetSimulator(Simulator[TSNetModel, TSNetSimulationResults, TSNetSimulato
     Examples
     --------
     >>> from hydroforge.simulation import load_tsnet_model, DemandModel
-    >>> 
+    >>>
     >>> model = load_tsnet_model("network.inp")
     >>> config = TSNetSimulatorConfig(
     ...     wave_speed=1200.0,
@@ -66,6 +69,7 @@ class TSNetSimulator(Simulator[TSNetModel, TSNetSimulationResults, TSNetSimulato
     >>> simulator = TSNetPlusSimulator(config=config)
     >>> results = simulator.run(model)
     """
+
     config: TSNetSimulatorConfig = field(
         default_factory=lambda: TSNetSimulatorConfig(
             duration=0.0,
@@ -84,7 +88,7 @@ class TSNetSimulator(Simulator[TSNetModel, TSNetSimulationResults, TSNetSimulato
         Attempts to remove files matching the configured ``file_prefix`` and
         ignores errors if files are not present or cannot be removed.
         """
-        default_filename = 'temp'
+        default_filename = "temp"
         temp_patterns = [
             f"{default_filename}.inp",
             f"{default_filename}.rpt",
@@ -142,9 +146,7 @@ class TSNetSimulator(Simulator[TSNetModel, TSNetSimulationResults, TSNetSimulato
             self._cleanup_temp_files()
         # Run the transient Method of Characteristics simulation.
         tm = tsnet.simulation.MOCSimulator(
-            tm,
-            results_obj = 'no',
-            friction=self.config.friction_model
+            tm, results_obj="no", friction=self.config.friction_model
         )
         _results = TSNetSimulationResults(tm)
         if self.config.results_name is not None:

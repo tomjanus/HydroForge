@@ -1,4 +1,5 @@
 """Registry and loading utilities for HydroForge simulation backends."""
+
 from __future__ import annotations
 
 import importlib
@@ -20,7 +21,7 @@ _BACKENDS: dict[str, str] = {
 
 def _resolve_backend_class(name: str) -> type[Backend[Any, Any, Any, Any]]:
     """Resolve a backend name to its concrete implementation class.
-    
+
     Parameters
     ----------
     name : str
@@ -48,7 +49,7 @@ def _resolve_backend_class(name: str) -> type[Backend[Any, Any, Any, Any]]:
 @lru_cache(maxsize=None)
 def get_backend(name: str) -> Backend[Any, Any, Any, Any]:
     """Return a cached HydroForge backend instance for ``name``.
-    
+
     Example
     -------
     >>> from hydroforge.backends import get_backend

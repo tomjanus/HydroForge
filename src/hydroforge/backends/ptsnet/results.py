@@ -1,10 +1,12 @@
 """ """
+
 from dataclasses import dataclass
 from typing import ClassVar
 import numpy as np
 import pandas as pd
 from ptsnet.simulation.sim import PTSNETSimulation
 from ..common.results import SimulationResults, NodeVariable, LinkVariable
+
 
 @dataclass(slots=True)
 class PTSNetSimulationResults(SimulationResults):
@@ -15,6 +17,7 @@ class PTSNetSimulationResults(SimulationResults):
     model : ptsnet.simulation.sim.PTSNETSimulation
         PTSNet transient model containing simulation results.
     """
+
     model: PTSNETSimulation
 
     node_variables: ClassVar[tuple[NodeVariable, ...]] = (

@@ -1,4 +1,5 @@
 """ """
+
 from typing import ClassVar, Sequence
 from dataclasses import dataclass
 import numpy as np
@@ -23,6 +24,7 @@ class TSNetSimulationResults(SimulationResults):
     the corresponding node or link. The common simulation time axis is
     ``model.simulation_timestamps``.
     """
+
     model: tsnet.network.TransientModel
 
     node_variables: ClassVar[tuple[NodeVariable, ...]] = (
@@ -39,13 +41,13 @@ class TSNetSimulationResults(SimulationResults):
         "end_node_velocity",
         "end_node_flowrate",
     )
-    
+
     def __post_init__(self) -> None:
-        """ Validate that the model contains transient simulation results after 
+        """Validate that the model contains transient simulation results after
         initialization.
         """
         self._validate_results_exist()
-        
+
     def _validate_results_exist(self) -> None:
         """Validate that the model contains transient simulation results."""
         if getattr(self.model, "simulation_timestamps", None) is None:
@@ -60,7 +62,7 @@ class TSNetSimulationResults(SimulationResults):
         *,
         index: pd.Index,
         columns: Sequence[str],
-        dtype: type = float
+        dtype: type = float,
     ) -> pd.DataFrame:
         """ """
         return pd.DataFrame(values, index=index, columns=columns, dtype=dtype)
@@ -71,8 +73,8 @@ class TSNetSimulationResults(SimulationResults):
 
     @staticmethod
     def _validate_variable(variable: str, allowed: tuple[str, ...]) -> None:
-        """ Helper method to validate a variable name against allowed variables.
-        
+        """Helper method to validate a variable name against allowed variables.
+
         Raises
         ------
         ValueError
@@ -83,7 +85,7 @@ class TSNetSimulationResults(SimulationResults):
                 f"Invalid variable: {variable!r}. "
                 f"Supported variables: {', '.join(allowed)}."
             )
-            
+
     @property
     def _timestamps(self) -> pd.Index:
         """Return TSNet simulation timestamps as a pandas Index."""
@@ -91,15 +93,15 @@ class TSNetSimulationResults(SimulationResults):
             np.asarray(self.model.simulation_timestamps),
             name="time",
         )
-        
+
     def _extract_node_results(
         self,
         variable: NodeVariable,
         nodes: Sequence[str],
         times: TimeLocation,
     ) -> tuple[np.ndarray, pd.Index]:
-        """ Extract node results for a given variable, nodes, and times.
-        
+        """Extract node results for a given variable, nodes, and times.
+
         Parameters
         ----------
         variable : NodeVariable
@@ -108,12 +110,12 @@ class TSNetSimulationResults(SimulationResults):
             Node names to extract results from.
         times : TimeLocation
             Time locations to extract data from (default: all times).
-        
+
         Returns
         -------
         tuple[np.ndarray, pd.Index]
             Tuple containing the extracted values and corresponding timestamps.
-            
+
         Raises
         ------
         ValueError
@@ -149,8 +151,8 @@ class TSNetSimulationResults(SimulationResults):
         links: Sequence[str],
         times: TimeLocation,
     ) -> tuple[np.ndarray, pd.Index]:
-        """ Extract link results for a given variable, links, and times.
-        
+        """Extract link results for a given variable, links, and times.
+
         Parameters
         ----------
         variable : LinkVariable
@@ -159,12 +161,12 @@ class TSNetSimulationResults(SimulationResults):
             Link names to extract results from.
         times : TimeLocation
             Time locations to extract data from (default: all times).
-        
+
         Returns
         -------
         tuple[np.ndarray, pd.Index]
             Tuple containing the extracted values and corresponding timestamps.
-            
+
         Raises
         ------
         ValueError
@@ -202,7 +204,7 @@ class TSNetSimulationResults(SimulationResults):
         *,
         as_dataframe: bool = False,
     ) -> np.ndarray | pd.DataFrame:
-        """ Get node variable data for specified node names at given times.
+        """Get node variable data for specified node names at given times.
         Parameters
         ----------
         variable : NodeVariable
@@ -223,8 +225,7 @@ class TSNetSimulationResults(SimulationResults):
             number of nodes specified. If ``as_dataframe`` is True, the DataFrame
             will have timestamps as the index and node names as the columns.
         """
-        values, timestamps = \
-            self._extract_node_results(variable, nodes, times)
+        values, timestamps = self._extract_node_results(variable, nodes, times)
         if as_dataframe:
             return pd.DataFrame(values, index=timestamps, columns=nodes)
         return values
@@ -237,7 +238,7 @@ class TSNetSimulationResults(SimulationResults):
         *,
         as_dataframe: bool = False,
     ) -> np.ndarray | pd.DataFrame:
-        """ Get node variable data for specified node names at given times.
+        """Get node variable data for specified node names at given times.
         Parameters
         ----------
         variable : LinkVariable
@@ -258,8 +259,7 @@ class TSNetSimulationResults(SimulationResults):
             number of links specified. If ``as_dataframe`` is True, the DataFrame
             will have timestamps as the index and node names as the columns.
         """
-        values, timestamps = \
-            self._extract_link_results(variable, links, times)
+        values, timestamps = self._extract_link_results(variable, links, times)
         if as_dataframe:
             return pd.DataFrame(values, index=timestamps, columns=links)
         return values

@@ -1,13 +1,15 @@
 """ """
+
 import pathlib
 import ptsnet
 from ptsnet.simulation.sim import PTSNETSimulation
+
 
 def load_ptsnet_model(
     model: str | pathlib.Path,
 ) -> PTSNETSimulation:
     """Load a PTSNet transient model from an INP file.
-    
+
     Parameters
     ----------
     model

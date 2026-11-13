@@ -1,4 +1,5 @@
 """ """
+
 from dataclasses import dataclass
 from .model import PTSNetNetworkModel
 from .results import PTSNetSimulationResults
@@ -7,7 +8,9 @@ from ..common.simulator import Simulator
 
 
 @dataclass(slots=True)
-class PTSNetSimulator(Simulator[PTSNetNetworkModel, PTSNetSimulationResults, PTSNetConfig]):
+class PTSNetSimulator(
+    Simulator[PTSNetNetworkModel, PTSNetSimulationResults, PTSNetConfig]
+):
     """PTSNet simulator strategy."""
 
     def __init__(self, config: PTSNetConfig | None = None) -> None:
@@ -15,7 +18,7 @@ class PTSNetSimulator(Simulator[PTSNetNetworkModel, PTSNetSimulationResults, PTS
 
     def configure(self, config: PTSNetConfig) -> None:
         self.config = config
-        
+
     def initialize(self) -> None:
         """Initialize the simulator before running a simulation.
         This method generally applies to dynamic simulators such as TSnet, or PTSNet"""

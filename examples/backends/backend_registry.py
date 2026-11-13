@@ -5,7 +5,6 @@ from rich.table import Table
 
 from hydroforge.backends import BackendName, get_backend
 
-
 console = Console()
 
 
@@ -22,7 +21,9 @@ def main() -> None:
         except (ImportError, ModuleNotFoundError) as exc:
             table.add_row(name.value, "[yellow]unavailable[/yellow]", str(exc))
         else:
-            table.add_row(name.value, "[green]available[/green]", type(backend).__name__)
+            table.add_row(
+                name.value, "[green]available[/green]", type(backend).__name__
+            )
 
     console.print(table)
 

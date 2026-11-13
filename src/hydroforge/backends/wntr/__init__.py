@@ -35,12 +35,12 @@ Notes
 - ``TimeLocation`` accepts an int, a ``(start, end)`` tuple, or a sequence of ints.
 - Results are cached after the first run.
 """
+
 from .model import WNTRModel
 from .results import WNTRSimulationResults
 from .simulator import WNTRSimulator, EPANETSimulator
 from .config import EPANETSimulatorConfig, WNTRConfig, WNTRSimulatorConfig
 from .loader import load_wntr_model
-
 
 __all__ = [
     "WNTRModel",

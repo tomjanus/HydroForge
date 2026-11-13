@@ -20,7 +20,9 @@ def main() -> None:
     # 1. Load a WNTR model
     # ------------------------------------------------------------------
 
-    network_file = pathlib.Path(__file__).resolve().parents[2] / "tests/base_networks/Net1.inp"
+    network_file = (
+        pathlib.Path(__file__).resolve().parents[2] / "tests/base_networks/Net1.inp"
+    )
     model = wntr.network.WaterNetworkModel(network_file)
 
     rprint("\n[bold cyan]1. Loaded WNTR model[/bold cyan]")
@@ -57,9 +59,7 @@ def main() -> None:
         ),
     )
 
-    rprint(
-        "\n[bold cyan]3. Proposed partial configuration[/bold cyan]"
-    )
+    rprint("\n[bold cyan]3. Proposed partial configuration[/bold cyan]")
 
     config.print(
         title="Proposed WNTR Configuration",
@@ -69,9 +69,7 @@ def main() -> None:
     # 4. Show what would change before applying anything
     # ------------------------------------------------------------------
 
-    rprint(
-        "\n[bold cyan]4. Proposed changes[/bold cyan]"
-    )
+    rprint("\n[bold cyan]4. Proposed changes[/bold cyan]")
 
     config.print_comparison_table(
         model.options,
@@ -109,59 +107,38 @@ def main() -> None:
 
     options_copy = config.to_options(model.options)
 
-    rprint(
-        "\n[bold cyan]6. Converted configuration to WNTR Options[/bold cyan]"
-    )
+    rprint("\n[bold cyan]6. Converted configuration to WNTR Options[/bold cyan]")
 
     assert options_copy is not model.options
 
     # The new options object contains the requested changes.
-    assert (
-        options_copy.time.hydraulic_timestep == 900
-    )
-    assert (
-        options_copy.time.report_timestep == 900
-    )
-    assert (
-        options_copy.hydraulic.demand_model == "PDA"
-    )
-    assert (
-        options_copy.hydraulic.required_pressure == 10.0
-    )
+    assert options_copy.time.hydraulic_timestep == 900
+    assert options_copy.time.report_timestep == 900
+    assert options_copy.hydraulic.demand_model == "PDA"
+    assert options_copy.hydraulic.required_pressure == 10.0
 
     # But the actual model is still unchanged.
     assert (
-        model.options.time.hydraulic_timestep
-        == original_config.time.hydraulic_timestep
+        model.options.time.hydraulic_timestep == original_config.time.hydraulic_timestep
     )
 
     assert (
-        model.options.hydraulic.demand_model
-        == original_config.hydraulic.demand_model
+        model.options.hydraulic.demand_model == original_config.hydraulic.demand_model
     )
 
-    rprint(
-        "  [green]✓ model.options was not modified[/green]"
-    )
+    rprint("  [green]✓ model.options was not modified[/green]")
 
     # ------------------------------------------------------------------
     # 7. Apply the configuration to the model
     # ------------------------------------------------------------------
 
-    rprint(
-        "\n[bold cyan]7. Applying configuration[/bold cyan]"
-    )
+    rprint("\n[bold cyan]7. Applying configuration[/bold cyan]")
 
     changes = config.apply_to(model.options)
 
-    number_changes = sum(
-        len(section)
-        for section in changes.values()
-    )
+    number_changes = sum(len(section) for section in changes.values())
 
-    rprint(
-        f"  [green]Updated {number_changes} WNTR options[/green]"
-    )
+    rprint(f"  [green]Updated {number_changes} WNTR options[/green]")
 
     # Print exactly what was changed.
     for section, section_changes in changes.items():
@@ -175,25 +152,19 @@ def main() -> None:
     # 8. Verify that the configuration was actually applied
     # ------------------------------------------------------------------
 
-    rprint(
-        "\n[bold cyan]8. Verifying configuration[/bold cyan]"
-    )
+    rprint("\n[bold cyan]8. Verifying configuration[/bold cyan]")
 
     assert config.is_applied(model.options)
 
     config.verify(model.options)
 
-    rprint(
-        "  [green]✓ All configured options match the model[/green]"
-    )
+    rprint("  [green]✓ All configured options match the model[/green]")
 
     # ------------------------------------------------------------------
     # 9. Display the configuration against the modified model
     # ------------------------------------------------------------------
 
-    rprint(
-        "\n[bold cyan]9. Configuration after applying[/bold cyan]"
-    )
+    rprint("\n[bold cyan]9. Configuration after applying[/bold cyan]")
 
     config.print_comparison_table(
         model.options,
@@ -205,40 +176,26 @@ def main() -> None:
     #     produces no changes.
     # ------------------------------------------------------------------
 
-    rprint(
-        "\n[bold cyan]10. Applying the same configuration again[/bold cyan]"
-    )
+    rprint("\n[bold cyan]10. Applying the same configuration again[/bold cyan]")
 
     changes = config.apply_to(model.options)
 
     assert changes == {}
 
-    rprint(
-        "  [green]✓ No changes were necessary[/green]"
-    )
+    rprint("  [green]✓ No changes were necessary[/green]")
 
     # ------------------------------------------------------------------
     # 11. Demonstrate from_options() after modification
     # ------------------------------------------------------------------
 
-    rprint(
-        "\n[bold cyan]11. Read modified model back into WNTRConfig[/bold cyan]"
-    )
+    rprint("\n[bold cyan]11. Read modified model back into WNTRConfig[/bold cyan]")
 
     modified_config = WNTRConfig.from_options(model.options)
 
-    assert (
-        modified_config.time.hydraulic_timestep == 900
-    )
-    assert (
-        modified_config.time.report_timestep == 900
-    )
-    assert (
-        modified_config.hydraulic.demand_model == "PDA"
-    )
-    assert (
-        modified_config.hydraulic.required_pressure == 10.0
-    )
+    assert modified_config.time.hydraulic_timestep == 900
+    assert modified_config.time.report_timestep == 900
+    assert modified_config.hydraulic.demand_model == "PDA"
+    assert modified_config.hydraulic.required_pressure == 10.0
 
     modified_config.print(
         title="Complete WNTR Configuration After Modification",
@@ -248,28 +205,19 @@ def main() -> None:
     # 12. Restore the original configuration
     # ------------------------------------------------------------------
 
-    rprint(
-        "\n[bold cyan]12. Restoring original configuration[/bold cyan]"
-    )
+    rprint("\n[bold cyan]12. Restoring original configuration[/bold cyan]")
 
     restore_changes = original_config.apply_to(model.options)
 
-    number_restored = sum(
-        len(section)
-        for section in restore_changes.values()
-    )
+    number_restored = sum(len(section) for section in restore_changes.values())
 
-    rprint(
-        f"  [green]Restored {number_restored} WNTR options[/green]"
-    )
+    rprint(f"  [green]Restored {number_restored} WNTR options[/green]")
 
     # ------------------------------------------------------------------
     # 13. Verify that the model is exactly back to its original state
     # ------------------------------------------------------------------
 
-    rprint(
-        "\n[bold cyan]13. Verifying complete restoration[/bold cyan]"
-    )
+    rprint("\n[bold cyan]13. Verifying complete restoration[/bold cyan]")
 
     restored_config = WNTRConfig.from_options(model.options)
 
@@ -279,9 +227,7 @@ def main() -> None:
 
     assert original_config.is_applied(model.options)
 
-    rprint(
-        "  [green]✓ Model options exactly match the original configuration[/green]"
-    )
+    rprint("  [green]✓ Model options exactly match the original configuration[/green]")
 
     # ------------------------------------------------------------------
     # 14. Show final comparison

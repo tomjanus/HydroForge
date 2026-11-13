@@ -1,4 +1,5 @@
 """ """
+
 from .parameters import Parameter, ParameterType
 from .uncertainties import (
     NoUncertainty,
@@ -7,7 +8,7 @@ from .uncertainties import (
     BiasUncertainty,
     CategoricalRandomReplacementUncertainty,
     CategoricalReplacementUncertainty,
-    BinaryStateFlipUncertainty
+    BinaryStateFlipUncertainty,
 )
 from .distributions import (
     Distribution,
@@ -21,7 +22,7 @@ from .distributions import (
     CategoricalNormalDistribution,
     CategoricalHistogramDistribution,
     CategoricalUniformDistribution,
-    DistributionChecker
+    DistributionChecker,
 )
 from .common import TheoreticalCDFAbsent
 

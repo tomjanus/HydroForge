@@ -85,13 +85,7 @@ ValueT = TypeVar("ValueT")
 DiscreteValueT = TypeVar("DiscreteValueT", int, float)
 
 Numeric: TypeAlias = int | float | np.integer[Any] | np.floating[Any]
-CDFInput: TypeAlias = (
-    Numeric
-    | Sequence[Numeric]
-    | NDArray[Any]
-    | str
-    | Sequence[str]
-)
+CDFInput: TypeAlias = Numeric | Sequence[Numeric] | NDArray[Any] | str | Sequence[str]
 CDFResult: TypeAlias = NDArray[np.float64]
 UnitInput: TypeAlias = float | Sequence[float] | NDArray[np.float64]
 
@@ -120,11 +114,12 @@ class DistributionDomain(Enum):
         Distribution domain for binary (two-state) variables.
         Examples: Bernoulli, Binary classification outcomes.
     """
-    CONTINUOUS = auto()   # real-valued (float)
-    DISCRETE = auto()     # integer-valued (int)
+
+    CONTINUOUS = auto()  # real-valued (float)
+    DISCRETE = auto()  # integer-valued (int)
     CATEGORICAL = auto()  # non-numeric categories
     BINARY = auto()
-    OTHER = auto()        # undefined, e.g. for DiracDelta generic class.
+    OTHER = auto()  # undefined, e.g. for DiracDelta generic class.
 
 
 class DistributionFamily(Enum):
@@ -156,6 +151,7 @@ class DistributionFamily(Enum):
     OTHER : auto
         Other or unspecified distribution.
     """
+
     # Continuous
     NORMAL = auto()
     UNIFORM = auto()
@@ -168,8 +164,8 @@ class DistributionFamily(Enum):
     BINOMIAL = auto()
     GEOETRIC = auto()
     # Categorical
-    CATEGORICAL = auto() # General categorical
-    BERNOULLI = auto()   # Binary / Boolean
+    CATEGORICAL = auto()  # General categorical
+    BERNOULLI = auto()  # Binary / Boolean
     # Dirac
     DIRAC = auto()
     # Other
@@ -178,7 +174,7 @@ class DistributionFamily(Enum):
 
 class DistributionBoundsType(Enum):
     """Enumeration defining the bound types for probability distributions.
-    
+
     BOUNDED : auto
         Distribution with both lower and upper bounds.
     SEMI_BOUNDED : auto
@@ -186,9 +182,10 @@ class DistributionBoundsType(Enum):
     UNBOUNDED : auto
         Distribution with no bounds (extends to infinity in both directions).
     """
-    BOUNDED = auto()       # [a, b]
+
+    BOUNDED = auto()  # [a, b]
     SEMI_BOUNDED = auto()  # [a, inf) or (-inf, a]
-    UNBOUNDED = auto()     # (-inf, inf)
+    UNBOUNDED = auto()  # (-inf, inf)
 
 
 @dataclass(frozen=True)
@@ -204,6 +201,7 @@ class DistributionProperties:
     domain : DistributionDomain
         Value domain of the distribution.
     """
+
     family: DistributionFamily
     bounds_type: DistributionBoundsType
     domain: DistributionDomain
@@ -231,7 +229,7 @@ class Distribution(Generic[ValueT], ABC):
     ----------
     properties : ClassVar[DistributionProperties]
         Metadata describing the distribution, including its family, bounds type, and domain.
-        
+
     Notes
     -----
     Sampling is implemented using inverse transform sampling through
@@ -339,7 +337,7 @@ class Distribution(Generic[ValueT], ABC):
                 random_state=random_state,
             )
         return self._theoretical_cdf(x)
-    
+
     def _get_cached_empirical_samples(
         self,
         n_samples: int,
@@ -445,12 +443,15 @@ class Distribution(Generic[ValueT], ABC):
         dict[str, Any]
             Dictionary representation of the distribution.
         """
+
         def convert(obj: Any) -> Any:
             if is_dataclass(obj):
                 return {
-                    item.name: convert(getattr(obj, item.name))
-                    if recursive
-                    else getattr(obj, item.name)
+                    item.name: (
+                        convert(getattr(obj, item.name))
+                        if recursive
+                        else getattr(obj, item.name)
+                    )
                     for item in fields(obj)
                     if item.metadata.get("serialize", True)
                 }
@@ -459,6 +460,7 @@ class Distribution(Generic[ValueT], ABC):
             if recursive and isinstance(obj, dict):
                 return {key: convert(value) for key, value in obj.items()}
             return obj
+
         return convert(self)
 
     @property
@@ -472,8 +474,10 @@ class Distribution(Generic[ValueT], ABC):
             Representative deterministic value.  This is deliberately a scalar,
             unlike the vectorised output of :meth:`sample`.
         """
-        raise NotImplementedError("Subclasses must implement the `nominal_value` property.")
-    
+        raise NotImplementedError(
+            "Subclasses must implement the `nominal_value` property."
+        )
+
     @abstractmethod
     def sample_from_unit(self, u: UnitInput) -> NDArray[Any]:
         """Transform values from the unit interval into distribution samples.
@@ -496,7 +500,9 @@ class Distribution(Generic[ValueT], ABC):
         TypeError
             If the input is not numeric.
         """
-        raise NotImplementedError("Subclasses must implement the `sample_from_unit` method.")
+        raise NotImplementedError(
+            "Subclasses must implement the `sample_from_unit` method."
+        )
 
     @abstractmethod
     def reduce(self) -> DiracDeltaDistribution[ValueT]:
@@ -532,13 +538,14 @@ class Distribution(Generic[ValueT], ABC):
 
 @dataclass
 class CategoricalConversionMixin:
-    """    
+    """
     Stores mappings between forward (categorical to numerical index) and reverse
     (numerical index to categorical values) and enables bi-directional
     conversions between category labels and integer indices.
-    
+
     Used for numerical calculations withcategorical distributions.
     """
+
     _cat_to_num: dict[str, int] = field(init=False, repr=False)
     _num_to_cat: dict[int, str] = field(init=False, repr=False)
 
@@ -557,12 +564,10 @@ class CategoricalConversionMixin:
         )
 
     @overload
-    def cat_to_num(self, cat_values: str) -> NDArray[np.int64]:
-        ...
+    def cat_to_num(self, cat_values: str) -> NDArray[np.int64]: ...
 
     @overload
-    def cat_to_num(self, cat_values: Sequence[str]) -> NDArray[np.int64]:
-        ...
+    def cat_to_num(self, cat_values: Sequence[str]) -> NDArray[np.int64]: ...
 
     def cat_to_num(self, cat_values: str | Sequence[str]) -> NDArray[np.int64]:
         """Convert category labels to integer indices.
@@ -593,12 +598,12 @@ class CategoricalConversionMixin:
         return indices[0:1].reshape(()) if scalar else indices
 
     @overload
-    def num_to_cat(self, num_values: int) -> NDArray[np.object_]:
-        ...
+    def num_to_cat(self, num_values: int) -> NDArray[np.object_]: ...
 
     @overload
-    def num_to_cat(self, num_values: Sequence[int] | NDArray[Any]) -> NDArray[np.object_]:
-        ...
+    def num_to_cat(
+        self, num_values: Sequence[int] | NDArray[Any]
+    ) -> NDArray[np.object_]: ...
 
     def num_to_cat(
         self,
@@ -693,7 +698,7 @@ class CategoricalConversionMixin:
                 state_key = id(random_state)
             cache_key = (int(n_samples), state_key)
             return self._empirical_cache[cache_key]
-        
+
         if n_samples <= 0:
             raise ValueError("n_samples must be greater than zero")
 
@@ -761,7 +766,9 @@ class NormalDistribution(Distribution[float]):
     def __post_init__(self) -> None:
         """Validate distribution parameters."""
         if self.std_dev <= 0:
-            raise ValueError("Standard deviation must be positive for normal distribution")
+            raise ValueError(
+                "Standard deviation must be positive for normal distribution"
+            )
 
     @property
     def nominal_value(self) -> float:
@@ -848,7 +855,9 @@ class UniformDistribution(Distribution[float]):
         self.lower = float(self.lower)
         self.upper = float(self.upper)
         if self.lower >= self.upper:
-            raise ValueError("Lower bound must be less than upper bound for uniform distribution")
+            raise ValueError(
+                "Lower bound must be less than upper bound for uniform distribution"
+            )
 
     @property
     def nominal_value(self) -> float:
@@ -1114,9 +1123,8 @@ class CategoricalDiracDeltaDistribution(DiracDeltaDistribution[str]):
 
 @dataclass
 class DiscreteDiracDeltaDistribution(
-        DiracDeltaDistribution[DiscreteValueT], 
-        Generic[DiscreteValueT]
-    ):
+    DiracDeltaDistribution[DiscreteValueT], Generic[DiscreteValueT]
+):
     """Deterministic Dirac distribution over discrete numerical outcomes.
 
     Parameters
@@ -1232,9 +1240,9 @@ class DiscreteNormalDistribution(Distribution[int]):
             Integer samples with the same shape as ``u``.
         """
         arr = _validate_unit_input(u)
-        return np.rint(
-            norm.ppf(arr, loc=self.mean, scale=self.std_dev)
-        ).astype(np.int64)
+        return np.rint(norm.ppf(arr, loc=self.mean, scale=self.std_dev)).astype(
+            np.int64
+        )
 
     def _theoretical_cdf(self, x: CDFInput) -> CDFResult:
         """Evaluate the continuity-corrected discrete normal CDF.
@@ -1393,9 +1401,7 @@ class DiscreteHistogramDistribution(Distribution[float]):
 
         order = np.argsort(np.asarray(self.values, dtype=float))
         self.values = tuple(float(self.values[index]) for index in order)
-        self.probabilities = tuple(
-            probabilities[index] for index in order
-        )
+        self.probabilities = tuple(probabilities[index] for index in order)
 
     @property
     def nominal_value(self) -> float:
@@ -1476,7 +1482,7 @@ class CategoricalNormalDistribution(
     Distribution[str],
 ):
     """
-    An ordered categorical distribution whose probability mass follows a 
+    An ordered categorical distribution whose probability mass follows a
     discretised Gaussian shape around the nominal category..
 
     Categories are ordered according to their position in ``categories``.
@@ -1493,6 +1499,7 @@ class CategoricalNormalDistribution(
     nominal_category : str or None, default=None
         Nominal (centre) category around which the distribution is centred.
     """
+
     categories: tuple[str, ...] = field(default_factory=tuple)
     spread: float = 1.0
     nominal_category: str | None = None
@@ -1517,7 +1524,9 @@ class CategoricalNormalDistribution(
                 f" available categories: {self.categories}"
             )
         if self.nominal_category is None and len(self.categories) % 2 == 0:
-            raise ValueError("Nominal category is required for even number of categories")
+            raise ValueError(
+                "Nominal category is required for even number of categories"
+            )
         super().__post_init__()
 
     @property
@@ -1558,9 +1567,7 @@ class CategoricalNormalDistribution(
         """
         indices = np.arange(len(self.categories), dtype=np.intp)
         nominal_index = self._nominal_index
-        probabilities = np.exp(
-            -0.5 * ((indices - nominal_index) / self.spread) ** 2
-        )
+        probabilities = np.exp(-0.5 * ((indices - nominal_index) / self.spread) ** 2)
         return np.asarray(
             probabilities / probabilities.sum(),
             dtype=np.float64,
@@ -1666,11 +1673,11 @@ class CategoricalUniformDistribution(
             self.nominal_category is not None
             and self.nominal_category not in self.categories
         ):
-            raise ValueError(
-                f"Nominal category '{self.nominal_category}' invalid"
-            )
+            raise ValueError(f"Nominal category '{self.nominal_category}' invalid")
         if self.nominal_category is None and len(self.categories) % 2 == 0:
-            raise ValueError("Nominal category is required for even number of categories")
+            raise ValueError(
+                "Nominal category is required for even number of categories"
+            )
         super().__post_init__()
 
     @property
@@ -1826,14 +1833,13 @@ class CategoricalHistogramDistribution(
         probability_sum = float(np.sum(self.probabilities, dtype=np.float64))
         if not np.isclose(probability_sum, 1.0):
             logger.warning(
-                "Sum of probabilities is not 1.0 before normalization: %f", 
-                probability_sum
+                "Sum of probabilities is not 1.0 before normalization: %f",
+                probability_sum,
             )
         if not np.isfinite(probability_sum) or probability_sum <= 0:
             raise ValueError("Probabilities must sum to a positive finite value")
         self.probabilities = tuple(
-            probability / probability_sum
-            for probability in self.probabilities
+            probability / probability_sum for probability in self.probabilities
         )
         super().__post_init__()
 

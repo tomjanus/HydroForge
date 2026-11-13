@@ -7,6 +7,7 @@ This module provides convenient wrappers for common file I/O operations includin
 
 All functions include proper error handling and validation.
 """
+
 from typing import Any
 import pathlib
 import pickle
@@ -19,6 +20,7 @@ from .utils import ensure_directory_exists
 # -----------------------------------`
 # File input wrappers
 # -----------------------------------
+
 
 def load_config(file_path: str | pathlib.Path) -> dict:
     """Load user configuration from a YAML file.
@@ -42,24 +44,37 @@ def load_config(file_path: str | pathlib.Path) -> dict:
     """
     file_path = pathlib.Path(file_path)
     try:
-        with open(file_path, 'r', encoding='utf-8') as file_handle:
+        with open(file_path, "r", encoding="utf-8") as file_handle:
             user_config: dict = yaml.safe_load(file_handle)
     except FileNotFoundError as exc:
-        raise UserConfigLoadException("Configuration file not found", exc, show_original=True) from exc
+        raise UserConfigLoadException(
+            "Configuration file not found", exc, show_original=True
+        ) from exc
     except PermissionError as exc:
-        raise UserConfigLoadException("Permission denied while reading configuration file", exc, show_original=True) from exc
+        raise UserConfigLoadException(
+            "Permission denied while reading configuration file",
+            exc,
+            show_original=True,
+        ) from exc
     except UnicodeDecodeError as exc:
-        raise UserConfigLoadException("Encoding error while reading configuration file", exc, show_original=True) from exc
+        raise UserConfigLoadException(
+            "Encoding error while reading configuration file", exc, show_original=True
+        ) from exc
     except yaml.YAMLError as exc:
-        raise UserConfigLoadException("YAML parsing error in configuration file", exc, show_original=True) from exc
+        raise UserConfigLoadException(
+            "YAML parsing error in configuration file", exc, show_original=True
+        ) from exc
     except OSError as exc:
-        raise UserConfigLoadException("I/O error while reading configuration file", exc, show_original=True) from exc
+        raise UserConfigLoadException(
+            "I/O error while reading configuration file", exc, show_original=True
+        ) from exc
     return user_config
 
 
 # -----------------------------------`
 # File output wrappers`
 # -----------------------------------`
+
 
 def save_to_json(data: dict, filepath: pathlib.Path, indent: int = 4) -> None:
     """Save a dictionary to a JSON file with proper formatting.
@@ -77,14 +92,13 @@ def save_to_json(data: dict, filepath: pathlib.Path, indent: int = 4) -> None:
     --------
     >>> save_to_json(my_dict, pathlib.Path("output.json"))
     """
-    with open(filepath, 'w', encoding='utf-8') as f_handle:
+    with open(filepath, "w", encoding="utf-8") as f_handle:
         json.dump(data, f_handle, indent=indent)
-        
-        
+
+
 def save_dataframe(
-    df: pd.DataFrame,
-    filename: pathlib.Path,
-    create_path_if_missing: bool = True) -> None:
+    df: pd.DataFrame, filename: pathlib.Path, create_path_if_missing: bool = True
+) -> None:
     """Save a DataFrame to CSV or Excel depending on file extension.
 
     Parameters
@@ -115,6 +129,7 @@ def save_dataframe(
         df.to_excel(filename, index=False, sheet_name="Sheet1")
     else:
         raise ValueError(f"Unsupported file extension: {ext}")
+
 
 def save_pickle(
     obj: Any,

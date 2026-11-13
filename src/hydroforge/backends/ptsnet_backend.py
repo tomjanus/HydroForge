@@ -1,4 +1,5 @@
 """PTSNet backend wrapper for HydroForge."""
+
 from __future__ import annotations
 
 import pathlib
@@ -13,6 +14,7 @@ class PTSNetBackend(
     Backend[PTSNetModel, PTSNetSimulationResults, PTSNetConfig, PTSNetConfig]
 ):
     """Concrete backend adapter for the PTSNet transient solver."""
+
     package_name = "ptsnet"
 
     def __init__(self) -> None:

@@ -38,14 +38,15 @@ The module imports NumPy and pandas only during static type checking. This
 allows the results interface to expose precise type annotations without
 requiring either package to be imported when this module is loaded.
 """
+
 from __future__ import annotations
 from typing import ClassVar, Sequence, TYPE_CHECKING, Literal, overload, TypeAlias, Any
 from abc import ABC, abstractmethod
 
-
 if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
+
     SimulationOutputs = np.ndarray | pd.DataFrame
 else:
     SimulationOutputs = object
@@ -57,24 +58,19 @@ NodeVariable: TypeAlias = str
 LinkVariable: TypeAlias = str
 """Name of a variable associated with a network link."""
 
-TimeLocation: TypeAlias = (
-    int
-    | slice
-    | tuple[int, int]
-    | Sequence[int]
-)
+TimeLocation: TypeAlias = int | slice | tuple[int, int] | Sequence[int]
 
 
 class SimulationResults(ABC):
     """Common interface for simulation results from water network simulations.
-    
+
     Attributes
     ----------
     node_variables : ClassVar[tuple[NodeVariable, ...]]
         Tuple of supported node variable names.
     link_variables : ClassVar[tuple[LinkVariable, ...]]
         Tuple of supported link variable names.
-        
+
     Notes
     -----
     Subclasses must define the class variables ``node_variables`` and
@@ -82,23 +78,22 @@ class SimulationResults(ABC):
     respectively. These variables are used to validate requests for simulation
     results.
     """
+
     node_variables: ClassVar[tuple[NodeVariable, ...]]
     link_variables: ClassVar[tuple[LinkVariable, ...]]
 
     def __init_subclass__(cls: type[SimulationResults], **kwargs: Any) -> None:
-        """ 
+        """
         Validate that subclasses define required class variables.
         """
         super().__init_subclass__(**kwargs)
         if "node_variables" not in cls.__dict__:
             raise TypeError(
-                f"{cls.__name__} must define class variable "
-                "'node_variables'."
+                f"{cls.__name__} must define class variable " "'node_variables'."
             )
         if "link_variables" not in cls.__dict__:
             raise TypeError(
-                f"{cls.__name__} must define class variable "
-                "'link_variables'."
+                f"{cls.__name__} must define class variable " "'link_variables'."
             )
 
     @overload
@@ -109,8 +104,7 @@ class SimulationResults(ABC):
         times: TimeLocation = slice(None),
         *,
         as_dataframe: Literal[False] = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
 
     @overload
     def get_node_variable(
@@ -120,9 +114,8 @@ class SimulationResults(ABC):
         times: TimeLocation = slice(None),
         *,
         as_dataframe: Literal[True],
-    ) -> pd.DataFrame:
-        ...
-        
+    ) -> pd.DataFrame: ...
+
     @abstractmethod
     def get_node_variable(
         self,
@@ -160,8 +153,7 @@ class SimulationResults(ABC):
         times: TimeLocation = slice(None),
         *,
         as_dataframe: Literal[False] = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
 
     @overload
     def get_link_variable(
@@ -171,8 +163,7 @@ class SimulationResults(ABC):
         times: TimeLocation = slice(None),
         *,
         as_dataframe: Literal[True],
-    ) -> pd.DataFrame:
-        ...
+    ) -> pd.DataFrame: ...
 
     @abstractmethod
     def get_link_variable(

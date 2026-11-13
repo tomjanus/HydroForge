@@ -1,6 +1,8 @@
 """ """
+
 import pathlib
 from .model import WNTRModel
+
 
 def load_wntr_model(model: str | pathlib.Path) -> WNTRModel:
     """Load a WNTR model from an INP file.

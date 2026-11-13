@@ -41,7 +41,9 @@ from .placement import (
 
 from .sensor_network import SensorNetworkGraph
 
-__doc____ = """Sensor modeling, placement, and analysis for water distribution networks."""
+__doc____ = (
+    """Sensor modeling, placement, and analysis for water distribution networks."""
+)
 
 __all__ = [
     "Sensor",
@@ -63,5 +65,5 @@ __all__ = [
     "DominatingSetBasedSensorPlacement",
     "FixedLocationSensorPlacement",
     "SensorPlacer",
-    "SensorNetworkGraph"
+    "SensorNetworkGraph",
 ]

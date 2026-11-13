@@ -10,7 +10,6 @@ from hydroforge.backends.tsnet.config import TSNetConfig
 from hydroforge.backends.tsnetplus.config import TSNetPlusConfig
 from hydroforge.backends.wntr.config import EPANETSimulatorConfig, WNTRSimulatorConfig
 
-
 console = Console()
 
 
@@ -30,7 +29,9 @@ def main() -> None:
     console.print(_config_table(PTSNetConfig, "PTSNetConfig"))
     console.print(_config_table(WNTRSimulatorConfig, "WNTRSimulatorConfig"))
     console.print(_config_table(EPANETSimulatorConfig, "EPANETSimulatorConfig"))
-    console.print("[dim]These config imports do not load a network model or run a simulation.[/dim]")
+    console.print(
+        "[dim]These config imports do not load a network model or run a simulation.[/dim]"
+    )
 
 
 if __name__ == "__main__":

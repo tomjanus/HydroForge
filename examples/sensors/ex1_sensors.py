@@ -1,4 +1,5 @@
 """ """
+
 import numpy as np
 import pandas as pd
 from rich import print as rprint
@@ -13,8 +14,9 @@ from hydroforge.sensors.sensors import (
     DeadBandSensor,
     SaturationSensor,
     DriftSensor,
-    CompositeSensor
+    CompositeSensor,
 )
+
 
 def main():
     # Example input data
@@ -62,7 +64,7 @@ def main():
 
     avg_vector = averager.average(vector_values)  # length > num_measurements
     rprint(f"Windowed averages with window size {_window_size}: {avg_vector}")
-    
+
     # Demonstrration of MovingWindowAverager
     rprint("\n=== MOVING WINDOW AVERAGER DEMONSTRATION ===")
     _window_size = 3
@@ -74,28 +76,30 @@ def main():
 
     def test_2d_support():
         """Test sensors with 2D arrays and DataFrames."""
-        
+
         rprint("\n=== TESTING 2D ARRAY SUPPORT ===\n")
-        
+
         # Create test data
         # Simulating 3 sensors × 5 time steps
-        array_2d = np.array([
-            [1.03, 1.07, 0.94, 1.12, 1.05],
-            [2.15, 2.22, 2.08, 2.30, 2.18],
-            [3.01, 3.05, 2.98, 3.10, 3.03]
-        ])
-        
+        array_2d = np.array(
+            [
+                [1.03, 1.07, 0.94, 1.12, 1.05],
+                [2.15, 2.22, 2.08, 2.30, 2.18],
+                [3.01, 3.05, 2.98, 3.10, 3.03],
+            ]
+        )
+
         df_2d = pd.DataFrame(
             array_2d,
-            index=['sensor1', 'sensor2', 'sensor3'],
-            columns=['t0', 't1', 't2', 't3', 't4']
+            index=["sensor1", "sensor2", "sensor3"],
+            columns=["t0", "t1", "t2", "t3", "t4"],
         )
-        
+
         rprint(f"2D NumPy array shape: {array_2d.shape}")
         rprint(f"Array:\n{array_2d}\n")
         rprint(f"2D DataFrame shape: {df_2d.shape}")
         rprint(f"DataFrame:\n{df_2d}\n")
-        
+
         # Test each sensor type
         sensors_to_test = {
             "PerfectSensor": PerfectSensor(),
@@ -107,18 +111,20 @@ def main():
             "SaturationSensor": SaturationSensor(min_val=0.0, max_val=2.5),
             "DriftSensor": DriftSensor(offset_rate=0.01),
         }
-        
+
         for name, sensor in sensors_to_test.items():
             rprint(f"--- Testing {name} ---")
-            
+
             # Test with 2D NumPy array
             try:
                 result_array = sensor.measure(array_2d)
-                rprint(f"✓ 2D Array: shape={result_array.shape}, type={type(result_array)}")
+                rprint(
+                    f"✓ 2D Array: shape={result_array.shape}, type={type(result_array)}"
+                )
                 rprint(f"  Result:\n{result_array}")
             except Exception as e:
                 rprint(f"✗ 2D Array failed: {e}")
-            
+
             # Test with DataFrame
             try:
                 result_df = sensor.measure(df_2d)
@@ -126,11 +132,11 @@ def main():
                 rprint(f"  Result:\n{result_df}")
             except Exception as e:
                 rprint(f"✗ DataFrame failed: {e}")
-            
+
             rprint()
-        
+
     test_2d_support()
+
 
 if __name__ == "__main__":
     main()
-

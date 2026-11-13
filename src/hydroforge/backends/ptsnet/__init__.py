@@ -35,5 +35,5 @@ __all__ = [
     "PTSNetConfig",
     "PTSNetModel",
     "PTSNetSimulationResults",
-    "load_ptsnet_model"
+    "load_ptsnet_model",
 ]

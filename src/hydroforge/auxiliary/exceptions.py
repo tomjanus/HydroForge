@@ -6,7 +6,9 @@ This module defines custom exception classes for handling specific error conditi
 
 All exceptions support rich-formatted error messages for better user feedback.
 """
+
 from rich import print as rprint
+
 
 class UserConfigLoadException(Exception):
     """Wrapper for errors loading or parsing user configuration.
@@ -45,11 +47,12 @@ class UserConfigLoadException(Exception):
     """
 
     def __init__(
-            self,
-            message: str,
-            original: Exception | None = None,
-            *,
-            show_original: bool = False) -> None:
+        self,
+        message: str,
+        original: Exception | None = None,
+        *,
+        show_original: bool = False,
+    ) -> None:
         """Initialize the exception.
 
         Parameters
@@ -85,9 +88,8 @@ class UserConfigLoadException(Exception):
         If show_original is True, also displays the original exception.
         """
         if self.show_original and self.original is not None:
-            rprint(f"[red]Error:[/red] {self.message}\n[dim]Original:[/dim] {self.original!r}")
+            rprint(
+                f"[red]Error:[/red] {self.message}\n[dim]Original:[/dim] {self.original!r}"
+            )
         else:
             rprint(f"[red]Error:[/red] {self.message}")
-            
-
-

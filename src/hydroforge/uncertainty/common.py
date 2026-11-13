@@ -15,6 +15,7 @@ The aliases distinguish between:
 These aliases improve type checking, readability, and documentation while
 remaining compatible with NumPy 2.0.
 """
+
 from typing import TypeAlias, Union, Any, TypeVar
 import collections.abc
 import numpy as np
@@ -22,7 +23,7 @@ import numpy.typing as npt
 
 # ---- Type aliases ----
 # For compatibility with numpy2.0
-NumpyFloat = np.float64 # instead of earlier np.float_
+NumpyFloat = np.float64  # instead of earlier np.float_
 
 Scalar: TypeAlias = Union[int, float, np.int_, NumpyFloat]
 Array: TypeAlias = Union[npt.NDArray[NumpyFloat], npt.NDArray[np.int_]]
@@ -36,7 +37,6 @@ Value: TypeAlias = Union[Scalar, Array, CatValue]  # last Any for categorical ca
 T = TypeVar("T", bound=Value)
 S = TypeVar("S", bound=NumValue)
 C = TypeVar("C", bound=CatValue)
-
 
 
 def is_array_like(x: Any) -> bool:
@@ -91,11 +91,11 @@ class TheoreticalCDFAbsent(NotImplementedError):
 
 class CDFNotAvailable(NotImplementedError):
     """Raised when a CDF is not available for a parameter or uncertainty model.
-    
+
     This exception indicates that a CDF cannot be computed for a parameter because:
     - The underlying uncertainty model doesn't support CDF transformation, or
     - The parameter type (e.g., categorical) doesn't have a well-defined CDF
-    
+
     This typically occurs when using stratified or advanced sampling methods that
     require CDF evaluation.
     """

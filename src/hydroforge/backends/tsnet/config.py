@@ -1,4 +1,5 @@
 """ """
+
 from typing import TypeAlias, Sequence, Literal
 from dataclasses import dataclass
 from ..common.constants import DemandModel
@@ -9,7 +10,7 @@ if TYPE_CHECKING:
 
 
 WaveSpeed: TypeAlias = float | Sequence[float]
-FrictionModel: TypeAlias = Literal['steady', 'quasi-steady', 'unsteady']
+FrictionModel: TypeAlias = Literal["steady", "quasi-steady", "unsteady"]
 
 
 @dataclass(slots=True)
@@ -41,7 +42,7 @@ class TSNetConfig:
         Name used by TSNet when storing the transient results object.
         Default is ``"results"``.
     clean_files : bool, optional
-        If ``True``, temporary EPANET files created during the simulation are 
+        If ``True``, temporary EPANET files created during the simulation are
         removed after the simulation completes. Default is ``True``.
 
     Notes
@@ -53,9 +54,10 @@ class TSNetConfig:
     TSNet performs the steady-state initialization using WNTR before
     starting the transient MOC simulation.
     """
+
     duration: float
-    wave_speed: WaveSpeed= 1_200.0
-    friction_model: FrictionModel = 'steady'
+    wave_speed: WaveSpeed = 1_200.0
+    friction_model: FrictionModel = "steady"
     time_step: float | None = None
     steady_state_engine: DemandModel = DemandModel.DD
     initial_time: float = 0.0

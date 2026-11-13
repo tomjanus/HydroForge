@@ -58,6 +58,7 @@ class SourceFinder:
     use_regex : bool
         Whether to interpret `source_keyword` as a regular expression (default: False).
     """
+
     graph: EPANETNetworkGraph = field(repr=False)
     source_keyword: str = "R"
     case_sensitive: bool = False
@@ -78,7 +79,9 @@ class SourceFinder:
         if self.use_regex:
             # Use regex search
             flags = 0 if self.case_sensitive else re.IGNORECASE
-            matched_nodes = [n for n in nodes if re.search(keyword, str(n), flags=flags)]
+            matched_nodes = [
+                n for n in nodes if re.search(keyword, str(n), flags=flags)
+            ]
         else:
             # Use simple substring search
             if not self.case_sensitive:
@@ -687,7 +690,7 @@ class SensorPlacer:
             is only displayed.
         """
         plotter = EPANETGraphPlotter(graph)
-        plotter.plot(title, sensors = self.sensors, save_path=save_path)
+        plotter.plot(title, sensors=self.sensors, save_path=save_path)
 
 
 if __name__ == "__main__":

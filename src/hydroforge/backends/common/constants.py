@@ -19,7 +19,9 @@ The enumeration values are represented by strings corresponding to the
 canonical names used by HydroForge when selecting a demand model or
 simulation backend.
 """
+
 from enum import Enum, StrEnum
+
 
 class DemandModel(Enum):
     """Supported demand models for hydraulic simulation.
@@ -31,12 +33,14 @@ class DemandModel(Enum):
     PDD
         Pressure-driven model.
     """
-    DD = "DD"    # Demand-Driven
+
+    DD = "DD"  # Demand-Driven
     PDD = "PDD"  # Pressure-Driven
 
 
 class BackendName(StrEnum):
-    """ Enumeration of supported HydroForge simulation backends."""
+    """Enumeration of supported HydroForge simulation backends."""
+
     WNTR = "wntr"
     TSNET = "tsnet"
     TSNETPLUS = "tsnetplus"

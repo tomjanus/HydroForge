@@ -26,12 +26,12 @@ interface.
 Backends should implement the :class:`Backend` protocol, which defines
 methods for loading models, creating simulators, and managing configuration.
 """
+
 from .backends import Backend
 from .constants import DemandModel, BackendName
 from .results import SimulationResults
 from .simulator import Simulator
 from .events import TransientEvent
-
 
 __all__ = [
     "Backend",
@@ -39,5 +39,5 @@ __all__ = [
     "BackendName",
     "SimulationResults",
     "Simulator",
-    "TransientEvent"
+    "TransientEvent",
 ]

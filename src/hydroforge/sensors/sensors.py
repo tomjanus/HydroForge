@@ -5,13 +5,13 @@ simulate measurement error, noise, bias, drift, saturation, and other
 real-world sensor behaviors. It also includes window-averaging utilities
 for aggregating sequential measurements.
 """
+
 from typing import overload, TypeVar, Union, TypeAlias, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
-
 
 if TYPE_CHECKING:
     # More specific typing for type checkers
@@ -84,15 +84,11 @@ class BaseWindowAverager(ABC):
         if isinstance(x, pd.DataFrame):
             if x.shape[1] < self.window_size:
                 raise ValueError(
-                    f"Need at least {self.window_size} columns, "
-                    f"got {x.shape[1]}."
+                    f"Need at least {self.window_size} columns, " f"got {x.shape[1]}."
                 )
             starts = list(self._window_starts(x.shape[1]))
             result = pd.concat(
-                [
-                    x.iloc[:, s:s + self.window_size].mean(axis=1)
-                    for s in starts
-                ],
+                [x.iloc[:, s : s + self.window_size].mean(axis=1) for s in starts],
                 axis=1,
             )
             return result.iloc[:, 0] if result.shape[1] == 1 else result
@@ -112,15 +108,10 @@ class BaseWindowAverager(ABC):
         # ------------------------------------------------------------------
         x = np.asarray(x, dtype=float)
         if len(x) < self.window_size:
-            raise ValueError(
-                f"Need at least {self.window_size} values, got {len(x)}."
-            )
+            raise ValueError(f"Need at least {self.window_size} values, got {len(x)}.")
         starts = list(self._window_starts(len(x)))
         values = np.array(
-            [
-                np.mean(x[s:s + self.window_size])
-                for s in starts
-            ],
+            [np.mean(x[s : s + self.window_size]) for s in starts],
             dtype=float,
         )
         if len(values) == 1:
@@ -169,16 +160,14 @@ class MovingWindowAverager(BaseWindowAverager):
           [4 5 6 7 8]
                 [7 8 9 10 11]
     """
+
     overlap: int = 0
 
     def __post_init__(self) -> None:
         super().__post_init__()
 
         if not 0 <= self.overlap < self.window_size:
-            raise ValueError(
-                "overlap must satisfy "
-                "0 <= overlap < window_size."
-            )
+            raise ValueError("overlap must satisfy " "0 <= overlap < window_size.")
 
     @property
     def stride(self) -> int:
@@ -259,6 +248,7 @@ class FixedPrecisionSensor(Sensor):
     Barcelona", IEEE Control Systems Magazine, August 2014.
     DOI: 10.1109/MCS.2014.2320336
     """
+
     delta_y: float  # sensor precision Δy
 
     def measure(self, y: T) -> T:
@@ -300,8 +290,9 @@ class RandomNoiseSensor(Sensor):
         Random seed used to initialize the internal random number
         generator, for reproducibility.
     """
+
     sigma: float  # standard deviation of Gaussian noise
-    seed: int | None = None               # optional random seed
+    seed: int | None = None  # optional random seed
     _rng: np.random.Generator | None = None  # internal RNG (lazy init)
 
     def __post_init__(self):
@@ -443,7 +434,7 @@ class DriftSensor(Sensor):
     current_offset : float, default=0.0
         Current accumulated offset.
     """
-    
+
     offset_rate: float  # bias increasing per call or per time step
     current_offset: float = 0.0  # accumulated offset
 
@@ -480,7 +471,7 @@ class CompositeSensor(Sensor):
         Sensors to chain, applied in the order given (the output of each
         sensor is fed as input to the next).
     """
-    
+
     def __init__(self, *sensors: Sensor):
         """Store the sensors to be chained together.
 

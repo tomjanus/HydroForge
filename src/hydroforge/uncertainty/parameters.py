@@ -17,6 +17,7 @@ Locking Behaviour:
     When lock is in place, multiple calls to sample() return the same cached value
     within the lock scope. New samples can be generated only if the lock is disabled.
 """
+
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from typing import Any, Generic, Optional, Sequence, TypeAlias, TypeVar
@@ -28,16 +29,14 @@ from .uncertainties import Uncertainty, NoUncertainty
 from .uncertainties import (
     BinaryStateFlipUncertainty,
     CategoricalRandomReplacementUncertainty,
-    CategoricalReplacementUncertainty
+    CategoricalReplacementUncertainty,
 )
 from .common import CDFNotAvailable
 from ..auxiliary import get_logger
 
 logger = get_logger(__name__)
 
-ScalarValue: TypeAlias = (
-    str | int | float | np.integer | np.floating | Enum
-)
+ScalarValue: TypeAlias = str | int | float | np.integer | np.floating | Enum
 
 T = TypeVar("T", bound=ScalarValue)
 
@@ -69,15 +68,18 @@ class ParameterType(Enum):
     UNDEFINED
         Parameter type not yet determined.
     """
+
     NUMERICAL = auto()
     DISCRETE = auto()
     CATEGORICAL = auto()
     BINARY = auto()
     UNDEFINED = auto()
 
+
 # ================================================================
 #  Uncertain Parameters
 # ================================================================
+
 
 class IUncertainParameter(ABC, Generic[T]):
     """Abstract base class for uncertain parameters.
@@ -120,7 +122,7 @@ class IUncertainParameter(ABC, Generic[T]):
     def cdf(self, x: CDFInput) -> CDFResult:
         """Evaluate the CDF of the realised parameter value."""
 
-        
+
 @dataclass
 class Parameter(IUncertainParameter[T], Generic[T]):
     """Uncertain parameter with sampling and locking support.
@@ -147,17 +149,22 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         Optional dictionary for additional information about the parameter.
         Defaults to empty dict.
     """
+
     name: str
     nominal_value: T
     uncertainty: Uncertainty[T] = field(default_factory=NoUncertainty)
     type: ParameterType = ParameterType.UNDEFINED
     infer_type_from_data: bool = field(default=True)
-    metadata: dict[str, Any] = field(default_factory=dict) # Additional metadata for the parameter
-    
+    metadata: dict[str, Any] = field(
+        default_factory=dict
+    )  # Additional metadata for the parameter
+
     _sampled_value: Optional = field(init=False, default=None, repr=False)
     _locked: bool = field(init=False, default=False, repr=False)
-    _lock: threading.Lock = field(init=False, default_factory=threading.Lock, repr=False)
-    
+    _lock: threading.Lock = field(
+        init=False, default_factory=threading.Lock, repr=False
+    )
+
     def __post_init__(self):
         """Validate parameter configuration after initialization.
 
@@ -176,19 +183,20 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             )
             self.type = inferred_type
 
-
     def _infer_parameter_type(self) -> ParameterType:
         """Infer the parameter type based on the nominal value."""
         if isinstance(self.nominal_value, (int, float)):
             return ParameterType.NUMERICAL
-        if isinstance(self.nominal_value, bool) or isinstance(self.uncertainty, BinaryStateFlipUncertainty):
+        if isinstance(self.nominal_value, bool) or isinstance(
+            self.uncertainty, BinaryStateFlipUncertainty
+        ):
             return ParameterType.BINARY
-        if (
-            isinstance(self.nominal_value, str) or 
-            isinstance(
-                self.uncertainty, 
-                (CategoricalRandomReplacementUncertainty, CategoricalReplacementUncertainty)
-            )
+        if isinstance(self.nominal_value, str) or isinstance(
+            self.uncertainty,
+            (
+                CategoricalRandomReplacementUncertainty,
+                CategoricalReplacementUncertainty,
+            ),
         ):
             return ParameterType.CATEGORICAL
         if isinstance(self.nominal_value, (list, np.ndarray)):
@@ -198,16 +206,22 @@ class Parameter(IUncertainParameter[T], Generic[T]):
     # --------------------------------------------------
     # Core API
     # --------------------------------------------------
-    
-    def cdf(self, x: CDFInput, *, empirical: bool = False, n_samples: int = 10_000, 
-            random_state: int | np.random.Generator | None = None) -> CDFResult:
+
+    def cdf(
+        self,
+        x: CDFInput,
+        *,
+        empirical: bool = False,
+        n_samples: int = 10_000,
+        random_state: int | np.random.Generator | None = None,
+    ) -> CDFResult:
         """Evaluate the CDF of the realised parameter value.
-        
+
         Computes F_Y(x) where Y = uncertainty.apply(nominal_value, u).
-        
+
         The CDF depends on both the nominal value and the uncertainty model.
         For example, with additive uncertainty Y = x + ε, the CDF is F_Y(y) = F_ε(y - x).
-        
+
         Parameters
         ----------
         x : float or array-like
@@ -219,12 +233,12 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             Number of samples for empirical CDF estimation.
         random_state : int, numpy.random.Generator, or None, default=None
             Random seed or generator for empirical estimation.
-        
+
         Returns
         -------
         CDFResult
             CDF values F_Y(x) as a float64 array matching the shape of x.
-        
+
         Raises
         ------
         CDFNotAvailable
@@ -232,7 +246,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             support CDF evaluation and empirical=False.
         ValueError
             If empirical CDF estimation fails.
-        
+
         Examples
         --------
         >>> from hydroforge.uncertainty import (
@@ -248,18 +262,18 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         >>> cdf_at_105 = p.cdf(105.0)
         >>> print(f"P(Diameter <= 105) = {cdf_at_105:.4f}")
         P(Diameter <= 105) = 0.8413
-        
+
         >>> # Multiple values
         >>> cdf_values = p.cdf([90.0, 100.0, 110.0])
         >>> print(cdf_values)
         [0.0228 0.5    0.9772]
-        
+
         Notes
         -----
         Theoretical CDF is preferred for efficiency. It is available for:
         - Distribution-based uncertainties (Additive, Multiplicative)
         - NoUncertainty (deterministic)
-        
+
         For other uncertainty types or when empirical=True, samples are generated
         and an empirical CDF is computed.
         """
@@ -270,7 +284,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
                 f"Stratified sampling and advanced sampling methods requiring CDF evaluation "
                 f"are not supported for categorical parameters."
             )
-        
+
         # Try theoretical CDF first (unless empirical is explicitly requested)
         if not empirical:
             try:
@@ -281,19 +295,19 @@ class Parameter(IUncertainParameter[T], Generic[T]):
                     # User didn't explicitly request empirical, so raise the error
                     raise
                 # Otherwise, continue to empirical computation
-        
+
         # Compute empirical CDF if theoretical failed or was requested
         return self._empirical_cdf(x, n_samples=n_samples, random_state=random_state)
-    
+
     def _empirical_cdf(
-        self, 
-        x: CDFInput, 
-        *, 
-        n_samples: int, 
-        random_state: int | np.random.Generator | None
+        self,
+        x: CDFInput,
+        *,
+        n_samples: int,
+        random_state: int | np.random.Generator | None,
     ) -> CDFResult:
         """Estimate CDF empirically by sampling the parameter.
-        
+
         Parameters
         ----------
         x : float or array-like
@@ -302,7 +316,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             Number of parameter samples to generate for empirical CDF.
         random_state : int, Generator, or None
             Random seed or generator.
-        
+
         Returns
         -------
         CDFResult
@@ -310,29 +324,29 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         """
         if n_samples <= 0:
             raise ValueError("n_samples must be greater than zero")
-        
+
         # Generate samples
         rng = (
             random_state
             if isinstance(random_state, np.random.Generator)
             else np.random.default_rng(random_state)
         )
-        
+
         # Create unit-interval samples
         unit_samples = rng.random(int(n_samples))
         samples = np.array([self.sample_from_unit(u) for u in unit_samples])
-        
+
         # Sort samples for ECDF computation
         sorted_samples = np.sort(samples)
-        
+
         # Evaluate ECDF at requested points
         x_array = np.asarray(x, dtype=float)
         flat_x = x_array.reshape(-1)
         indices = np.searchsorted(sorted_samples, flat_x, side="right")
         result = indices / len(sorted_samples)
-        
+
         return np.asarray(result, dtype=np.float64).reshape(x_array.shape)
-    
+
     def nominal(self) -> T:
         """Return the nominal (unperturbed) value.
 
@@ -342,7 +356,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             The base parameter value without uncertainty applied.
         """
         return self.nominal_value
-    
+
     def reset(self) -> None:
         """Reset the sampled value and unlock for new sampling.
 
@@ -352,7 +366,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         with self._lock:
             self._sampled_value = None
             self._locked = False
-    
+
     def sample(self) -> T:
         """Return a realised parameter value with uncertainty applied.
 
@@ -376,7 +390,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             self._sampled_value = val
             self._locked = True
             return val
-    
+
     def sample_from_unit(self, u: float | Sequence[float]) -> T:
         """Sample parameter using unit interval value(s).
 
@@ -400,11 +414,11 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         Use sample() for locked sampling behavior.
         """
         return self.uncertainty.apply(self.nominal_value, u=u)
-        
+
     # --------------------------------------------------
     # Helper wrappers for parameter type checks
-    # --------------------------------------------------    
-    
+    # --------------------------------------------------
+
     def is_categorical(self) -> bool:
         """Check if the parameter is categorical.
 
@@ -414,7 +428,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             True if parameter type is CATEGORICAL, False otherwise.
         """
         return self.type == ParameterType.CATEGORICAL
-    
+
     def is_discrete(self) -> bool:
         """Check if the parameter is discrete.
 
@@ -424,7 +438,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             True if parameter type is DISCRETE, False otherwise.
         """
         return self.type == ParameterType.DISCRETE
-    
+
     def is_binary(self) -> bool:
         """Check if the parameter is binary.
 
@@ -434,7 +448,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             True if parameter type is BINARY, False otherwise.
         """
         return self.type == ParameterType.BINARY
-    
+
     def is_numerical(self) -> bool:
         """Check if the parameter is numerical.
 
@@ -444,7 +458,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             True if parameter type is NUMERICAL, False otherwise.
         """
         return self.type == ParameterType.NUMERICAL
-    
+
     def is_undefined(self) -> bool:
         """Check if the parameter type is undefined.
 
@@ -458,7 +472,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
     # --------------------------------------------------
     # Conversions
     # --------------------------------------------------
-    
+
     def __float__(self) -> float:
         """Convert parameter to float by sampling.
 
@@ -477,7 +491,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             return float(val)
         except (TypeError, ValueError):
             raise TypeError("Cannot convert uncertain parameter to float") from None
-    
+
     def __array__(self, dtype=None) -> np.ndarray:
         """Convert parameter to numpy array by sampling.
 
@@ -532,14 +546,12 @@ class Parameter(IUncertainParameter[T], Generic[T]):
 
             if op_name == "mul":
                 # allow only integer multipliers
-                other_val = (
-                    other.sample() if isinstance(other, Parameter) else other
-                )
+                other_val = other.sample() if isinstance(other, Parameter) else other
                 if not isinstance(other_val, Integral):
                     raise TypeError(
                         "Multiplication of discrete parameters requires integer multiplier"
                     )
-    
+
     @staticmethod
     def _coerce_other(other: Any) -> Any:
         """Coerce other operand to its sampled value if it's a Parameter.
@@ -579,31 +591,31 @@ class Parameter(IUncertainParameter[T], Generic[T]):
     def __add__(self, other):
         """Add parameter to another value."""
         return self.__binary_op(other, "add", lambda a, b: a + b)
-    
+
     def __radd__(self, other):
         """Add value to parameter (reverse addition)."""
         return self.__binary_op(other, "add", lambda a, b: b + a)
-    
+
     def __sub__(self, other):
         """Subtract value from parameter."""
         return self.__binary_op(other, "sub", lambda a, b: a - b)
-    
+
     def __rsub__(self, other):
         """Subtract parameter from value (reverse subtraction)."""
         return self.__binary_op(other, "sub", lambda a, b: b - a)
-    
+
     def __mul__(self, other):
         """Multiply parameter by value."""
         return self.__binary_op(other, "mul", lambda a, b: a * b)
-    
+
     def __rmul__(self, other):
         """Multiply value by parameter (reverse multiplication)."""
         return self.__binary_op(other, "mul", lambda a, b: b * a)
-    
+
     def __truediv__(self, other):
         """Divide parameter by value."""
         return self.__binary_op(other, "div", lambda a, b: a / b)
-    
+
     def __rtruediv__(self, other):
         """Divide value by parameter (reverse division)."""
         return self.__binary_op(other, "div", lambda a, b: b / a)
@@ -644,15 +656,14 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             return NotImplemented
 
         sampled_args = tuple(
-            x.sample() if isinstance(x, Parameter) else x
-            for x in args
+            x.sample() if isinstance(x, Parameter) else x for x in args
         )
         return func(*sampled_args, **kwargs)
-    
+
     # --------------------------------------------------
     # Representation
     # --------------------------------------------------
-    
+
     def __repr__(self) -> str:
         """Return a detailed string representation of the parameter.
 
@@ -662,12 +673,15 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             String representation including name, nominal value, uncertainty, type, and metadata.
         """
         name_str = f"name='{self.name}', "
-        return (f"{self.__class__.__name__}("
-                f"{name_str}"
-                f"nominal={self.nominal_value}, "
-                f"uncertainty={self.uncertainty.__repr__()}, "
-                f"type={self.type.name}, "
-                f"metadata={self.metadata})")
+        return (
+            f"{self.__class__.__name__}("
+            f"{name_str}"
+            f"nominal={self.nominal_value}, "
+            f"uncertainty={self.uncertainty.__repr__()}, "
+            f"type={self.type.name}, "
+            f"metadata={self.metadata})"
+        )
+
 
 # ================================================================
 #  Demonstration

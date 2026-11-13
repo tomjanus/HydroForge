@@ -1,4 +1,5 @@
 """ """
+
 from dataclasses import dataclass, field
 import copy
 import glob
@@ -10,15 +11,12 @@ from .results import WNTRSimulationResults
 from ..common.simulator import Simulator
 from ...auxiliary.logging_utils import get_logger
 
-
 logger = get_logger(__name__)
 
 
 # -------------------------- Concrete Simulators -------------------------
 @dataclass(slots=True)
-class WNTRSimulator(
-    Simulator[WNTRModel, WNTRSimulationResults, WNTRSimulatorConfig]
-):
+class WNTRSimulator(Simulator[WNTRModel, WNTRSimulationResults, WNTRSimulatorConfig]):
     """WNTR simulator strategy with configurable options.
 
     Parameters
@@ -29,12 +27,13 @@ class WNTRSimulator(
         If True, the simulator modifies the provided model in place; otherwise
         it works on a deep copy. Default is True.
     """
+
     config: WNTRSimulatorConfig = field(default_factory=WNTRSimulatorConfig)
     inplace: bool = True
 
     def configure(self, config: WNTRSimulatorConfig) -> None:
         self.config = config
-        
+
     def initialize(self) -> None:
         """Initialize the simulator before running a simulation.
         This method generally applies to dynamic simulators such as TSnet, or PTSNet"""
@@ -42,7 +41,7 @@ class WNTRSimulator(
 
     def run(self, model: WNTRModel) -> WNTRSimulationResults:
         """Run the configured simulation and return the results.
-        
+
         Parameters
         ----------
         model : wntr.network.WaterNetworkModel
@@ -83,7 +82,7 @@ class EPANETSimulator(
     inplace : bool
         If True, the simulator modifies the provided model in place; otherwise
         it works on a deep copy. Default is False.
-        
+
     Notes
     -----
     Temporary files created include: ``.inp``, ``.rpt``, ``.bin``, ``.hyd``, and
@@ -107,7 +106,7 @@ class EPANETSimulator(
             Configured EPANET simulator instance.
         """
         return wntr.sim.EpanetSimulator(model)
-    
+
     def _cleanup_temp_files(self) -> None:
         """Remove temporary EPANET files created during simulation.
 
@@ -130,15 +129,15 @@ class EPANETSimulator(
                 except (OSError, FileNotFoundError):
                     # Ignore errors if file doesn't exist or can't be removed
                     pass
-                
+
     def configure(self, config: EPANETSimulatorConfig) -> None:
         self.config = config
-        
+
     def initialize(self) -> None:
         """Initialize the simulator before running a simulation.
         This method generally applies to dynamic simulators such as TSnet, or PTSNet"""
         pass
-        
+
     def run(self, model: WNTRModel) -> WNTRSimulationResults:
         """Run the EPANET solver and return simulation results.
 

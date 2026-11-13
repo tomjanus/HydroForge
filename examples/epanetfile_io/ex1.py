@@ -9,6 +9,7 @@ Covers both supported file formats -- JSON and EPANET ``.inp`` -- as well as
 the round-trip validation of each: reading a file and writing it back out
 should reproduce an equivalent :class:`EPANETNetworkModel`.
 """
+
 from rich import print as rprint
 from hydroforge.auxiliary.utils import get_package_root
 from hydroforge.epanetfile_io.model_wrapper import EPANETNetworkModel
@@ -31,24 +32,35 @@ def demo_json_workflow() -> EPANETNetworkModel:
 
     rprint("\n🔍 Original junctions:")
     for i, junction in enumerate(water_network.junctions):
-        rprint(f"  {i}: {junction.id} - elevation: {junction.elevation}, pattern: {junction.demand_pattern}")
+        rprint(
+            f"  {i}: {junction.id} - elevation: {junction.elevation}, pattern: {junction.demand_pattern}"
+        )
 
     # Example 1: Direct index access and modification
     rprint("\n📝 Example 1: Direct index access and modification")
     if len(water_network.junctions) > 1:
         junction = water_network.junctions[1]
-        rprint(f"Before: Junction {junction.id} has pattern '{junction.demand_pattern}'")
+        rprint(
+            f"Before: Junction {junction.id} has pattern '{junction.demand_pattern}'"
+        )
         junction.demand_pattern = "Commercial"
-        rprint(f"After:  Junction {junction.id} has pattern '{junction.demand_pattern}'")
+        rprint(
+            f"After:  Junction {junction.id} has pattern '{junction.demand_pattern}'"
+        )
 
     # Example 2: Modification by field value, using EPANETNetworkModel helper methods
     rprint("\n📝 Example 2: Modification by ID using EPANETNetworkModel helper methods")
     success = water_network.modify_item_by_field_value(
-        "junctions", "id", "n157", demand_pattern="Industrial", elevation="75.0")
+        "junctions", "id", "n157", demand_pattern="Industrial", elevation="75.0"
+    )
     if success:
-        modified_junction = water_network.get_item_by_field_value("junctions", "id", "n157")
-        rprint(f"Successfully modified junction n157: pattern='{modified_junction.demand_pattern}', "
-               f"elevation='{modified_junction.elevation}'")
+        modified_junction = water_network.get_item_by_field_value(
+            "junctions", "id", "n157"
+        )
+        rprint(
+            f"Successfully modified junction n157: pattern='{modified_junction.demand_pattern}', "
+            f"elevation='{modified_junction.elevation}'"
+        )
     else:
         rprint("Junction n157 not found")
 
@@ -62,23 +74,37 @@ def demo_json_workflow() -> EPANETNetworkModel:
     # Example 4: Show modified junctions
     rprint("\n🔍 Modified junctions:")
     for i, junction in enumerate(water_network.junctions):
-        rprint(f"  {i}: {junction.id} - elevation: {junction.elevation}, pattern: {junction.demand_pattern}")
+        rprint(
+            f"  {i}: {junction.id} - elevation: {junction.elevation}, pattern: {junction.demand_pattern}"
+        )
 
     # Example 5: Pipe modification and appending a brand new pipe
     rprint("\n📝 Example 5: Pipe modification and creation")
     if len(water_network.pipes) > 0:
         pipe = water_network.pipes[0]
-        rprint(f"Before: Pipe {pipe.id} diameter={pipe.diameter}, roughness={pipe.roughness}")
+        rprint(
+            f"Before: Pipe {pipe.id} diameter={pipe.diameter}, roughness={pipe.roughness}"
+        )
         pipe.diameter = 250
         pipe.roughness = 0.05
-        rprint(f"After:  Pipe {pipe.id} diameter={pipe.diameter}, roughness={pipe.roughness}")
+        rprint(
+            f"After:  Pipe {pipe.id} diameter={pipe.diameter}, roughness={pipe.roughness}"
+        )
 
     new_pipe = Pipe(
-        id="p_new", start_node="n1", end_node="n157", length=100,
-        diameter=200, roughness=0.01, minor_loss=0,
-        status="Open")
+        id="p_new",
+        start_node="n1",
+        end_node="n157",
+        length=100,
+        diameter=200,
+        roughness=0.01,
+        minor_loss=0,
+        status="Open",
+    )
     water_network.pipes.append(new_pipe)
-    rprint(f"Added new pipe '{new_pipe.id}'; pipe count is now {len(water_network.pipes)}")
+    rprint(
+        f"Added new pipe '{new_pipe.id}'; pipe count is now {len(water_network.pipes)}"
+    )
 
     # Example 6: Save to JSON and verify the dictionary round-trips correctly
     rprint("\n📝 Example 6: Save to JSON and verify round-trip")
@@ -99,22 +125,30 @@ def demo_json_workflow() -> EPANETNetworkModel:
 
 def demo_inp_workflow() -> None:
     """Demonstrate reading, modifying, and saving an EPANET ``.inp`` file."""
-    rprint("\n[bold blue]=== Modifying networks in native EPANET .inp format ===[/bold blue]")
+    rprint(
+        "\n[bold blue]=== Modifying networks in native EPANET .inp format ===[/bold blue]"
+    )
 
     inp_path = get_package_root() / "tests/base_networks/Net1.inp"
     water_network = EPANETNetworkModelIO.from_inp_file(inp_path)
 
     rprint("\n🔍 Original junctions:")
     for junction in water_network.junctions:
-        rprint(f"  {junction.id}: elevation={junction.elevation}, base_demand={junction.base_demand}")
+        rprint(
+            f"  {junction.id}: elevation={junction.elevation}, base_demand={junction.base_demand}"
+        )
 
     # Modify a junction's elevation directly (typed as Decimal, not a string)
     rprint("\n📝 Modifying junction '11'")
     junction = water_network.junctions.get_by_field("id", "11")
     if junction is not None:
-        rprint(f"Before: elevation={junction.elevation} ({type(junction.elevation).__name__})")
+        rprint(
+            f"Before: elevation={junction.elevation} ({type(junction.elevation).__name__})"
+        )
         junction.elevation = 725.0
-        rprint(f"After:  elevation={junction.elevation} ({type(junction.elevation).__name__})")
+        rprint(
+            f"After:  elevation={junction.elevation} ({type(junction.elevation).__name__})"
+        )
 
     # Modify a pipe's diameter using the field-value helper
     water_network.modify_item_by_field_value("pipes", "id", "10", diameter=12.0)
@@ -145,7 +179,9 @@ def demo_inp_workflow() -> None:
     original_dict = EPANETNetworkModelIO.to_dict(original_network)
     resaved_dict = EPANETNetworkModelIO.to_dict(resaved_network)
     if original_dict == resaved_dict:
-        rprint("✅ INP round-trip check passed: original and saved files are equivalent.")
+        rprint(
+            "✅ INP round-trip check passed: original and saved files are equivalent."
+        )
     else:
         rprint("❌ INP round-trip check failed: original and saved files differ.")
         _print_dict_diff(original_dict, resaved_dict)
@@ -178,5 +214,3 @@ if __name__ == "__main__":
     demo_json_workflow()
     demo_inp_workflow()
     rprint("\n[bold green]✅ Demonstration complete![/bold green]")
-
-

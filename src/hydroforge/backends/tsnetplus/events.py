@@ -45,6 +45,7 @@ class DemandPulseEvent(_tsnet_events.DemandPulseEvent):
 
     target_type: ClassVar[type[TSNetPlusModel]] = TSNetPlusModel
 
+
 __all__ = [
     "BurstEvent",
     "DemandPulseEvent",

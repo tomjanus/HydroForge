@@ -8,7 +8,6 @@ from hydroforge.backends import get_backend
 from hydroforge.backends.tsnetplus.config import TSNetPlusConfig
 from hydroforge.backends.tsnetplus.events import DemandPulseEvent
 
-
 MODEL = Path(__file__).resolve().parents[2] / "data/case_studies/tsnet/Tnet1.inp"
 console = Console()
 

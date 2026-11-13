@@ -1,4 +1,5 @@
 """TSNet backend wrapper for HydroForge."""
+
 from __future__ import annotations
 
 import pathlib
@@ -13,6 +14,7 @@ class TSNetBackend(
     Backend[TSNetModel, TSNetSimulationResults, TSNetConfig, TSNetConfig]
 ):
     """Concrete backend adapter for the TSNet transient solver."""
+
     package_name = "tsnet"
 
     def __init__(self) -> None:
@@ -42,5 +44,7 @@ class TSNetBackend(
         event.apply_to(self.model)
 
     def create_simulator(self, config: TSNetConfig | None = None) -> TSNetSimulator:
-        self.simulator = TSNetSimulator(config=config or self.get_config(), inplace=True)
+        self.simulator = TSNetSimulator(
+            config=config or self.get_config(), inplace=True
+        )
         return self.simulator

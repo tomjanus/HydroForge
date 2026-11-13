@@ -47,14 +47,15 @@ follows::
     ):
         ...
 """
+
 from abc import ABC, abstractmethod
 from typing import TypeVar, Generic
 from .results import SimulationResults
 
-
 ModelT = TypeVar("ModelT")
 ResultT = TypeVar("ResultT", bound=SimulationResults)
 ConfigT = TypeVar("ConfigT")
+
 
 class Simulator(Generic[ModelT, ResultT, ConfigT], ABC):
     """Abstract interface for a water-network simulation backend.
@@ -78,7 +79,7 @@ class Simulator(Generic[ModelT, ResultT, ConfigT], ABC):
         ):
             ...
     """
-    
+
     @abstractmethod
     def configure(self, config: ConfigT) -> None:
         """Configure the simulator with the provided configuration.
@@ -88,12 +89,12 @@ class Simulator(Generic[ModelT, ResultT, ConfigT], ABC):
         config : ConfigT
             Configuration object specific to the backend.
         """
-        
+
     @abstractmethod
     def initialize(self) -> None:
         """Initialize the simulator before running a simulation.
         This method generally applies to dynamic simulators such as TSnet, or PTSNet"""
-    
+
     @abstractmethod
     def run(self, model: ModelT) -> ResultT:
         """Run the simulation and return its results.

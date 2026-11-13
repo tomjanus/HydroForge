@@ -1,11 +1,11 @@
 """Select PTSNet, configure a transient model, and run a simulation."""
+
 from pathlib import Path
 
 from rich.console import Console
 
 from hydroforge.backends import get_backend
 from hydroforge.backends.ptsnet.config import PTSNetConfig
-
 
 MODEL = Path(__file__).resolve().parents[2] / "tests/base_networks/Net1.inp"
 console = Console()

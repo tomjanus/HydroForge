@@ -1,6 +1,7 @@
 import pathlib
 import tsnet
 
+
 def load_tsnet_model(model: str | pathlib.Path) -> tsnet.network.TransientModel:
     """Load a TSNet transient model from an INP file.
 

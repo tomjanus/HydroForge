@@ -8,6 +8,7 @@ This module provides utility functions including:
 
 All functions are designed to work cross-platform (Windows, Linux, macOS).
 """
+
 from typing import TypeAlias, Literal, Callable, Any
 import importlib.resources as resources
 import functools
@@ -18,9 +19,10 @@ import pathlib
 from datetime import datetime
 from rich import print as rprint
 
-LogType: TypeAlias = Literal['INFO', 'WARN', 'WARNING', 'ERROR']
+LogType: TypeAlias = Literal["INFO", "WARN", "WARNING", "ERROR"]
 
-APPLICATION_NAME: str = 'hydroforge'
+APPLICATION_NAME: str = "hydroforge"
+
 
 def ensure_directory_exists(file_path: pathlib.Path) -> None:
     """Ensure that the directory path to a file exists, creating it if necessary.
@@ -82,29 +84,37 @@ def get_package_root() -> pathlib.Path:
     """
     # Get the path to the 'hydroforge' package
     try:
-        pkg = resources.files('hydroforge')
+        pkg = resources.files("hydroforge")
         hydroforge_package_dir = pkg.resolve()
-        
+
         # The package directory is in src/hydroforge, so go up two levels to get to project root
         package_root = hydroforge_package_dir.parent.parent
-        
+
         # Verify this is the correct root by checking for common project files
-        project_indicators = ['setup.py', 'setup.cfg', 'pyproject.toml', 'requirements.txt', '.git']
+        project_indicators = [
+            "setup.py",
+            "setup.cfg",
+            "pyproject.toml",
+            "requirements.txt",
+            ".git",
+        ]
         if any((package_root / indicator).exists() for indicator in project_indicators):
             return package_root
-            
+
         raise FileNotFoundError(
             f"Could not find the '{APPLICATION_NAME.upper()}' package root directory. "
-            "Ensure you are running this script from within the package.")
+            "Ensure you are running this script from within the package."
+        )
     except (AttributeError, ImportError) as exception:
         # Fallback for older importlib.resources API
-        if hasattr(resources, 'path'):
-            with resources.path(hydroforge, '__init__.py') as init_path:
+        if hasattr(resources, "path"):
+            with resources.path(hydroforge, "__init__.py") as init_path:
                 hydroforge_package_dir = init_path.parent
                 return hydroforge_package_dir.parent.parent
         raise FileNotFoundError(
             "Could not find the hydroforge package root directory. "
-            "Ensure you are running this script from within the package.") from exception
+            "Ensure you are running this script from within the package."
+        ) from exception
 
 
 def log(log_type: LogType, msg: str) -> None:
@@ -129,18 +139,18 @@ def log(log_type: LogType, msg: str) -> None:
     >>> log('INFO', 'Processing started')
     2026-07-31 22:30:00: INFO: Processing started
     """
-    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     # Define colors for different log types
     color_map = {
-        'INFO': 'blue',
-        'ERROR': 'red',
-        'WARNING': 'yellow',
-        'WARN': 'yellow',  # Alternative for WARNING
+        "INFO": "blue",
+        "ERROR": "red",
+        "WARNING": "yellow",
+        "WARN": "yellow",  # Alternative for WARNING
     }
     # Get color for the log type, default to white if not found
-    color = color_map.get(log_type.upper(), 'white')
+    color = color_map.get(log_type.upper(), "white")
     # Format the log message with colored log type
-    rprint(f'{now}: [{color}]{log_type}[/{color}]: {msg}', file=sys.stderr)
+    rprint(f"{now}: [{color}]{log_type}[/{color}]: {msg}", file=sys.stderr)
 
 
 def timer(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -163,24 +173,28 @@ def timer(func: Callable[..., Any]) -> Callable[..., Any]:
     ...     # some code
     ...     pass
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs) -> Any:
         start_time = time.perf_counter()
         result = func(*args, **kwargs)
         end_time = time.perf_counter()
         execution_time = end_time - start_time
-        
+
         # Get function name and class name if it's a method
         func_name = func.__name__
-        if args and hasattr(args[0], '__class__'):
+        if args and hasattr(args[0], "__class__"):
             class_name = args[0].__class__.__name__
-            rprint(f"⏱️  {class_name}.{func_name}() executed in {execution_time:.6f} seconds")
+            rprint(
+                f"⏱️  {class_name}.{func_name}() executed in {execution_time:.6f} seconds"
+            )
         else:
             rprint(f"⏱️  {func_name}() executed in {execution_time:.6f} seconds")
-        
+
         return result
+
     return wrapper
-    
+
 
 if __name__ == "__main__":
     pass

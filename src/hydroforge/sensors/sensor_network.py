@@ -4,6 +4,7 @@ Provides `SensorNetworkGraph`, a lightweight wrapper around a NetworkX
 graph in which nodes represent sensors and edges represent bridges
 (shared connections) between the pressure zones each sensor monitors.
 """
+
 from typing import Dict, List, Tuple, Any, TypeAlias, NamedTuple
 from collections import namedtuple
 from dataclasses import dataclass, field
@@ -11,12 +12,13 @@ import networkx as nx
 import numpy as np
 from hydroforge.graphs.graph import PressureZones
 
-
 SensorName: TypeAlias = str | int
 Position = namedtuple("Position", ["x", "y"])
 
+
 class SensorPathCosts(NamedTuple):
     """Named tuple for sensor path costs data."""
+
     matrix: np.ndarray
     sensors: tuple[SensorName, ...]
 
@@ -30,6 +32,7 @@ class SensorNetworkGraph:
     Attribute access not defined on this class is delegated to the
     underlying `networkx.Graph` instance.
     """
+
     _graph: nx.Graph = field(default_factory=nx.Graph, init=False, repr=False)
 
     def __getattr__(self, item):
@@ -46,7 +49,7 @@ class SensorNetworkGraph:
             The requested attribute of the underlying `networkx.Graph`.
         """
         return getattr(self._graph, item)
-    
+
     def __len__(self) -> int:
         """
         Return the number of nodes (sensors) in the graph.
@@ -57,7 +60,7 @@ class SensorNetworkGraph:
             Number of sensor nodes in the graph.
         """
         return len(self._graph)
-    
+
     def __iter__(self):
         """Iterate over the sensor nodes of the underlying graph.
 
@@ -82,7 +85,7 @@ class SensorNetworkGraph:
             True if `item` is a node in the graph, False otherwise.
         """
         return item in self._graph
-    
+
     def __repr__(self) -> str:
         """
         Return a string representation of the graph, including key properties.
@@ -94,7 +97,9 @@ class SensorNetworkGraph:
         """
         num_nodes = self._graph.number_of_nodes()
         num_edges = self._graph.number_of_edges()
-        return (f"SensorNetworkGraph with {num_nodes} sensors and {num_edges} connections.")
+        return (
+            f"SensorNetworkGraph with {num_nodes} sensors and {num_edges} connections."
+        )
 
     @property
     def graph(self) -> nx.Graph:
@@ -106,7 +111,7 @@ class SensorNetworkGraph:
             The underlying graph instance.
         """
         return self._graph
-    
+
     def get_networkx_graph(self) -> nx.Graph:
         """Return the underlying NetworkX graph object.
 
@@ -116,7 +121,7 @@ class SensorNetworkGraph:
             The underlying graph instance.
         """
         return self._graph
-    
+
     def shortest_path(self, source: SensorName, target: SensorName) -> List[SensorName]:
         """Compute the shortest path between two sensor nodes.
 
@@ -131,7 +136,7 @@ class SensorNetworkGraph:
         -------
         list of SensorName
             List of sensor nodes representing the shortest path from `source` to `target`.
-        
+
         Raises
         ------
         nx.NetworkXNoPath
@@ -142,7 +147,7 @@ class SensorNetworkGraph:
         if target not in self._graph:
             raise ValueError(f"Target node '{target}' is not in the sensor graph.")
         return nx.shortest_path(self._graph, source=source, target=target)
-    
+
     @classmethod
     def from_sensor_graph(cls, graph: nx.Graph) -> "SensorNetworkGraph":
         """Create a `SensorNetworkGraph` from an existing NetworkX graph
@@ -167,9 +172,11 @@ class SensorNetworkGraph:
         obj = cls()
         obj._graph = graph
         return obj
-    
+
     @classmethod
-    def from_network_graph(cls, graph: nx.Graph, sensor_nodes: List[SensorName]) -> "SensorNetworkGraph":
+    def from_network_graph(
+        cls, graph: nx.Graph, sensor_nodes: List[SensorName]
+    ) -> "SensorNetworkGraph":
         """Create a `SensorNetworkGraph` from a network graph and a list of
         sensor nodes.
 
@@ -188,13 +195,14 @@ class SensorNetworkGraph:
         obj = cls()
         obj._graph = graph.subgraph(sensor_nodes).copy()
         return obj
-    
+
     @classmethod
     def from_sensor_zones(
-            cls,
-            sensor_locations: Dict[SensorName, Position],
-            zone_sizes: Dict[SensorName, float],
-            pressure_zones: PressureZones) -> "SensorNetworkGraph":
+        cls,
+        sensor_locations: Dict[SensorName, Position],
+        zone_sizes: Dict[SensorName, float],
+        pressure_zones: PressureZones,
+    ) -> "SensorNetworkGraph":
         """Create a sensor-level graph from sensor zones and pressure zone bridges.
 
         Builds a graph whose nodes are sensors, positioned according to
@@ -219,7 +227,10 @@ class SensorNetworkGraph:
         """
         _sensor_graph = nx.Graph()
         graph_nodes: List[Tuple[SensorName, Dict[SensorName, Any]]] = [
-            (sensor, {"pos": (position.x, position.y), "weight": zone_sizes.get(sensor, 0)})
+            (
+                sensor,
+                {"pos": (position.x, position.y), "weight": zone_sizes.get(sensor, 0)},
+            )
             for sensor, position in sensor_locations.items()
         ]
         _sensor_graph.add_nodes_from(graph_nodes)
@@ -231,7 +242,7 @@ class SensorNetworkGraph:
 
         The shortest path is determined using unweighted graph edges. The
         cost of each path is the sum of the weights assigned to its nodes.
-        
+
         Unreachable sensor pairs have a path cost of ``np.inf``.
 
         Returns
@@ -248,7 +259,7 @@ class SensorNetworkGraph:
             If the graph has no node weights or if one or more graph nodes
             are missing a ``weight`` attribute.
         """
-        _weights = nx.get_node_attributes(self._graph, 'weight')
+        _weights = nx.get_node_attributes(self._graph, "weight")
         if not _weights:
             raise ValueError(
                 "The graph does not have a 'weight' attribute. "
@@ -278,4 +289,3 @@ class SensorNetworkGraph:
             matrix=cost_matrix,
             sensors=sensors,
         )
-

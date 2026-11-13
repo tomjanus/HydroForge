@@ -1,4 +1,5 @@
 """ """
+
 from typing import ClassVar, Sequence, overload, TypeAlias
 from dataclasses import dataclass
 import pandas as pd
@@ -8,6 +9,7 @@ from ..common.results import SimulationResults, TimeLocation, NodeVariable, Link
 from ..common.utils import _resolve_times
 
 RawWNTRSimulationResults: TypeAlias = wntr.sim.SimulationResults
+
 
 @dataclass(slots=True)
 class WNTRSimulationResults(SimulationResults):
@@ -19,6 +21,7 @@ class WNTRSimulationResults(SimulationResults):
         Simulation results produced by a WNTR/EPANET run (contains node and link
         time series data).
     """
+
     raw: RawWNTRSimulationResults
 
     node_variables: ClassVar[tuple[NodeVariable, ...]] = (
@@ -26,19 +29,19 @@ class WNTRSimulationResults(SimulationResults):
         "pressure",
         "head",
         "demand",
-        "quality"
+        "quality",
     )
     link_variables: ClassVar[tuple[LinkVariable, ...]] = (
         "flowrate",
         "velocity",
         "status",
-        "setting"
+        "setting",
     )
-    
+
     @staticmethod
     def _validate_variable(variable: str, allowed: tuple[str, ...]) -> None:
-        """ Helper method to validate a variable name against allowed variables.
-        
+        """Helper method to validate a variable name against allowed variables.
+
         Raises
         ------
         ValueError
@@ -49,12 +52,11 @@ class WNTRSimulationResults(SimulationResults):
                 f"Invalid variable: {variable!r}. "
                 f"Supported variables: {', '.join(allowed)}."
             )
-            
+
     @staticmethod
     def _format_results(
-            results: pd.DataFrame,
-            *,
-            as_dataframe: bool) -> pd.DataFrame | np.ndarray:
+        results: pd.DataFrame, *, as_dataframe: bool
+    ) -> pd.DataFrame | np.ndarray:
         """Format results as a DataFrame or NumPy array."""
         if as_dataframe:
             return results
@@ -66,8 +68,8 @@ class WNTRSimulationResults(SimulationResults):
         nodes: Sequence[str],
         times: TimeLocation,
     ) -> pd.DataFrame:
-        """ Extract node results for a given variable, nodes, and times.
-        
+        """Extract node results for a given variable, nodes, and times.
+
         Parameters
         ----------
         variable : NodeVariable
@@ -76,13 +78,13 @@ class WNTRSimulationResults(SimulationResults):
             Node names to extract results from.
         times : TimeLocation
             Time locations to extract data from (default: all times).
-            
+
         Returns
         -------
         pandas.DataFrame
             DataFrame containing the extracted values indexed by time and
             with columns corresponding to the requested nodes.
-        
+
         Raises
         ------
         ValueError
@@ -93,8 +95,7 @@ class WNTRSimulationResults(SimulationResults):
             table = self.raw.node[variable]
         except KeyError as exc:
             raise ValueError(
-                f"Simulation results do not contain "
-                f"{variable!r} data."
+                f"Simulation results do not contain " f"{variable!r} data."
             ) from exc
         return table.loc[_resolve_times(table.index, times), nodes]
 
@@ -104,8 +105,8 @@ class WNTRSimulationResults(SimulationResults):
         links: Sequence[str],
         times: TimeLocation,
     ) -> pd.DataFrame:
-        """ Extract link results for a given variable, links, and times. 
-        
+        """Extract link results for a given variable, links, and times.
+
         Parameters
         ----------
         variable : LinkVariable
@@ -114,12 +115,12 @@ class WNTRSimulationResults(SimulationResults):
             Link names to extract results from.
         times : TimeLocation
             Time locations to extract data from (default: all times).
-            
+
         Returns
         -------
         pandas.DataFrame
             Data values for the requested links, times, and variable.
-        
+
         Raises
         ------
         ValueError
@@ -130,8 +131,7 @@ class WNTRSimulationResults(SimulationResults):
             table = self.raw.link[variable]
         except KeyError as exc:
             raise ValueError(
-                f"Simulation results do not contain "
-                f"{variable!r} data."
+                f"Simulation results do not contain " f"{variable!r} data."
             ) from exc
         return table.loc[_resolve_times(table.index, times), links]
 
@@ -143,9 +143,8 @@ class WNTRSimulationResults(SimulationResults):
         times: TimeLocation = slice(None),
         *,
         as_dataframe: bool = False,
-    ) -> pd.DataFrame:
-        ...
-        
+    ) -> pd.DataFrame: ...
+
     @overload
     def get_node_variable(
         self,
@@ -154,8 +153,7 @@ class WNTRSimulationResults(SimulationResults):
         times: TimeLocation = slice(None),
         *,
         as_dataframe: bool = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
 
     def get_node_variable(
         self,
@@ -185,9 +183,7 @@ class WNTRSimulationResults(SimulationResults):
             Dta values for the requested sensors, times, and variable.
         """
         results = self._extract_node_results(
-            variable=variable,
-            nodes=nodes,
-            times=times
+            variable=variable, nodes=nodes, times=times
         )
         return self._format_results(results, as_dataframe=as_dataframe)
 
@@ -199,9 +195,8 @@ class WNTRSimulationResults(SimulationResults):
         times: TimeLocation = slice(None),
         *,
         as_dataframe: bool = False,
-    ) -> pd.DataFrame:
-        ...
-        
+    ) -> pd.DataFrame: ...
+
     @overload
     def get_link_variable(
         self,
@@ -210,8 +205,7 @@ class WNTRSimulationResults(SimulationResults):
         times: TimeLocation = slice(None),
         *,
         as_dataframe: bool = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
 
     def get_link_variable(
         self,
@@ -241,8 +235,6 @@ class WNTRSimulationResults(SimulationResults):
             Data values for the requested sensors and times and variable.
         """
         results = self._extract_link_results(
-            variable=variable,
-            links=links,
-            times=times
+            variable=variable, links=links, times=times
         )
         return self._format_results(results, as_dataframe=as_dataframe)

@@ -26,28 +26,53 @@ INP files without depending on external simulation packages (e.g. WNTR): the
 file is parsed into an ``OrderedDict`` of raw tokens, wrapped in typed,
 mutable objects for convenient editing, and then serialized back to disk.
 """
+
 from __future__ import annotations
 from typing import (
-    List, Any, Optional, TypeVar, Type, Protocol,
-    NamedTuple, Tuple, ClassVar, Generic, Sequence, overload
+    List,
+    Any,
+    Optional,
+    TypeVar,
+    Type,
+    Protocol,
+    NamedTuple,
+    Tuple,
+    ClassVar,
+    Generic,
+    Sequence,
+    overload,
 )
 from dataclasses import dataclass, field
 from collections.abc import MutableSequence
 from .components import (
-    TitleLine, Junction, Reservoir, Tank, Pipe, Pump, Valve,
-    Demand, Pattern, Curve, Control, Energy, Reaction, Time,
-    Report, Option, Coordinate, Backdrop
+    TitleLine,
+    Junction,
+    Reservoir,
+    Tank,
+    Pipe,
+    Pump,
+    Valve,
+    Demand,
+    Pattern,
+    Curve,
+    Control,
+    Energy,
+    Reaction,
+    Time,
+    Report,
+    Option,
+    Coordinate,
+    Backdrop,
 )
 
-
 # Type variable bound to the ``Item`` protocol, used for ``NetworkCollection[T]``.
-T = TypeVar('T', bound='Item')
+T = TypeVar("T", bound="Item")
 
 
 @dataclass(frozen=True, slots=True)
 class FieldMapping:
     """Mapping between an INP dictionary key and a model attribute.
-    
+
     Parameters
     ----------
     section : str
@@ -57,6 +82,7 @@ class FieldMapping:
     item_type : type, optional
         Dataclass type of the network item (``Junction``, ``Pipe``, etc.).
     """
+
     section: str
     attr_name: str
     item_type: type | None = None
@@ -119,10 +145,8 @@ class NetworkCollection(MutableSequence[T], Generic[T]):
     """
 
     def __init__(
-            self,
-            item_type: Type[T],
-            data: Sequence[list[Any]] | None = None
-        ) -> None:
+        self, item_type: Type[T], data: Sequence[list[Any]] | None = None
+    ) -> None:
         """Initialize the collection.
 
         Parameters
@@ -137,9 +161,8 @@ class NetworkCollection(MutableSequence[T], Generic[T]):
         self._cache: dict[int, T] = {}
 
     @overload
-    def __getitem__(self, index: slice) -> list[T]:
-        ...
-        
+    def __getitem__(self, index: slice) -> list[T]: ...
+
     def __getitem__(self, index: int | slice) -> T | list[T]:
         """Return one or more items.
 
@@ -154,10 +177,7 @@ class NetworkCollection(MutableSequence[T], Generic[T]):
             Requested item or list of items.
         """
         if isinstance(index, slice):
-            return [
-                self._convert_item(ix_)
-                for ix_ in range(*index.indices(len(self)))
-            ]
+            return [self._convert_item(ix_) for ix_ in range(*index.indices(len(self)))]
         return self._convert_item(index)
 
     @overload
@@ -165,8 +185,7 @@ class NetworkCollection(MutableSequence[T], Generic[T]):
         self,
         index: slice,
         value: Sequence[T | Sequence[Any]],
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def __setitem__(
         self,
@@ -199,12 +218,10 @@ class NetworkCollection(MutableSequence[T], Generic[T]):
         self._cache.pop(index, None)
 
     @overload
-    def __delitem__(self, index: int) -> None:
-        ...
+    def __delitem__(self, index: int) -> None: ...
 
     @overload
-    def __delitem__(self, index: slice) -> None:
-        ...
+    def __delitem__(self, index: slice) -> None: ...
 
     def __delitem__(self, index: int | slice) -> None:
         """Delete one or more items.
@@ -382,77 +399,113 @@ class EPANETNetworkModel:
     >>> junction.elevation = 100.0
     >>> EPANETNetworkModelIO.to_inp_file(network, 'modified_network.inp')
     """
-    
+
     # Class-level mappings for consistent conversion between dict and object attributes
     COLLECTION_MAPPINGS: ClassVar[Tuple[FieldMapping, ...]] = (
-        FieldMapping('TITLE', 'title', TitleLine),
-        FieldMapping('JUNCTIONS', 'junctions', Junction),
-        FieldMapping('RESERVOIRS', 'reservoirs', Reservoir),
-        FieldMapping('TANKS', 'tanks', Tank),
-        FieldMapping('PIPES', 'pipes', Pipe),
-        FieldMapping('PUMPS', 'pumps', Pump),
-        FieldMapping('VALVES', 'valves', Valve),
-        FieldMapping('DEMANDS', 'demands', Demand),
-        FieldMapping('PATTERNS', 'patterns', Pattern),
-        FieldMapping('CURVES', 'curves', Curve),
-        FieldMapping('CONTROLS', 'controls', Control),
-        FieldMapping('ENERGY', 'energy', Energy),
-        FieldMapping('REACTIONS', 'reactions', Reaction),
-        FieldMapping('TIMES', 'times', Time),
-        FieldMapping('REPORT', 'report', Report),
-        FieldMapping('OPTIONS', 'options', Option),
-        FieldMapping('COORDINATES', 'coordinates', Coordinate),
-        FieldMapping('BACKDROP', 'backdrop', Backdrop),
+        FieldMapping("TITLE", "title", TitleLine),
+        FieldMapping("JUNCTIONS", "junctions", Junction),
+        FieldMapping("RESERVOIRS", "reservoirs", Reservoir),
+        FieldMapping("TANKS", "tanks", Tank),
+        FieldMapping("PIPES", "pipes", Pipe),
+        FieldMapping("PUMPS", "pumps", Pump),
+        FieldMapping("VALVES", "valves", Valve),
+        FieldMapping("DEMANDS", "demands", Demand),
+        FieldMapping("PATTERNS", "patterns", Pattern),
+        FieldMapping("CURVES", "curves", Curve),
+        FieldMapping("CONTROLS", "controls", Control),
+        FieldMapping("ENERGY", "energy", Energy),
+        FieldMapping("REACTIONS", "reactions", Reaction),
+        FieldMapping("TIMES", "times", Time),
+        FieldMapping("REPORT", "report", Report),
+        FieldMapping("OPTIONS", "options", Option),
+        FieldMapping("COORDINATES", "coordinates", Coordinate),
+        FieldMapping("BACKDROP", "backdrop", Backdrop),
     )
-    
+
     LIST_FIELD_MAPPINGS: ClassVar[Tuple[FieldMapping, ...]] = (
-        FieldMapping('TAGS', 'tags'),
-        FieldMapping('STATUS', 'status'),
-        FieldMapping('RULES', 'rules'),
-        FieldMapping('EMITTERS', 'emitters'),
-        FieldMapping('QUALITY', 'quality'),
-        FieldMapping('SOURCES', 'sources'),
-        FieldMapping('MIXING', 'mixing'),
-        FieldMapping('VERTICES', 'vertices'),
-        FieldMapping('LABELS', 'labels')
+        FieldMapping("TAGS", "tags"),
+        FieldMapping("STATUS", "status"),
+        FieldMapping("RULES", "rules"),
+        FieldMapping("EMITTERS", "emitters"),
+        FieldMapping("QUALITY", "quality"),
+        FieldMapping("SOURCES", "sources"),
+        FieldMapping("MIXING", "mixing"),
+        FieldMapping("VERTICES", "vertices"),
+        FieldMapping("LABELS", "labels"),
     )
-    
+
     # Reverse mappings for to_dict conversion
-    #REVERSE_COLLECTION_MAPPINGS: ClassVar = invert_mappings(COLLECTION_MAPPINGS)
-    #REVERSE_LIST_MAPPINGS: ClassVar = invert_mappings(LIST_FIELD_MAPPINGS)
-    
+    # REVERSE_COLLECTION_MAPPINGS: ClassVar = invert_mappings(COLLECTION_MAPPINGS)
+    # REVERSE_LIST_MAPPINGS: ClassVar = invert_mappings(LIST_FIELD_MAPPINGS)
+
     # Main network components
-    title: NetworkCollection[TitleLine] = field(default_factory=lambda: NetworkCollection(TitleLine))
-    junctions: NetworkCollection[Junction] = field(default_factory=lambda: NetworkCollection(Junction))
-    reservoirs: NetworkCollection[Reservoir] = field(default_factory=lambda: NetworkCollection(Reservoir))
-    tanks: NetworkCollection[Tank] = field(default_factory=lambda: NetworkCollection(Tank))
-    pipes: NetworkCollection[Pipe] = field(default_factory=lambda: NetworkCollection(Pipe))
-    pumps: NetworkCollection[Pump] = field(default_factory=lambda: NetworkCollection(Pump))
-    valves: NetworkCollection[Valve] = field(default_factory=lambda: NetworkCollection(Valve))
+    title: NetworkCollection[TitleLine] = field(
+        default_factory=lambda: NetworkCollection(TitleLine)
+    )
+    junctions: NetworkCollection[Junction] = field(
+        default_factory=lambda: NetworkCollection(Junction)
+    )
+    reservoirs: NetworkCollection[Reservoir] = field(
+        default_factory=lambda: NetworkCollection(Reservoir)
+    )
+    tanks: NetworkCollection[Tank] = field(
+        default_factory=lambda: NetworkCollection(Tank)
+    )
+    pipes: NetworkCollection[Pipe] = field(
+        default_factory=lambda: NetworkCollection(Pipe)
+    )
+    pumps: NetworkCollection[Pump] = field(
+        default_factory=lambda: NetworkCollection(Pump)
+    )
+    valves: NetworkCollection[Valve] = field(
+        default_factory=lambda: NetworkCollection(Valve)
+    )
     # Demand and operational data
     tags: List = field(default_factory=list)
-    demands: NetworkCollection[Demand] = field(default_factory=lambda: NetworkCollection(Demand))
+    demands: NetworkCollection[Demand] = field(
+        default_factory=lambda: NetworkCollection(Demand)
+    )
     status: List = field(default_factory=list)
-    patterns: NetworkCollection[Pattern] = field(default_factory=lambda: NetworkCollection(Pattern))
-    curves: NetworkCollection[Curve] = field(default_factory=lambda: NetworkCollection(Curve))
-    controls: NetworkCollection[Control] = field(default_factory=lambda: NetworkCollection(Control))
+    patterns: NetworkCollection[Pattern] = field(
+        default_factory=lambda: NetworkCollection(Pattern)
+    )
+    curves: NetworkCollection[Curve] = field(
+        default_factory=lambda: NetworkCollection(Curve)
+    )
+    controls: NetworkCollection[Control] = field(
+        default_factory=lambda: NetworkCollection(Control)
+    )
     rules: List = field(default_factory=list)
-    energy: NetworkCollection[Energy] = field(default_factory=lambda: NetworkCollection(Energy))
+    energy: NetworkCollection[Energy] = field(
+        default_factory=lambda: NetworkCollection(Energy)
+    )
     # Quality and analysis
     emitters: List = field(default_factory=list)
     quality: List = field(default_factory=list)
     sources: List = field(default_factory=list)
-    reactions: NetworkCollection[Reaction] = field(default_factory=lambda: NetworkCollection(Reaction))
+    reactions: NetworkCollection[Reaction] = field(
+        default_factory=lambda: NetworkCollection(Reaction)
+    )
     mixing: List = field(default_factory=list)
     # Simulation settings
-    times: NetworkCollection[Time] = field(default_factory=lambda: NetworkCollection(Time))
-    report: NetworkCollection[Report] = field(default_factory=lambda: NetworkCollection(Report))
-    options: NetworkCollection[Option] = field(default_factory=lambda: NetworkCollection(Option))
+    times: NetworkCollection[Time] = field(
+        default_factory=lambda: NetworkCollection(Time)
+    )
+    report: NetworkCollection[Report] = field(
+        default_factory=lambda: NetworkCollection(Report)
+    )
+    options: NetworkCollection[Option] = field(
+        default_factory=lambda: NetworkCollection(Option)
+    )
     # Spatial data
-    coordinates: NetworkCollection[Coordinate] = field(default_factory=lambda: NetworkCollection(Coordinate))
+    coordinates: NetworkCollection[Coordinate] = field(
+        default_factory=lambda: NetworkCollection(Coordinate)
+    )
     vertices: List = field(default_factory=list)
     labels: List = field(default_factory=list)
-    backdrop: NetworkCollection[Backdrop] = field(default_factory=lambda: NetworkCollection(Backdrop))
+    backdrop: NetworkCollection[Backdrop] = field(
+        default_factory=lambda: NetworkCollection(Backdrop)
+    )
 
     def get_item_by_index(self, collection_name: str, index: int) -> Optional[Any]:
         """Get an item from a collection by index.
@@ -473,12 +526,10 @@ class EPANETNetworkModel:
         if isinstance(collection, NetworkCollection) and 0 <= index < len(collection):
             return collection[index]
         return None
-    
+
     def get_item_by_field_value(
-            self,
-            collection_name: str,
-            field_name: str,
-            field_value: int | float | str) -> Optional[Any]:
+        self, collection_name: str, field_name: str, field_value: int | float | str
+    ) -> Optional[Any]:
         """Get an item from a collection by field value.
 
         Parameters
@@ -499,12 +550,10 @@ class EPANETNetworkModel:
         if isinstance(collection, NetworkCollection):
             return collection.get_by_field(field_name, field_value)
         return None
-    
+
     def get_item_index_by_field_value(
-            self,
-            collection_name: str,
-            field_name: str,
-            field_value: int | float | str) -> Optional[int]:
+        self, collection_name: str, field_name: str, field_value: int | float | str
+    ) -> Optional[int]:
         """Get the index of an item in a collection by field value.
 
         Parameters
@@ -525,13 +574,14 @@ class EPANETNetworkModel:
         if isinstance(collection, NetworkCollection):
             return collection.get_index_by_field(field_name, field_value)
         return None
-    
+
     def modify_item_by_field_value(
-            self,
-            collection_name: str,
-            field_name: str,
-            field_value: int | float | str,
-            **kwargs) -> bool:
+        self,
+        collection_name: str,
+        field_name: str,
+        field_value: int | float | str,
+        **kwargs,
+    ) -> bool:
         """Modify an item in a collection by field value.
 
         Parameters

@@ -45,7 +45,10 @@ class ValveClosureEvent(TransientEvent[PTSNetModel]):
 
     def _apply_to(self, target: PTSNetModel) -> None:
         target.define_valve_operation(
-            self.valve, 1.0, self.final_opening, self.start_time,
+            self.valve,
+            1.0,
+            self.final_opening,
+            self.start_time,
             self.start_time + self.duration,
         )
 
@@ -80,7 +83,10 @@ class ValveOpeningEvent(TransientEvent[PTSNetModel]):
 
     def _apply_to(self, target: PTSNetModel) -> None:
         target.define_valve_operation(
-            self.valve, 0.0, self.final_opening, self.start_time,
+            self.valve,
+            0.0,
+            self.final_opening,
+            self.start_time,
             self.start_time + self.duration,
         )
 
@@ -115,7 +121,10 @@ class PumpShutdownEvent(TransientEvent[PTSNetModel]):
 
     def _apply_to(self, target: PTSNetModel) -> None:
         target.define_pump_operation(
-            self.pump, 1.0, self.final_opening, self.start_time,
+            self.pump,
+            1.0,
+            self.final_opening,
+            self.start_time,
             self.start_time + self.duration,
         )
 
@@ -150,7 +159,10 @@ class PumpStartupEvent(TransientEvent[PTSNetModel]):
 
     def _apply_to(self, target: PTSNetModel) -> None:
         target.define_pump_operation(
-            self.pump, 0.0, self.final_opening, self.start_time,
+            self.pump,
+            0.0,
+            self.final_opening,
+            self.start_time,
             self.start_time + self.duration,
         )
 
@@ -185,7 +197,9 @@ class BurstEvent(TransientEvent[PTSNetModel]):
 
     def _apply_to(self, target: PTSNetModel) -> None:
         target.add_burst(
-            self.node, self.final_burst_coeff, self.start_time,
+            self.node,
+            self.final_burst_coeff,
+            self.start_time,
             self.start_time + self.burst_development_time,
         )
 

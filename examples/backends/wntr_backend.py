@@ -1,4 +1,5 @@
 """Select WNTR, load an EPANET model, configure it, and simulate it."""
+
 from pathlib import Path
 
 from rich.console import Console
@@ -10,7 +11,6 @@ from hydroforge.backends.wntr.config import (
     WNTRTimeConfig,
 )
 from hydroforge.backends.wntr_backend import WNTRBackend
-
 
 MODEL = Path(__file__).resolve().parents[2] / "tests/base_networks/Net1.inp"
 console = Console()
@@ -25,7 +25,9 @@ def main() -> None:
     pressure = results.raw.node["pressure"]
     console.print("[bold green]WNTR backend loaded and configured[/bold green]")
     console.print(f"[cyan]Model:[/cyan] {MODEL}")
-    console.print(f"[cyan]Pressure results:[/cyan] {pressure.shape[0]} time rows x {pressure.shape[1]} nodes")
+    console.print(
+        f"[cyan]Pressure results:[/cyan] {pressure.shape[0]} time rows x {pressure.shape[1]} nodes"
+    )
 
     epanet_backend = WNTRBackend(simulator="epanet")
     epanet_model = epanet_backend.load_model(MODEL)
