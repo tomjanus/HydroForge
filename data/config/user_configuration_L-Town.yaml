@@ -1,0 +1,94 @@
+comments:
+  - "Configuration file for error propagation"
+
+network:
+  filename: "L-Town.inp"
+  properties:
+    sources: ['R1', 'R2']
+
+uncertainties:
+  network:
+    0:
+      num_repetitions: 1
+      network_topology: 0
+      diameters: 0
+      nodal_demands: 0
+      pipe_roughness: 0
+    1:
+      num_repetitions: 30
+      network_topology: 0.005
+      diameters: 0.10
+      nodal_demands: 0.01
+
+  sensors:
+    0:
+      min_sensors: 5
+      max_sensors: 40
+      steps: 5
+
+  calibration:
+    0:
+      num_repetitions: 1
+      measurement_error: 0.0
+    1:
+      num_repetitions: 30
+      measurement_error: 0.01
+
+  localisation:
+    0:
+      num_repetitions: 1
+      measurement_error: 0.0
+    1:
+      num_repetitions: 30
+      measurement_error: 0.01
+
+leakage_scenarios:
+  single_time_step:
+    0: { pipe: "p427", time: "2019-01-01 00:00", emitter_size: 0.0090731 }
+    1: { pipe: "p810", time: "2019-01-01 00:00", emitter_size: 0.010028 }
+    2: { pipe: "p654", time: "2019-01-01 00:00", emitter_size: 0.0087735 }
+    3: { pipe: "p523", time: "2019-01-15 23:00", emitter_size: 0.020246 }
+    4: { pipe: "p827", time: "2019-01-24 18:30", emitter_size: 0.02025 }
+    5: { pipe: "p653", time: "2019-04-21 19:00", emitter_size: 0.016035 }
+    6: { pipe: "p710", time: "2019-03-24 14:15", emitter_size: 0.0092936 }
+    7: { pipe: "p514", time: "2019-04-02 20:40", emitter_size: 0.014979 }
+    8: { pipe: "p331", time: "2019-04-20 10:10", emitter_size: 0.014053 }
+    9: { pipe: "p193", time: "2019-07-25 03:20", emitter_size: 0.01239 }
+    10: { pipe: "p142", time: "2019-06-12 19:55", emitter_size: 0.019857 }
+    11: { pipe: "p586", time: "2019-08-28 07:55", emitter_size: 0.017184 }
+    12: { pipe: "p721", time: "2019-09-23 05:40", emitter_size: 0.01408 }
+    13: { pipe: "p800", time: "2019-09-07 21:05", emitter_size: 0.018847 }
+    14: { pipe: "p123", time: "2019-11-29 22:10", emitter_size: 0.011906 }
+    15: { pipe: "p455", time: "2019-12-16 05:25", emitter_size: 0.012722 }
+    16: { pipe: "p762", time: "2019-12-03 01:15", emitter_size: 0.01519 }
+    17: { pipe: "p426", time: "2019-10-25 13:25", emitter_size: 0.015008 }
+    18: { pipe: "p879", time: "2019-12-31 23:55", emitter_size: 0.013195 }
+    
+intermediate_files:
+  perturbed_network_files:
+    name: "" # string or a template
+    save: "" # True / False
+    save_location: "" # string or a template
+
+sensor_placement:
+  strategy: "greedy"
+  number_of_sensors: 25
+  target_nodes: []
+  update_method: "nearest"
+
+leak_location_methods:
+  differential_pressure:
+    method_type: "data-driven"
+    location_module: "found.localisation_differential_pressure"
+  graph_state:
+    method_type: "data-driven"
+    location_module: "found.localisation_graph_state_interpolation"
+  sensitivity_analysis:
+    method_type: "model-based"
+    location_module: "found.localisation_sensitivity_analyses"
+  graph_based_GA:
+    method_type: "model-based"
+    location_module: "found.localisation_graph-based_GA"
+  styx:
+    method_type: "model-based"
+    location_module: "found.burst_detector_styx"

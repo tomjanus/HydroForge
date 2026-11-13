@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+spec/
+teach/
+.opencode/
+.skill-manager.json
+AGENTS.md
+GLOSSARY.md
+WORKFLOW_GUIDELINES.md
+

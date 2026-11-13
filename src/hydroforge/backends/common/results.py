@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
 
-    SimulationOutputs = np.ndarray | pd.DataFrame
+    SimulationOutputs: TypeAlias = np.ndarray | pd.DataFrame
 else:
     SimulationOutputs = object
 

@@ -40,7 +40,7 @@ BinaryStateFlipUncertainty
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Generic, Sequence
+from typing import Any, Generic, Sequence, cast
 from abc import ABC, abstractmethod
 import threading
 import numpy as np
@@ -97,7 +97,7 @@ class Uncertainty(ABC, Generic[T]):
     """
 
     @abstractmethod
-    def apply(self, value: T, u: float | Sequence[float] | None = None) -> np.array:
+    def apply(self, value: T, u: float | Sequence[float] | None = None) -> Any:
         """
         Apply uncertainty to one or more values.
 
@@ -162,9 +162,9 @@ class Uncertainty(ABC, Generic[T]):
 class NoUncertainty(Uncertainty[T]):
     """Return the input value unchanged."""
 
-    def apply(self, value: T, u: float | Sequence[float] | None = None) -> np.array:
-        value = np.atleast_1d(value)
-        return value.item() if value.size == 1 else value
+    def apply(self, value: T, u: float | Sequence[float] | None = None) -> Any:
+        arr = np.atleast_1d(cast(Any, value))
+        return arr.item() if arr.size == 1 else arr
 
     def transform_cdf(self, x, nominal_value):
         """CDF of deterministic value: step function at nominal_value.
@@ -257,7 +257,7 @@ class _BaseDistributionUncertainty(Uncertainty[T], ABC):
                 f"Could not compute CDF for {self.__class__.__name__}: {str(e)}"
             ) from e
 
-    def apply(self, value: T, u: float | Sequence[float] | None = None) -> np.array:
+    def apply(self, value: T, u: float | Sequence[float] | None = None) -> Any:
         """
         Apply uncertainty to one or more values.
 
@@ -285,23 +285,24 @@ class _BaseDistributionUncertainty(Uncertainty[T], ABC):
             If the shape of ``u`` is incompatible with ``value``.
         """
         is_scalar = not is_array_like(value)
-        x = np.atleast_1d(value)
+        x = np.atleast_1d(cast(Any, value))
         if x.ndim > 1:
             raise ValueError(
                 f"{self.__class__.__name__} only supports scalars or 1D sequences. "
                 f"Got input with shape {x.shape}"
             )
         if u is None:
-            # Generate random samples if u is not provided
-            u = np.random.rand(x.size)
-        u_arr = np.atleast_1d(u)
+            u_val: Any = np.random.rand(x.size)
+        else:
+            u_val = cast(Any, u)
+        u_arr = np.atleast_1d(cast(Any, u_val))
         if u_arr.shape != x.shape and u_arr.size != 1:
             raise ValueError(
                 f"Shape of u {u_arr.shape} must match value {x.shape} or be a scalar."
             )
-        eps = self.distribution.sample_from_unit(u)
+        eps = self.distribution.sample_from_unit(cast(Any, u_val))
         # Ensure eps is always a numpy array for consistent operations
-        eps = np.atleast_1d(eps) if not np.isscalar(eps) else eps
+        eps = np.atleast_1d(eps)
         result = self._combine(x, eps)
         return result.item() if is_scalar else result
 
@@ -381,7 +382,7 @@ class BiasUncertainty(Uncertainty[S]):
     Use empirical CDF if stratified sampling is needed.
     """
 
-    bias: S = 0.0
+    bias: S = cast(S, 0.0)
 
     def apply(self, value: S, u: float | Sequence[float] | None = None) -> np.ndarray:
         value_arr = np.asarray(value, dtype=float)
@@ -444,10 +445,12 @@ class CategoricalRandomReplacementUncertainty(Uncertainty[CatValue]):
             Sampled categorical value(s).
         """
         is_scalar = not is_array_like(value)
-        x = np.atleast_1d(value)
+        x = np.atleast_1d(cast(Any, value))
         if u is None:
-            u = np.random.rand(x.size)
-        draws = self.distribution.sample_from_unit(u)
+            u_val: Any = np.random.rand(x.size)
+        else:
+            u_val = cast(Any, u)
+        draws = self.distribution.sample_from_unit(cast(Any, u_val))
         result = np.asarray(draws).reshape(x.shape)
         return result.item() if is_scalar else result
 
@@ -541,9 +544,7 @@ class BinaryStateFlipUncertainty(Uncertainty[CatValue]):
         if len(self.states) != 2 or self.states[0] == self.states[1]:
             raise ValueError("states must be a tuple of two distinct values")
 
-    def apply(
-        self, value: CatValue, u: float | Sequence[float] | None = None
-    ) -> np.ndarray:
+    def apply(self, value: CatValue, u: float | Sequence[float] | None = None) -> Any:
         """
         Apply binary state flipping.
 

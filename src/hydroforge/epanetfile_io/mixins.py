@@ -30,7 +30,7 @@ floating-point numbers.
 """
 
 from dataclasses import fields
-from typing import Type, TypeVar, ClassVar, Any, get_type_hints
+from typing import Type, TypeVar, ClassVar, Any, cast, get_type_hints
 from decimal import Decimal
 
 # Type variable bound to the mixin, used for ``ListConversionMixin.from_list``.
@@ -103,7 +103,7 @@ class ListConversionMixin:
                 if isinstance(value, _NUMERIC_TYPES)
                 else value
             )
-            for value in (getattr(self, f.name) for f in fields(self))
+            for value in (getattr(self, f.name) for f in fields(cast(Any, self)))
         ]
         return trim_trailing_empty_strings(out_list)
 
@@ -137,7 +137,7 @@ class ListConversionMixin:
                 and not isinstance(raw, type_hints[f.name])
                 else raw
             )
-            for f, raw in zip(fields(cls), item_list)
+            for f, raw in zip(fields(cast(Any, cls)), item_list)
         ]
         return cls(*converted)
 

@@ -1,0 +1,30 @@
+# Details of network modifications (alterations)
+# This is differnet from uncertainty analysis where network modifications are a part of introduction of uncertainties
+# We may need to modify the network before running all the uncertainty analysis. This config defines the options / parameters 
+# of this one-off exercise.
+---
+setting:
+  PUMPS : []
+  TANKS : []
+  CONTROLS : []
+
+additions:
+  JUNCTIONS:
+    - ['B', '21.5781', '0']
+    - ['C', '36.6718', '0']
+  COORDINATES:
+    - ['B', '1712.94', '623.74']
+    - ['C', '573.35', '1142.78']
+  PIPES:
+    - ['p_Zone_C', 'n54', 'C', '1.00', '199.8262', '142.6946', '0.0000', 'Open']
+    - ['p_Zone_B', 'n229', 'B', '1.00', '144.5964', '144.5964', '0.0000', 'Open']
+
+removals:
+  VALVES:
+    - ['PRV-3', 'n229', 'n226', '148.6340', 'PRV', '35.0000', '0.0000']
+
+  NODES:
+    - 'R1'
+    - 'R2'
+    - 'T1'
+...

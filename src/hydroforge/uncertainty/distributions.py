@@ -690,14 +690,15 @@ class CategoricalConversionMixin:
         ValueError
             If ``n_samples`` is not positive.
         """
-        if getattr(self, "_empirical_cache") is not None:
+        _empirical_cache = getattr(self, "_empirical_cache", None)
+        if _empirical_cache is not None:
             state_key: int | None
             if isinstance(random_state, (int, np.integer)) or random_state is None:
                 state_key = int(random_state) if random_state is not None else None
             else:
                 state_key = id(random_state)
             cache_key = (int(n_samples), state_key)
-            return self._empirical_cache[cache_key]
+            return _empirical_cache[cache_key]
 
         if n_samples <= 0:
             raise ValueError("n_samples must be greater than zero")
@@ -740,7 +741,7 @@ class CategoricalNominalMixin:
         int
             Index of the nominal category in ``categories``.
         """
-        return self._cat_to_num[getattr(self, "nominal_value")]
+        return getattr(self, "_cat_to_num")[getattr(self, "nominal_value")]
 
 
 @dataclass

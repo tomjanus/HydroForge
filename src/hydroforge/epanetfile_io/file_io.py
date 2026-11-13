@@ -13,7 +13,7 @@ EPANET input files are organized into sections marked by [SECTION_NAME] headers,
 with data lines following each header.
 """
 
-from typing import TextIO
+from typing import TextIO, Any
 import itertools
 import string
 import pathlib
@@ -147,14 +147,18 @@ class EPANETFileIO:
             list
                 Preprocessed lines with comments and blank lines removed.
             """
-            lines = map(
-                lambda line: "".join(
-                    itertools.takewhile(lambda c: c not in ";\n\r", line)
-                ),
-                lines,
+            lines = list(
+                map(
+                    lambda line: "".join(
+                        itertools.takewhile(lambda c: c not in ";\n\r", line)
+                    ),
+                    lines,
+                )
             )  # get rid of comments ...
-            lines = filter(
-                lambda line: any(map(lambda c: c in string.printable, line)), lines
+            lines = list(
+                filter(
+                    lambda line: any(map(lambda c: c in string.printable, line)), lines
+                )
             )  # ... and blank lines
             return lines
 
@@ -197,7 +201,7 @@ class EPANETFileIO:
                 if expect_header:
                     if line[0] == "[" and line[-1] == "]":
                         name = line[1:-1]
-                        data = []
+                        data: list[Any] = []
                         expect_header = False
                     else:
                         raise EPANETFileReaderError(

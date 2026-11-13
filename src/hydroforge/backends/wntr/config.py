@@ -67,7 +67,7 @@ def _value_text(
     style: str | None = None,
 ) -> Text:
     """Create styled Rich text for a value."""
-    return Text(_format_value(value), style=style)
+    return Text(_format_value(value), style=style or "")
 
 
 @dataclass

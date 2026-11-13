@@ -12,17 +12,18 @@ enumeration provides a list of supported backend names.
 
 from __future__ import annotations
 import pathlib
-from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 if TYPE_CHECKING:
     from .events import TransientEvent
+    from .results import SimulationResults
     from .simulator import Simulator
 
 
 ModelT = TypeVar("ModelT")
-ResultT = TypeVar("ResultT")
+ResultT = TypeVar("ResultT", bound="SimulationResults")
 ModelConfigT = TypeVar("ModelConfigT")
-SimulatorConfigT = TypeVar("SimulatorConfigT")
+SimulatorConfigT = TypeVar("SimulatorConfigT", contravariant=True)
 
 
 @runtime_checkable
@@ -35,7 +36,7 @@ class Backend(Protocol[ModelT, ResultT, ModelConfigT, SimulatorConfigT]):
 
     package_name: str
     model: ModelT | None
-    simulator: Simulator[ModelT, ResultT, SimulatorConfigT] | None
+    simulator: Simulator[ModelT, ResultT, Any] | None
 
     def load_model(self, file: str | pathlib.Path) -> ModelT:
         """Load a hydraulic model from an EPANET input file."""
@@ -46,10 +47,10 @@ class Backend(Protocol[ModelT, ResultT, ModelConfigT, SimulatorConfigT]):
     def apply_config(self, config: ModelConfigT) -> None:
         """Apply a persistent configuration to the loaded model."""
 
-    def add_event(self, event: TransientEvent[...]) -> None:
+    def add_event(self, event: TransientEvent[Any]) -> None:
         """Apply event to the simulator or to the model"""
 
     def create_simulator(
         self, config: SimulatorConfigT | None = None
-    ) -> Simulator[ModelT, ResultT, SimulatorConfigT]:
+    ) -> Simulator[ModelT, ResultT, Any]:
         """Create a simulator using its runtime-only configuration."""

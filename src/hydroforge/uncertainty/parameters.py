@@ -20,7 +20,7 @@ Locking Behaviour:
 
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Optional, Sequence, TypeAlias, TypeVar
+from typing import Any, Generic, Optional, Sequence, TypeAlias, TypeVar, cast
 from enum import Enum, auto
 from numbers import Integral
 import threading
@@ -159,7 +159,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         default_factory=dict
     )  # Additional metadata for the parameter
 
-    _sampled_value: Optional = field(init=False, default=None, repr=False)
+    _sampled_value: Optional[Any] = field(init=False, default=None, repr=False)
     _locked: bool = field(init=False, default=False, repr=False)
     _lock: threading.Lock = field(
         init=False, default_factory=threading.Lock, repr=False
@@ -385,7 +385,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         """
         with self._lock:
             if self._locked:
-                return self._sampled_value
+                return cast(T, self._sampled_value)
             val = self.uncertainty.apply(self.nominal_value)
             self._sampled_value = val
             self._locked = True
@@ -488,7 +488,7 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         """
         try:
             val = self.sample()
-            return float(val)
+            return float(cast(Any, val))
         except (TypeError, ValueError):
             raise TypeError("Cannot convert uncertain parameter to float") from None
 

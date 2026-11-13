@@ -1,6 +1,6 @@
 """ """
 
-from typing import ClassVar, Sequence, overload, TypeAlias
+from typing import ClassVar, Literal, Sequence, overload, TypeAlias
 from dataclasses import dataclass
 import pandas as pd
 import numpy as np
@@ -142,8 +142,8 @@ class WNTRSimulationResults(SimulationResults):
         nodes: Sequence[str],
         times: TimeLocation = slice(None),
         *,
-        as_dataframe: bool = False,
-    ) -> pd.DataFrame: ...
+        as_dataframe: Literal[False] = False,
+    ) -> np.ndarray: ...
 
     @overload
     def get_node_variable(
@@ -152,8 +152,8 @@ class WNTRSimulationResults(SimulationResults):
         nodes: Sequence[str],
         times: TimeLocation = slice(None),
         *,
-        as_dataframe: bool = False,
-    ) -> np.ndarray: ...
+        as_dataframe: Literal[True],
+    ) -> pd.DataFrame: ...
 
     def get_node_variable(
         self,
@@ -194,8 +194,8 @@ class WNTRSimulationResults(SimulationResults):
         links: Sequence[str],
         times: TimeLocation = slice(None),
         *,
-        as_dataframe: bool = False,
-    ) -> pd.DataFrame: ...
+        as_dataframe: Literal[False] = False,
+    ) -> np.ndarray: ...
 
     @overload
     def get_link_variable(
@@ -204,8 +204,8 @@ class WNTRSimulationResults(SimulationResults):
         links: Sequence[str],
         times: TimeLocation = slice(None),
         *,
-        as_dataframe: bool = False,
-    ) -> np.ndarray: ...
+        as_dataframe: Literal[True],
+    ) -> pd.DataFrame: ...
 
     def get_link_variable(
         self,

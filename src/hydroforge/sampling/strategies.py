@@ -15,7 +15,7 @@ from uncertain parameters, including:
 - Mixed strategies: Different sampling methods for different parameter groups
 """
 
-from typing import Protocol, Any, Mapping, Optional, Sequence, Callable
+from typing import Protocol, Any, Mapping, Optional, Sequence, Callable, cast
 from typing import Generator
 import warnings
 from abc import ABC, abstractmethod
@@ -121,7 +121,10 @@ class Sampler(ABC):
         parameters: Parameter | Sequence[Parameter],
         id_generator: IDGenerator | type[IDGenerator] | None = None,
     ):
-        self.parameters = list(parameters)
+        if isinstance(parameters, Parameter):
+            self.parameters = [parameters]
+        else:
+            self.parameters = list(parameters)
         self.id_generator = id_generator or UUIDGenerator()
 
         if not self.parameters:
@@ -152,10 +155,11 @@ class Sampler(ABC):
         Returns:
             Generated scenario ID string
         """
-        if isinstance(self.id_generator, type) and issubclass(
-            self.id_generator, DeterministicHashGenerator
-        ):
-            id_gen = self.id_generator(scenario=scenario_values)
+        if isinstance(self.id_generator, type):
+            if issubclass(self.id_generator, DeterministicHashGenerator):
+                id_gen: Any = self.id_generator(scenario=scenario_values)
+            else:
+                id_gen = self.id_generator()
             return id_gen.generate()
         return self.id_generator.generate()
 
@@ -218,7 +222,7 @@ class LatinHypercubeSampler(Sampler):
         # Convert unit samples to parameter values
         for i in range(n):
             self._reset_parameters()
-            scenario_values = {}
+            scenario_values: dict[str, Any] = {}
             for j, param in enumerate(self.parameters):
                 u = unit_samples[i, j]
                 scenario_values[param.name] = param.sample_from_unit(u)
@@ -283,7 +287,7 @@ class SobolSampler(Sampler):
         # Convert unit samples to parameter values
         for i in range(n):
             self._reset_parameters()
-            scenario_values = {}
+            scenario_values: dict[str, Any] = {}
             for j, param in enumerate(self.parameters):
                 u = unit_samples[i, j]
                 scenario_values[param.name] = param.sample_from_unit(u)
@@ -347,7 +351,7 @@ class HaltonSampler(Sampler):
 
         for i in range(self.skip_values, self.skip_values + n):
             self._reset_parameters()
-            scenario_values = {}
+            scenario_values: dict[str, Any] = {}
 
             for j, param in enumerate(self.parameters):
                 u = self._halton_sequence(i, self.primes[j])
@@ -398,7 +402,7 @@ class ConditionalMonteCarloSampler(Sampler):
         id_generator: IDGenerator | type[IDGenerator] | None = None,
     ):
         # Collect all parameters from all layers
-        all_parameters = []
+        all_parameters: list[Parameter] = []
         for layer in layers:
             all_parameters.extend(layer.parameters)
 
@@ -417,7 +421,7 @@ class ConditionalMonteCarloSampler(Sampler):
 
         for _ in range(n):
             self._reset_parameters()
-            scenario_values = {}
+            scenario_values: dict[str, Any] = {}
 
             # Sample layer by layer
             for layer in self.layers:
@@ -460,7 +464,7 @@ class NestedSamplingSpec:
     outer_parameters: Sequence[Parameter]
     inner_parameters: Sequence[Parameter]
     n_inner: int = 10
-    inner_sampler_class: type = None
+    inner_sampler_class: type[Sampler] | None = None
     inner_sampler_kwargs: dict[str, Any] = field(default_factory=dict)
 
 
@@ -515,7 +519,7 @@ class NestedMonteCarloSampler(Sampler):
                 outer_values[param.name] = param.sample()
 
             # Create inner sampler
-            inner_sampler = self.spec.inner_sampler_class(
+            inner_sampler = cast(type[Sampler], self.spec.inner_sampler_class)(
                 self.spec.inner_parameters,
                 id_generator=None,
                 **self.spec.inner_sampler_kwargs,
@@ -1198,7 +1202,7 @@ class ScenarioTreeSampler(Sampler):
             self._reset_parameters()
 
             # Combine parameter values along the path
-            scenario_values = {}
+            scenario_values: dict[str, Any] = {}
             path_probability = 1.0
             path_names = []
 
@@ -1266,7 +1270,7 @@ class MixedStrategySampler(Sampler):
         id_generator: IDGenerator | type[IDGenerator] | None = None,
     ):
         # Collect all parameters from all groups
-        all_parameters = []
+        all_parameters: list[Parameter] = []
         for group in groups:
             all_parameters.extend(group.parameters)
 
@@ -1291,7 +1295,7 @@ class MixedStrategySampler(Sampler):
 
     def _get_sampler_class(self, strategy: SamplingStrategy) -> type[Sampler]:
         """Get the sampler class for a given strategy."""
-        mapping = {
+        mapping: dict[SamplingStrategy, type[Sampler]] = {
             SamplingStrategy.MONTE_CARLO: MonteCarloSampler,
             SamplingStrategy.LATIN_HYPERCUBE: LatinHypercubeSampler,
             SamplingStrategy.SOBOL: SobolSampler,
@@ -1310,7 +1314,7 @@ class MixedStrategySampler(Sampler):
         # Combine samples from each group
         for _ in range(n):
             self._reset_parameters()
-            scenario_values = {}
+            scenario_values: dict[str, Any] = {}
 
             for sub_gen in sub_generators:
                 sub_scenario = next(sub_gen)

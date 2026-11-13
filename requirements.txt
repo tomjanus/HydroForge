@@ -13,6 +13,7 @@ pillow>=8.0.0
 pygad>=3.0.0
 pyparsing>=3.0.0
 python-dateutil>=2.8.0
+rich>=13.0.0
 tzdata>=2021.1
 PyYAML>=6.0.0
 scipy>=1.8.0

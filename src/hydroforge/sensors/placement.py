@@ -8,7 +8,7 @@ The module uses the EPANETNetworkGraph class to represent the water network and
 networkx for graph algorithms.
 """
 
-from typing import Protocol, TypeAlias, Literal, Optional, List, Union, cast
+from typing import Protocol, TypeAlias, Literal, Optional, List, Union, cast, Any
 import re
 from dataclasses import dataclass, field
 import pathlib
@@ -173,7 +173,7 @@ class GreedySensorPlacement:
             candidate_paths = {
                 k: shortest_paths[k] for k in targets if k in shortest_paths
             }
-            node_max_distance = max(candidate_paths, key=candidate_paths.get)
+            node_max_distance = max(candidate_paths, key=lambda k: candidate_paths[k])
             sensor_places.append(node_max_distance)
             # Update sources and distances incrementally
             self.sources.append(node_max_distance)
@@ -256,7 +256,7 @@ class KCentreSensorPlacement:
         # Iteratively add sensors
         for _ in range(1, self.num_sensors):
             # Pick the node farthest from any chosen sensor
-            best_node = max(nearest_dist, key=nearest_dist.get)
+            best_node = max(nearest_dist, key=lambda k: nearest_dist[k])
             sensor_places.append(best_node)
 
             # Update nearest distances
@@ -541,8 +541,8 @@ class DominatingSetBasedSensorPlacement:
         list[str]
             Sensor placement locations.
         """
-        sensor_places = []
-        dominated_nodes = set()
+        sensor_places: list[str] = []
+        dominated_nodes: set[Any] = set()
         target_nodes = (
             set(self.graph.nodes()) - set(self.sources)
             if not self.target_nodes

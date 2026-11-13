@@ -1,0 +1,360 @@
+{
+    "network": {
+        "0": {
+            "network_topology": 0,
+            "diameters": 0,
+            "nodal_demands": 0,
+            "pipe_roughness": 0
+        },
+        "1": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "2": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "3": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "4": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "5": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "6": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "7": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "8": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "9": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "10": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "11": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "12": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "13": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "14": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "15": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "16": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "17": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "18": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "19": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "20": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "21": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "22": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "23": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "24": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "25": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "26": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "27": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "28": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "29": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        },
+        "30": {
+            "network_topology": 0.005,
+            "diameters": 0.1,
+            "nodal_demands": 0.01
+        }
+    },
+    "sensors": {
+        "0": 3,
+        "1": 4,
+        "2": 5,
+        "3": 6,
+        "4": 7,
+        "5": 8,
+        "6": 9,
+        "7": 10
+    },
+    "pressure_calibration": {
+        "0": {
+            "measurement_error": 0.0
+        },
+        "1": {
+            "measurement_error": 0.01
+        },
+        "2": {
+            "measurement_error": 0.01
+        },
+        "3": {
+            "measurement_error": 0.01
+        },
+        "4": {
+            "measurement_error": 0.01
+        },
+        "5": {
+            "measurement_error": 0.01
+        },
+        "6": {
+            "measurement_error": 0.01
+        },
+        "7": {
+            "measurement_error": 0.01
+        },
+        "8": {
+            "measurement_error": 0.01
+        },
+        "9": {
+            "measurement_error": 0.01
+        },
+        "10": {
+            "measurement_error": 0.01
+        },
+        "11": {
+            "measurement_error": 0.01
+        },
+        "12": {
+            "measurement_error": 0.01
+        },
+        "13": {
+            "measurement_error": 0.01
+        },
+        "14": {
+            "measurement_error": 0.01
+        },
+        "15": {
+            "measurement_error": 0.01
+        },
+        "16": {
+            "measurement_error": 0.01
+        },
+        "17": {
+            "measurement_error": 0.01
+        },
+        "18": {
+            "measurement_error": 0.01
+        },
+        "19": {
+            "measurement_error": 0.01
+        },
+        "20": {
+            "measurement_error": 0.01
+        },
+        "21": {
+            "measurement_error": 0.01
+        },
+        "22": {
+            "measurement_error": 0.01
+        },
+        "23": {
+            "measurement_error": 0.01
+        },
+        "24": {
+            "measurement_error": 0.01
+        },
+        "25": {
+            "measurement_error": 0.01
+        },
+        "26": {
+            "measurement_error": 0.01
+        },
+        "27": {
+            "measurement_error": 0.01
+        },
+        "28": {
+            "measurement_error": 0.01
+        },
+        "29": {
+            "measurement_error": 0.01
+        },
+        "30": {
+            "measurement_error": 0.01
+        }
+    },
+    "pressure_leakage": {
+        "0": {
+            "measurement_error": 0.0
+        },
+        "1": {
+            "measurement_error": 0.01
+        },
+        "2": {
+            "measurement_error": 0.01
+        },
+        "3": {
+            "measurement_error": 0.01
+        },
+        "4": {
+            "measurement_error": 0.01
+        },
+        "5": {
+            "measurement_error": 0.01
+        },
+        "6": {
+            "measurement_error": 0.01
+        },
+        "7": {
+            "measurement_error": 0.01
+        },
+        "8": {
+            "measurement_error": 0.01
+        },
+        "9": {
+            "measurement_error": 0.01
+        },
+        "10": {
+            "measurement_error": 0.01
+        },
+        "11": {
+            "measurement_error": 0.01
+        },
+        "12": {
+            "measurement_error": 0.01
+        },
+        "13": {
+            "measurement_error": 0.01
+        },
+        "14": {
+            "measurement_error": 0.01
+        },
+        "15": {
+            "measurement_error": 0.01
+        },
+        "16": {
+            "measurement_error": 0.01
+        },
+        "17": {
+            "measurement_error": 0.01
+        },
+        "18": {
+            "measurement_error": 0.01
+        },
+        "19": {
+            "measurement_error": 0.01
+        },
+        "20": {
+            "measurement_error": 0.01
+        },
+        "21": {
+            "measurement_error": 0.01
+        },
+        "22": {
+            "measurement_error": 0.01
+        },
+        "23": {
+            "measurement_error": 0.01
+        },
+        "24": {
+            "measurement_error": 0.01
+        },
+        "25": {
+            "measurement_error": 0.01
+        },
+        "26": {
+            "measurement_error": 0.01
+        },
+        "27": {
+            "measurement_error": 0.01
+        },
+        "28": {
+            "measurement_error": 0.01
+        },
+        "29": {
+            "measurement_error": 0.01
+        },
+        "30": {
+            "measurement_error": 0.01
+        }
+    }
+}

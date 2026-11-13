@@ -1,6 +1,7 @@
 """Inspect transient backend configs without loading a network or solver."""
 
 from dataclasses import fields
+from typing import Any
 
 from rich.console import Console
 from rich.table import Table
@@ -13,7 +14,7 @@ from hydroforge.backends.wntr.config import EPANETSimulatorConfig, WNTRSimulator
 console = Console()
 
 
-def _config_table(config_type: type[object], title: str) -> Table:
+def _config_table(config_type: Any, title: str) -> Table:
     table = Table(title=title)
     table.add_column("Option", style="cyan")
     table.add_column("Default", style="green")

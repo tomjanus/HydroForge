@@ -61,7 +61,7 @@ def get_package_file(*folders: str) -> pathlib.Path:
     # importlib.resources has files(), so use that:
     pkg = resources.files(APPLICATION_NAME)
     pkg = pkg.joinpath("/".join(folders))
-    return pkg.resolve()
+    return pathlib.Path(str(pkg)).resolve()
 
 
 def get_package_root() -> pathlib.Path:
@@ -85,7 +85,7 @@ def get_package_root() -> pathlib.Path:
     # Get the path to the 'hydroforge' package
     try:
         pkg = resources.files("hydroforge")
-        hydroforge_package_dir = pkg.resolve()
+        hydroforge_package_dir = pathlib.Path(str(pkg)).resolve()
 
         # The package directory is in src/hydroforge, so go up two levels to get to project root
         package_root = hydroforge_package_dir.parent.parent

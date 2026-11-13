@@ -1,8 +1,11 @@
 """ """
 
-from typing import TypeAlias, Sequence, Literal
+from typing import TypeAlias, Sequence, Literal, TYPE_CHECKING
 from dataclasses import dataclass
 from ..common.constants import DemandModel
+
+if TYPE_CHECKING:
+    from .model import TSNetPlusModel
 
 WaveSpeed: TypeAlias = float | Sequence[float]
 FrictionModel: TypeAlias = Literal["steady", "quasi-steady", "unsteady"]
@@ -64,7 +67,7 @@ class TSNetPlusConfig:
     clean_files: bool = True
     kernel: Literal["python", "numba"] = "python"
 
-    def apply_to(self, model: object) -> None:
+    def apply_to(self, model: "TSNetPlusModel") -> None:
         """Apply model-level settings using the TSNetPlus model API."""
         model.set_wavespeed(self.wave_speed)
         model.set_time(self.duration, self.time_step)

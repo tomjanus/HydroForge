@@ -1,0 +1,76 @@
+comments:
+  - "Configuration file for error propagation"
+
+network:
+  filename: "Real_network.inp"
+  properties:
+    sources: ['R1']
+
+uncertainties:
+  network:
+    0:
+      num_repetitions: 1
+      network_topology: 0
+      diameters: 0
+      nodal_demands: 0
+      pipe_roughness: 0
+    1:
+      num_repetitions: 30
+      network_topology: 0.005
+      diameters: 0.10
+      nodal_demands: 0.01
+  sensors:
+    0:
+      min_sensors: 3
+      max_sensors: 10
+      steps: 1
+  calibration:
+    0:
+      num_repetitions: 1
+      measurement_error: 0.0
+    1:
+      num_repetitions: 30
+      measurement_error: 0.01
+  localisation:
+    0:
+      num_repetitions: 1
+      measurement_error: 0.0
+    1:
+      num_repetitions: 30
+      measurement_error: 0.01
+
+leakage_scenarios:
+  single_time_step:
+    0: { pipe: "p1066", time: "2023-06-23 08:30", leakage_outflow: 7.56 }
+    1: { pipe: "p1149", time: "2023-06-23 08:30", leakage_outflow: 4.50 }
+    2: { pipe: "p1103", time: "2023-06-27 09:00", leakage_outflow: 6.30 }
+    3: { pipe: "p1098", time: "2023-06-28 11:00", leakage_outflow: 5.40 }
+    4: { pipe: "p1110", time: "2023-07-03 07:45", leakage_outflow: 3.42 }
+    5: { pipe: "p857", time: "2023-07-12 23:00", leakage_outflow: 0.36 }
+    6: { pipe: "p1139", time: "2023-07-13 22:00", leakage_outflow: 0.792 }
+    7: { pipe: "p707", time: "2023-07-17 08:00", leakage_outflow: 1.548 }
+    8: { pipe: "p863_7", time: "2023-07-18 23:00", leakage_outflow: 2.484 }
+    9: { pipe: "p1099", time: "2023-07-19 08:15", leakage_outflow: 5.40 }
+
+sensor_placement:
+  strategy: "greedy"
+  number_of_sensors: 25
+  target_nodes: []
+  update_method: "nearest"
+    
+leak_location_methods:
+  differential_pressure:
+    method_type: "data-driven"
+    location_module: "found.localisation_differential_pressure"
+  graph_state:
+    method_type: "data-driven"
+    location_module: "found.localisation_graph_state_interpolation"
+  sensitivity_analysis:
+    method_type: "model-based"
+    location_module: "found.localisation_sensitivity_analyses"
+  graph_based_GA:
+    method_type: "model-based"
+    location_module: "found.localisation_graph-based_GA"
+  styx:
+    method_type: "model-based"
+    location_module: "found.burst_detector_styx"

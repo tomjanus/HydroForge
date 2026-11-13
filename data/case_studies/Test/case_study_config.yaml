@@ -1,0 +1,60 @@
+# General case study options, such as file paths and flags
+general:
+  network_path: ./Net1_shortened.inp
+  create_folder_tree: true
+  start_date: '2023-06-23'
+  duration_days: 30
+
+# Options specific to leak simulation
+leak_simulation:
+  '2023-06-23 08:30':
+    - pipe: p1066
+      leakage_outflow: 7.56
+    - pipe: p1149
+      leakage_outflow: 4.50
+  '2023-06-27 09:00':
+    - pipe: p1103
+      leakage_outflow: 6.30
+  '2023-06-28 11:00':
+    - pipe: p1098
+      leakage_outflow: 5.40
+  '2023-07-03 07:45':
+    - pipe: p1110
+      leakage_outflow: 3.42
+    - pipe: p1149
+      leakage_outflow: 0.00 # The leak at p1149 is repaired here
+  '2023-07-12 23:00':
+    - pipe: p857
+      leakage_outflow: 0.36
+  '2023-07-13 22:00':
+    - pipe: p1139
+      leakage_outflow: 0.792
+  '2023-07-17 08:00':
+    - pipe: p707
+      leakage_outflow: 1.548
+  '2023-07-18 23:00':
+    - pipe: p863_7
+      leakage_outflow: 2.484
+  '2023-07-19 08:15':
+    - pipe: p1099
+      leakage_outflow: 5.40
+
+# Options specific to sensor placement
+sensor_placement:
+  strategy: "greedy"
+  number_of_sensors: 25
+  target_nodes: []
+  update_method: "nearest"
+
+# Options specific to uncertainty application
+# Uncertainty is spread between model uncertainty (parametric and topological) and
+# measurement uncertainty (sensor errors)
+
+
+# Options specific to leak localization methods
+# Note: the names of the methods must correspond to the names registered by the software
+leak_localization_options:
+  DifferentialPressureLeakLocator: []
+  DifferentialTimePressureLeakLocator: []
+  GraphStateLeakLocator: []
+  StyxLeakLocator : []

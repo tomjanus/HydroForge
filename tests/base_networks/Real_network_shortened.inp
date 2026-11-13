@@ -1,0 +1,160 @@
+[TITLE]
+Scenario: Basis-
+Date: 08.04.2025 11:43:58
+
+[JUNCTIONS]
+;ID              	Elev        	Demand      	Pattern         
+ n50             	429.16625   	0           	1               	;
+ n51             	434.520875  	0           	1               	;
+ n52             	428.86325   	0           	1               	;
+ n53             	434.938125  	0           	1               	;
+ n54             	429.01475   	0           	1               	;
+ n55             	434.103625  	0           	1               	;
+ n56             	428.71175   	0           	1               	;
+
+[RESERVOIRS]
+;ID              	Head        	Pattern         
+ R1              	473.2       	                	;
+
+[TANKS]
+;ID              	Elevation   	InitLevel   	MinLevel    	MaxLevel    	Diameter    	MinVol      	VolCurve        	Overflow
+
+[PIPES]
+;ID              	Node1           	Node2           	Length      	Diameter    	Roughness   	MinorLoss   	Status
+ p1093_16_46     	n46             	n406            	30.804      	100         	0.015       	0           	Open  	;
+ p1100_18_47     	n47             	n56             	26.74925    	100         	0.015       	0           	Open  	;
+ p1126_25_48     	n48             	n506            	32.64125    	150         	0.015       	0           	Open  	;
+ p727_49         	n49             	n32             	30.719125   	99.664773119	0.018       	0           	Open  	;
+ p1100_50        	n50             	n38             	26.74925    	100         	0.015       	0           	Open  	;
+ p727_1_51       	n51             	n41             	30.719125   	99.664773119	0.018       	0           	Open  	;
+ p1100_18_52     	n52             	n47             	26.74925    	100         	0.015       	0           	Open  	;
+ p727_32_53      	n53             	n1              	30.719125   	99.664773119	0.018       	0           	Open  	;
+ p1100_38_54     	n54             	n18             	26.74925    	100         	0.015       	0           	Open  	;
+ p727_1_41_55    	n55             	n384            	30.719125   	99.664773119	0.018       	0           	Open  	;
+ p1100_18_47_56  	n56             	n526            	26.74925    	100         	0.015       	0           	Open  	;
+
+[PUMPS]
+;ID              	Node1           	Node2           	Parameters
+
+[VALVES]
+;ID              	Node1           	Node2           	Diameter    	Type	Setting     	MinorLoss   
+
+[TAGS]
+
+[DEMANDS]
+;Junction        	Demand      	Pattern         	Category
+
+[STATUS]
+;ID              	Status/Setting
+
+[PATTERNS]
+;ID              	Multipliers
+;
+ 1               	0.851350    	1.115920    	0.308510    	0.311630    	0.258870    	0.142610    
+ 1               	0.167750    	0.352190    	0.117050    	0.337260    
+
+[CURVES]
+;ID              	X-Value     	Y-Value
+
+[CONTROLS]
+
+
+
+
+
+
+[RULES]
+
+
+
+
+
+
+[ENERGY]
+ Global Efficiency  	75.0000
+ Global Price       	0.0000
+ Demand Charge      	0.0000
+
+[EMITTERS]
+;Junction        	Coefficient
+
+[QUALITY]
+;Node            	InitQual
+
+[SOURCES]
+;Node            	Type        	Quality     	Pattern
+
+[REACTIONS]
+;Type     	Pipe/Tank       	Coefficient
+
+
+[REACTIONS]
+ Order Bulk            	1
+ Order Tank            	1
+ Order Wall            	1
+ Global Bulk           	0.0000
+ Global Wall           	0.0000
+ Limiting Potential    	0.0000
+ Roughness Correlation 	0.0000
+
+[MIXING]
+;Tank            	Model
+
+[TIMES]
+ Duration           	10:00 
+ Hydraulic Timestep 	1:00 
+ Quality Timestep   	0:00 
+ Pattern Timestep   	1:00 
+ Pattern Start      	0:00 
+ Report Timestep    	1:00 
+ Report Start       	0:00 
+ Start ClockTime    	00:00:00 AM
+ Statistic          	NONE
+
+[REPORT]
+ Status             	No
+ Summary            	No
+ Page               	0
+
+[OPTIONS]
+ Units              	LPS
+ Headloss           	D-W
+ Specific Gravity   	1
+ Viscosity          	0.9852181441
+ Trials             	40
+ Accuracy           	0.001
+ CHECKFREQ          	2
+ MAXCHECK           	10
+ DAMPLIMIT          	0
+ Unbalanced         	Continue 10
+ Pattern            	1
+ Demand Multiplier  	1
+ Demand Model       	PDA
+ Minimum Pressure   	10
+ Required Pressure  	15
+ Pressure Exponent  	0.5
+ Emitter Exponent   	0.5
+ Quality            	NONE mg/L
+ Diffusivity        	1
+ Tolerance          	0.01
+
+[COORDINATES]
+;Node            	X-Coord           	Y-Coord
+n224            	530241.000        	165830.659        
+n230            	530267.245        	166291.276        
+n237            	530277.871        	166265.720        
+n242            	530288.458        	165822.072        
+n243            	530290.029        	166234.320        
+n244            	530291.628        	165837.500        
+n245            	530292.460        	166198.028        
+
+[LABELS]
+;X-Coord             Y-Coord             Label & Anchor Node
+
+[BACKDROP]
+  DIMENSIONS  	529897.566        	165478.277        	530998.417        	166481.323        
+ UNITS          	None
+ FILE           	
+ OFFSET         	0.00            	0.00            
+
+[END]

@@ -1,5 +1,8 @@
 [flake8]
 max-line-length = 120
 select = E,F,W,B,C
-ignore = E203, W503
+# E203 and W503 conflict with black's formatting; E704 is emitted for
+# single-line `def f(): ...` stubs, which black deliberately collapses onto
+# one line. Ignoring these three is the documented black/flake8 setup.
+ignore = E203, W503, E704
 exclude = examples, build, dist, .git, __pycache__

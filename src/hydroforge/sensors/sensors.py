@@ -6,7 +6,7 @@ real-world sensor behaviors. It also includes window-averaging utilities
 for aggregating sequential measurements.
 """
 
-from typing import overload, TypeVar, Union, TypeAlias, TYPE_CHECKING
+from typing import overload, TypeVar, Union, TypeAlias, TYPE_CHECKING, cast, Any
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import numpy as np
@@ -58,7 +58,7 @@ class BaseWindowAverager(ABC):
             Starting indices of each averaging window.
         """
 
-    def average(self, x: T) -> T:
+    def average(self, x: T) -> Measurement:
         """
         Average values over windows.
 
@@ -97,7 +97,7 @@ class BaseWindowAverager(ABC):
         # Series
         # ------------------------------------------------------------------
         if isinstance(x, pd.Series):
-            values = self.average(x.values)
+            values = cast(Measurement, self.average(x.values))
             if isinstance(values, float):
                 return values
             starts = list(self._window_starts(len(x)))
@@ -106,12 +106,14 @@ class BaseWindowAverager(ABC):
         # ------------------------------------------------------------------
         # NumPy array / sequence
         # ------------------------------------------------------------------
-        x = np.asarray(x, dtype=float)
-        if len(x) < self.window_size:
-            raise ValueError(f"Need at least {self.window_size} values, got {len(x)}.")
-        starts = list(self._window_starts(len(x)))
+        arr = np.asarray(x, dtype=float)
+        if len(arr) < self.window_size:
+            raise ValueError(
+                f"Need at least {self.window_size} values, got {len(arr)}."
+            )
+        starts = list(self._window_starts(len(arr)))
         values = np.array(
-            [np.mean(x[s : s + self.window_size]) for s in starts],
+            [np.mean(arr[s : s + self.window_size]) for s in starts],
             dtype=float,
         )
         if len(values) == 1:
@@ -194,10 +196,11 @@ class Sensor(ABC):
     def measure(self, y: float) -> float: ...
     @overload
     def measure(self, y: np.ndarray) -> np.ndarray: ...
+
     @overload
-    def measure(self, y: pd.DataFrame) -> pd.DataFrame: ...
-    @overload
-    def measure(self, y: pd.Series) -> pd.Series: ...
+    def measure(
+        self, y: Union[pd.Series, pd.DataFrame]
+    ) -> Union[pd.Series, pd.DataFrame]: ...
 
     @abstractmethod
     def measure(self, y: T) -> T:
@@ -303,17 +306,19 @@ class RandomNoiseSensor(Sensor):
             self._rng = np.random.default_rng()
 
     def measure(self, y: T) -> T:
+        rng = self._rng
+        assert rng is not None
         if isinstance(y, (float, int)):
-            noise = self._rng.normal(loc=0.0, scale=self.sigma)
+            noise = rng.normal(loc=0.0, scale=self.sigma)
             return float(y + noise)
         if isinstance(y, pd.DataFrame):
-            noise = self._rng.normal(loc=0.0, scale=self.sigma, size=y.shape)
+            noise = rng.normal(loc=0.0, scale=self.sigma, size=y.shape)
             return y + pd.DataFrame(noise, index=y.index, columns=y.columns)
         if isinstance(y, pd.Series):
-            noise = self._rng.normal(loc=0.0, scale=self.sigma, size=y.shape)
+            noise = rng.normal(loc=0.0, scale=self.sigma, size=y.shape)
             return y + pd.Series(noise, index=y.index)
         if isinstance(y, np.ndarray):
-            noise = self._rng.normal(loc=0.0, scale=self.sigma, size=y.shape)
+            noise = cast(Any, rng.normal(loc=0.0, scale=self.sigma, size=y.shape))
             return y + noise
         raise TypeError(f"Unsupported type {type(y)}")
 

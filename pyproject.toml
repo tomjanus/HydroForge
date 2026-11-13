@@ -38,6 +38,7 @@ dependencies = [
     "pygad>=3.0.0",
     "pyparsing>=3.0.0",
     "python-dateutil>=2.8.0",
+    "rich>=13.0.0",
     "tzdata>=2021.1",
     "PyYAML>=6.0.0",
     "scipy>=1.8.0",
@@ -47,6 +48,18 @@ dependencies = [
 ]
 [project.scripts]
 hydroforge = "hydroforge.cli:main"
+
+[project.optional-dependencies]
+# Dev tooling is pinned to exact versions so that the local quality gate and
+# the GitHub Actions CI gate run byte-for-byte identical tooling. Update these
+# pins deliberately (and re-run the gate) when upgrading a tool.
+dev = [
+    "black==26.10.1",
+    "flake8==7.5.0",
+    "mypy==2.4.1",
+    "pytest==8.3.4",
+    "pytest-cov==6.0.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -59,9 +72,8 @@ addopts = [
     "--tb=short",
     "--strict-markers",
     "--disable-warnings",
-    "--cov=found",
+    "--cov=hydroforge",
     "--cov-report=term-missing",
-    "--cov-report=html:htmlcov",
 ]
 
 markers = [

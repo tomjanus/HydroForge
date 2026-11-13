@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Generic, Sequence, TypeVar
+from typing import ClassVar, Generic, Sequence, TypeVar
 
 TargetT = TypeVar("TargetT")
 
@@ -60,7 +60,7 @@ class TransientEvent(ABC, Generic[TargetT]):
         of the transient model (as in TSNet) or simulator object (as in PTSNet).
     """
 
-    target_type: type[TargetT]
+    target_type: ClassVar[type[TargetT]]
 
     def apply_to(self, target: TargetT) -> None:
         """Apply the event to its target.

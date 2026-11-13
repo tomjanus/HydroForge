@@ -20,7 +20,7 @@ The overall workflow this module enables is:
 
 import json
 from collections import OrderedDict
-from typing import Any, Dict
+from typing import Any, Dict, cast
 from .model_wrapper import EPANETNetworkModel, NetworkCollection
 from .file_io import EPANETFileIO
 
@@ -53,7 +53,8 @@ class EPANETNetworkModelIO:
         for field_mapping in EPANETNetworkModel.COLLECTION_MAPPINGS:
             if field_mapping.section in network_data:
                 kwargs[field_mapping.attr_name] = NetworkCollection(
-                    field_mapping.item_type, network_data[field_mapping.section]
+                    cast(Any, field_mapping.item_type),
+                    network_data[field_mapping.section],
                 )
         for field_mapping in EPANETNetworkModel.LIST_FIELD_MAPPINGS:
             if field_mapping.section in network_data:
@@ -61,7 +62,7 @@ class EPANETNetworkModelIO:
         return EPANETNetworkModel(**kwargs)
 
     @staticmethod
-    def to_dict(model: EPANETNetworkModel) -> Dict[str, Any]:
+    def to_dict(model: EPANETNetworkModel) -> OrderedDict:
         """Convert an :class:`EPANETNetworkModel` back to a section dictionary.
 
         Parameters
@@ -77,7 +78,7 @@ class EPANETNetworkModelIO:
             :meth:`hydroforge.epanetfile_io.file_io.EPANETFileIO.write_inp_file`
             or JSON serialization. Empty sections are omitted.
         """
-        result: Dict[str, Any] = OrderedDict()
+        result: OrderedDict = OrderedDict()
 
         for field_mapping in EPANETNetworkModel.COLLECTION_MAPPINGS:
             collection: NetworkCollection = getattr(model, field_mapping.attr_name)

@@ -40,6 +40,8 @@ from typing import (
     Generic,
     Sequence,
     overload,
+    cast,
+    Iterable,
 )
 from dataclasses import dataclass, field
 from collections.abc import MutableSequence
@@ -104,7 +106,7 @@ class Item(Protocol):
         """
 
     @classmethod
-    def from_list(cls: Type[T], item_list: list) -> T:
+    def from_list(cls, item_list: list) -> "Item":
         """Create an instance from a list of values.
 
         Parameters
@@ -114,7 +116,7 @@ class Item(Protocol):
 
         Returns
         -------
-        T
+        Item
             New instance of the item type.
         """
 
@@ -160,6 +162,9 @@ class NetworkCollection(MutableSequence[T], Generic[T]):
         self._cache: dict[int, T] = {}
 
     @overload
+    def __getitem__(self, index: int) -> T: ...
+
+    @overload
     def __getitem__(self, index: slice) -> list[T]: ...
 
     def __getitem__(self, index: int | slice) -> T | list[T]:
@@ -180,16 +185,19 @@ class NetworkCollection(MutableSequence[T], Generic[T]):
         return self._convert_item(index)
 
     @overload
+    def __setitem__(self, index: int, value: T) -> None: ...
+
+    @overload
     def __setitem__(
         self,
         index: slice,
-        value: Sequence[T | Sequence[Any]],
+        value: Iterable[T],
     ) -> None: ...
 
     def __setitem__(
         self,
         index: int | slice,
-        value: T | Sequence[Any] | Sequence[T | Sequence[Any]],
+        value: Any,
     ) -> None:
         """Replace one or more items.
 
@@ -203,16 +211,16 @@ class NetworkCollection(MutableSequence[T], Generic[T]):
         if isinstance(index, slice):
             values = [
                 item.to_list() if hasattr(item, "to_list") else list(item)
-                for item in value
+                for item in cast(Any, value)
             ]
             self._data[index] = values
             self._cache.clear()
             return
 
         if hasattr(value, "to_list"):
-            self._data[index] = value.to_list()
+            self._data[index] = cast(Any, value).to_list()
         else:
-            self._data[index] = list(value)
+            self._data[index] = list(cast(Any, value))
 
         self._cache.pop(index, None)
 
@@ -274,7 +282,7 @@ class NetworkCollection(MutableSequence[T], Generic[T]):
             Converted, cached dataclass instance.
         """
         if index not in self._cache:
-            self._cache[index] = self._item_type.from_list(self._data[index])
+            self._cache[index] = cast(T, self._item_type.from_list(self._data[index]))
         return self._cache[index]
 
     def to_list(self) -> list[list[Any]]:
