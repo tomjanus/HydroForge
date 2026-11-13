@@ -8,6 +8,7 @@ version = "1.0.0"
 description = "Toolkit for applying uncertainties to water network models"
 authors = [{name = "Tomasz Janus", email = "tomasz.k.janus@gmail.com"}]
 requires-python = ">=3.10"
+license = "GPL-3.0"
 keywords = ["hydrology", "water-network", "uncertainty-analysis", "leak-detection"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -44,6 +45,8 @@ dependencies = [
     "six>=1.16.0",
     "wntr>=1.0.0",
 ]
+[project.scripts]
+hydroforge = "hydroforge.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
