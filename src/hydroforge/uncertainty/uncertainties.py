@@ -489,7 +489,7 @@ class CategoricalReplacementUncertainty(Uncertainty[CatValue]):
                 u_arr.size != n_samples and u_arr.size != n_samples * 2
             ):
                 raise ValueError(
-                    f"For {self.__class__.__name__}, u must be a 1D array of size {n_samples} or {n_samples*2}"
+                    f"For {self.__class__.__name__}, u must be a 1D array of size {n_samples} or {n_samples * 2}"
                 )
             if u_arr.size == n_samples:  # Use same u for both
                 u_flip, u_replace = u_arr, u_arr

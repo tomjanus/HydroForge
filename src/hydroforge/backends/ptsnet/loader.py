@@ -1,7 +1,6 @@
 """ """
 
 import pathlib
-import ptsnet
 from ptsnet.simulation.sim import PTSNETSimulation
 
 

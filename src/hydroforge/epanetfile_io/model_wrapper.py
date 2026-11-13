@@ -35,7 +35,6 @@ from typing import (
     TypeVar,
     Type,
     Protocol,
-    NamedTuple,
     Tuple,
     ClassVar,
     Generic,

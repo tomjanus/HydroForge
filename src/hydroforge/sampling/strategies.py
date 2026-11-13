@@ -1053,7 +1053,6 @@ class GibbsSampler(Sampler):
         samples_generated = 0
 
         # Total iterations needed
-        total_iterations = self.n_burn_in + n * self.n_thin
 
         while samples_generated < n:
             # Update each parameter conditioned on others

@@ -1,4 +1,5 @@
 """TSNetPlus backend wrapper for HydroForge."""
+
 from __future__ import annotations
 
 import pathlib
@@ -9,7 +10,7 @@ from .tsnetplus import (
     TSNetPlusConfig,
     TSNetPlusModel,
     TSNetPlusSimulationResults,
-    TSNetSPlusSimulator
+    TSNetSPlusSimulator,
 )
 from .tsnetplus.loader import load_tsnetplus_model
 
@@ -23,6 +24,7 @@ class TSNetPlusBackend(
     ]
 ):
     """Concrete backend adapter for the TSNetPlus transient solver."""
+
     package_name = "tsnetplus"
 
     def __init__(self) -> None:
