@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hydroforge"
+version = "1.0.0"
+description = "Toolkit for applying uncertainties to water network models"
+authors = [{name = "Tomasz Janus", email = "tomasz.k.janus@gmail.com"}]
+requires-python = ">=3.10"
+keywords = ["hydrology", "water-network", "uncertainty-analysis", "leak-detection"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Hydrology",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "cloudpickle>=3.0.0",
+    "contourpy>=1.0.0",
+    "cycler>=0.10.0",
+    "fonttools>=4.0.0",
+    "kiwisolver>=1.0.0",
+    "matplotlib>=3.5.0",
+    "networkx>=3.0",
+    "numpy>=1.20.0",
+    "packaging>=20.0",
+    "pandas>=1.5.0",
+    "pillow>=8.0.0",
+    "pygad>=3.0.0",
+    "pyparsing>=3.0.0",
+    "python-dateutil>=2.8.0",
+    "tzdata>=2021.1",
+    "PyYAML>=6.0.0",
+    "scipy>=1.8.0",
+    "setuptools>=60.0.0",
+    "six>=1.16.0",
+    "wntr>=1.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+addopts = [
+    "--verbose",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+    "--cov=found",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+]
+
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+norecursedirs = [
+    ".*",
+    "build",
+    "dist",
+    "CVS",
+    "_darcs",
+    "{arch}",
+    "*.egg",
+    "venv",
+    "env",
+    "__pycache__",
+]
+
+filterwarnings = [
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
