@@ -9,6 +9,7 @@ from hydroforge.backends import get_backend
 from hydroforge.backends.wntr.config import (
     WNTRConfig,
     WNTRHydraulicConfig,
+    WNTRSimulatorConfig,
     WNTRTimeConfig,
 )
 
@@ -35,8 +36,10 @@ def run_steady_state() -> None:
         time=WNTRTimeConfig(duration=0),
         hydraulic=WNTRHydraulicConfig(demand_model="DD"),
     )
-    backend.apply_configs(config)
-    results = backend.create_simulator(config).run(model)
+    # Model configuration (persistent WNTR options) is applied to the loaded
+    # model; simulator runtime configuration is passed separately.
+    backend.apply_config(config)
+    results = backend.create_simulator(WNTRSimulatorConfig()).run(model)
     rprint("\n[bold]WNTR steady-state simulation[/bold]")
     rprint(f"Network file: {_example_network()}")
     rprint(f"Pressure result shape: {results.raw.node['pressure'].shape}")
@@ -54,8 +57,8 @@ def run_extended_duration_showcase() -> None:
         time=WNTRTimeConfig(duration=duration, hydraulic_timestep=timestep),
         hydraulic=WNTRHydraulicConfig(demand_model="DD"),
     )
-    backend.apply_configs(config)
-    wntr_results = backend.create_simulator(config).run(wn)
+    backend.apply_config(config)
+    wntr_results = backend.create_simulator(WNTRSimulatorConfig()).run(wn)
 
     pressures_range = wntr_results.get_node_variable(
         "pressure",

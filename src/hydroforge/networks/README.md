@@ -12,7 +12,6 @@ networks/
 ├── __init__.py                          # Empty; import from the submodules below
 ├── junction_leaks.py                    # JunctionLeaks
 ├── network_model_component_selectors.py # Selector classes for WNTR models
-├── network_graph_component_selectors.py # Placeholder (not implemented)
 └── README.md
 ```
 
@@ -77,8 +76,8 @@ selected = selector.select(wn, initial_candidates=list(wn.pipe_name_list))
 `ModelComponentSelector` exposes `text_log`, `structured_log`,
 `add_selector(...)`, and `select(wn, initial_candidates)`.
 
-`network_graph_component_selectors.py` currently contains only a `main()` stub
-that raises `NotImplementedError`.
+Graph component selectors are not implemented; the implemented selectors live in
+`network_model_component_selectors.py`.
 
 ---
 

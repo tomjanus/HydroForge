@@ -17,11 +17,10 @@ a common simulation-backend facade.
 ## Project status
 
 HydroForge is alpha software. The supported simulation entry point is
-`hydroforge.backends`. The older `hydroforge.simulation` package is retained for
-compatibility but is currently incomplete, and
-`hydroforge.scenario_generation` is not yet connected to the current API. See
-[`spec/0002-code-review-remediation.md`](spec/0002-code-review-remediation.md)
-for the reviewed defects and remediation plan.
+`hydroforge.backends`, which is the sole supported simulation implementation.
+The legacy `hydroforge.simulation`, `hydroforge.scenario_generation`,
+`hydroforge.topology`, and `hydroforge.uncertainty_sampling` packages have been
+retired in favour of `hydroforge.backends` and `hydroforge.sampling`.
 
 ## Installation
 
@@ -86,10 +85,6 @@ are not implemented and exit with a non-zero status.
 | `hydroforge.epanetfile_io` | Typed EPANET `.inp` parsing, editing, and writing without WNTR | Supported |
 | `hydroforge.backends` | Common backend facade for WNTR, EPANET, TSNet, TSNetPlus, and PTSNet | Supported; optional solvers required |
 | `hydroforge.auxiliary` | Configuration I/O, logging, exceptions, utility helpers | Supported |
-| `hydroforge.topology` | Topology helpers for sensor and transient networks | Partial |
-| `hydroforge.simulation` | Legacy `Simulator`/`SimulationResults` interface | Legacy; currently incomplete |
-| `hydroforge.scenario_generation` | Synthetic measurement generation | Not functional; pending migration |
-| `hydroforge.uncertainty_sampling` | Divergent legacy sampling copy | Deprecated and currently unimportable; use `hydroforge.sampling` |
 
 ## API overview
 
@@ -187,10 +182,6 @@ Backend configuration is split into persistent model options
 `WNTRSimulatorConfig`, and `EPANETSimulatorConfig`; the transient backends
 currently use one configuration type for both scopes.
 
-`get_backend()` currently caches backend instances. Do not assume isolation
-between successive runs in one process; this is a known defect tracked in
-`spec/0002-code-review-remediation.md`.
-
 ### EPANET file I/O
 
 ```python
@@ -225,18 +216,14 @@ PYTHONPATH=src python examples/sensors/ex1_sensors.py
 
 Other examples demonstrate the backend registry, EPANET file I/O, graph
 analysis, sampling, uncertainty distributions, and sensor placement. Some
-require optional solvers or `SALib`; several are currently being repaired (see
-`spec/0002-code-review-remediation.md`). In particular,
-`examples/graphs/ex1_graph_creation.py` and
-`examples/simulation/ex1_static_simulation.py` contain stale API calls, and
-`examples/uncertainty/ex1_pdfs.py` requires `SALib`.
+examples require optional solvers or `SALib`; those are only runnable when the
+corresponding dependency is installed.
 
 ## Configuration
 
 `hydroforge.auxiliary.load_config()` reads YAML with `yaml.safe_load`. The
 repository contains legacy configuration files under `data/config/`; they
-reference retired modules and should not be treated as working templates until
-migrated.
+reference retired modules and are not working templates.
 
 ## Development
 
@@ -255,8 +242,6 @@ pytest
 ```
 
 The CI workflow runs the same commands on Python 3.12 and builds the package.
-Test coverage is currently minimal; adding behavioural tests is part of the
-remediation plan.
 
 Repository conventions and the development workflow are described in
 [`WORKFLOW_GUIDELINES.md`](WORKFLOW_GUIDELINES.md). Domain terminology is in

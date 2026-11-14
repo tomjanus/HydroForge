@@ -22,12 +22,7 @@ hydroforge/
 ├── networks/                    # Component selectors and JunctionLeaks
 ├── modifiers/                   # WNTR model and graph modifiers
 ├── epanetfile_io/               # Typed EPANET .inp parsing, editing and writing
-├── backends/                    # WNTR, EPANET, TSNet, TSNetPlus and PTSNet facade
-├── topology/                    # Partial topology helpers for sensor/transient networks
-│
-├── simulation/                  # Legacy Simulator interface (currently incomplete)
-├── scenario_generation/         # Synthetic measurement generation (not yet migrated)
-└── uncertainty_sampling/        # Deprecated, divergent legacy sampling copy
+└── backends/                    # WNTR, EPANET, TSNet, TSNetPlus and PTSNet facade
 ```
 
 ## Supported entry points
@@ -98,18 +93,16 @@ see `spec/0002-code-review-remediation.md`.
 
 ## Legacy and incomplete packages
 
-- `hydroforge.simulation` defines an older `Simulator`/`SimulationResults`
-  abstraction. Its `__init__.py` imports modules that are not present, and
-  `common.py` imports `tsnet` unconditionally. Use `hydroforge.backends` for new
-  work.
-- `hydroforge.scenario_generation.measurement_creator` still imports the retired
-  `found` package and does not import successfully. The intended replacement is
-  specified in `spec/0001-uncertainty-scenario-generation.md`.
-- `hydroforge.uncertainty_sampling` is a divergent legacy copy and currently
-  fails to import because it references the removed `ParameterKind` symbol.
-  Use `hydroforge.sampling`.
 - `hydroforge.cli` provides argument parsing only; its subcommands print a
   not-implemented message and return a failure status.
+
+The legacy `hydroforge.simulation`, `hydroforge.scenario_generation`,
+`hydroforge.topology`, and `hydroforge.uncertainty_sampling` packages have been
+removed from the source tree. `hydroforge.backends` is the sole supported
+simulation implementation and `hydroforge.sampling` is the canonical sampling
+package; see
+[`spec/SPEC-legacy-surface-retirement.md`](../../spec/SPEC-legacy-surface-retirement.md)
+for the retirement record.
 
 ## Related documentation
 
@@ -121,8 +114,6 @@ see `spec/0002-code-review-remediation.md`.
 - [`networks/README.md`](networks/README.md)
 - [`epanetfile_io/README.md`](epanetfile_io/README.md)
 - [`backends/README.md`](backends/README.md)
-- [`simulation/README.md`](simulation/README.md)
-- [`scenario_generation/README.md`](scenario_generation/README.md)
 
 ## License
 

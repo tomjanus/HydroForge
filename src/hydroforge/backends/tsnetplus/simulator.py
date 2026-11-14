@@ -51,15 +51,17 @@ class TSNetSPlusSimulator(
 
     Examples
     --------
-    >>> from hydroforge.simulation import load_tsnet_model, DemandModel
+    >>> from hydroforge.backends import get_backend
+    >>> from hydroforge.backends.tsnetplus.config import TSNetPlusConfig
     >>>
-    >>> model = load_tsnet_model("network.inp")
-    >>> config = TSNetSimulatorConfig(
+    >>> backend = get_backend("tsnetplus")
+    >>> model = backend.load_model("network.inp")
+    >>> config = TSNetPlusConfig(
     ...     wave_speed=1200.0,
     ...     duration=20.0,
     ...     time_step=0.1,
     ... )
-    >>> simulator = TSNetPlusSimulator(config=config)
+    >>> simulator = backend.create_simulator(config)
     >>> results = simulator.run(model)
     """
 
