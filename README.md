@@ -37,15 +37,21 @@ pip install -e ".[dev]"
 The core dependencies are declared in `pyproject.toml` and include NumPy, SciPy,
 pandas, NetworkX, Matplotlib, PyYAML, Rich, pygad, cloudpickle, and WNTR.
 
-Optional transient backends are not yet declared as package extras. Install
-their solver packages separately when needed:
+Transient solver backends are optional extras. Install only the backend you
+need:
 
 | Backend | Solver package |
 | --- | --- |
 | `wntr` | WNTR (core dependency) |
-| `tsnet` | TSNet |
-| `tsnetplus` | TSNetPlus |
-| `ptsnet` | PTSNet |
+| `tsnet` | `pip install -e ".[tsnet]"` |
+| `tsnetplus` | `pip install -e ".[tsnetplus]"` |
+| `ptsnet` | `pip install -e ".[ptsnet]"` |
+
+The `tsnet` and `tsnetplus` extras install their respective GitHub packages;
+`ptsnet` installs the package from PyPI. If code requests a transient backend
+whose package is missing, HydroForge explains which package is required and
+asks whether to install it. Installation happens only after an explicit `y`
+or `yes`; pressing Enter (or answering `n`) leaves the environment unchanged.
 
 The sampling package imports `SALib`. `SALib` is required by the current source
 but is not yet declared in `pyproject.toml`; install it explicitly until the

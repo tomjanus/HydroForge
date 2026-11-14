@@ -50,6 +50,10 @@ dependencies = [
 hydroforge = "hydroforge.cli:main"
 
 [project.optional-dependencies]
+tsnet = ["TSNet @ git+https://github.com/glorialulu/TSNet.git"]
+tsnetplus = ["TSNetPlus @ git+https://github.com/tomjanus/TSNetPlus.git"]
+ptsnet = ["ptsnet"]
+
 # Dev tooling is pinned to exact versions so that the local quality gate and
 # the GitHub Actions CI gate run byte-for-byte identical tooling. Update these
 # pins deliberately (and re-run the gate) when upgrading a tool.
