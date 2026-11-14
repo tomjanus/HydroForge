@@ -1,5 +1,9 @@
 # HydroForge
 
+<p align="center">
+  <img src="assets/banner.png" alt="hydroforge-banner" width="100%">
+</p>
+
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![Status: Alpha](https://img.shields.io/badge/status-Alpha-orange.svg)](https://github.com/tomjanus/HydroForge)
