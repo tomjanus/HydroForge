@@ -4,7 +4,10 @@ The `hydroforge.sampling` module provides sampling methods for **uncertainty pro
 
 The module supports both classical Monte Carlo methods and structured sampling approaches designed to improve the representation of uncertain input spaces or to represent dependencies, multiple uncertainty scales, and sequential decisions.
 
-The available methods range from independent random sampling to low-discrepancy sequences, hierarchical sampling, Markov chain Monte Carlo, stratification, and scenario-tree generation.
+The available methods range from independent random sampling to low-discrepancy
+sequences, hierarchical sampling, stratification, and scenario-tree generation.
+The class named `GibbsSampler` is a legacy independent-resampling implementation,
+not a Markov chain Monte Carlo sampler.
 
 ## Overview
 
@@ -37,7 +40,7 @@ The appropriate sampling method depends on the structure of the uncertainty, the
 | **Conditional MC**  | Hierarchical dependencies       | Climate → temperature → demand                         |
 | **Nested MC**       | Multiple uncertainty levels     | Long-term scenarios + short-term variability           |
 | **Stratified**      | Domain-informed partitioning    | Distinct operating regimes                             |
-| **Gibbs**           | MCMC for dependent variables    | Complex joint distributions                            |
+| **GibbsSampler**    | Independent marginal resampling | Not suitable for dependent variables                   |
 | **Scenario Tree**   | Sequential uncertainty          | Multi-stage stochastic optimisation                    |
 | **Mixed**           | Composite sampling              | Heterogeneous parameter groups                         |
 
@@ -70,6 +73,24 @@ for scenario in sampler.generate(n=100):
 ```
 
 All sampling strategies ultimately generate `Scenario` objects containing parameter values and strategy-specific metadata.
+
+## Current implementation limitations
+
+- `SALib` is imported by the package but is not declared in
+  `pyproject.toml` or `requirements.txt`; install it separately before importing
+  `hydroforge.sampling`.
+- `Stratum.__post_init__` is not defined on the class, so its intended
+  per-instance validation does not run. `StratifiedSampler` performs some
+  separate checks, but invalid stratum fields may still be accepted.
+- `StratifiedSampler` does not currently honor its configured base sampler's
+  unit-space design; samples within strata use independent uniform draws.
+- `GibbsSampler` is a legacy name: it independently samples each parameter from
+  its marginal distribution. It does not use conditional distributions or
+  implement an MCMC chain; `n_burn_in` and `n_thin` only discard draws.
+- Sampling behavior is not covered by the current test suite.
+
+These limitations are also tracked in
+[`spec/0002-code-review-remediation.md`](../../../spec/0002-code-review-remediation.md).
 
 ---
 
@@ -534,7 +555,7 @@ Consequently, nested sampling can become computationally expensive very quickly.
 
 ---
 
-# Stratified and MCMC Sampling
+# Stratified and Independent Resampling
 
 ## 7. Stratified Sampling
 
@@ -704,34 +725,15 @@ if numerical_params:
 
 ---
 
-## 8. Gibbs Sampling
+## 8. Legacy independent resampling (`GibbsSampler`)
 
-**Implementation:** `GibbsSampler`
+Despite its name, the current `GibbsSampler` is **not** a Gibbs sampler or an
+MCMC method. It independently samples each parameter from its marginal
+distribution using `Parameter.sample()`. It does not accept or use conditional
+distributions, so it cannot represent dependencies between parameters.
 
-Gibbs sampling is a Markov chain Monte Carlo (MCMC) method for generating samples from a joint distribution when its full conditional distributions are available.
-
-For a parameter vector
-
-```math
-\mathbf{X}=(X_1,\ldots,X_d),
-```
-
-a Gibbs iteration updates each component conditionally on the current values of the remaining components:
-
-```math
-X_i^{(t+1)}
-\sim
-p\left(
-X_i
-\mid
-X_1^{(t+1)},\ldots,X_{i-1}^{(t+1)},
-X_{i+1}^{(t)},\ldots,X_d^{(t)}
-\right).
-```
-
-After an appropriate burn-in period and under suitable regularity conditions, the chain can be used to approximate the target joint distribution.
-
-Gelfand & Smith (1990) established the importance of Gibbs sampling and related sampling-based approaches for Bayesian computation.
+`n_burn_in` and `n_thin` only cause independently drawn scenarios to be
+discarded; they do not provide MCMC burn-in or thinning.
 
 ### Example
 
@@ -749,29 +751,12 @@ for scenario in sampler.generate(100):
     run_simulation(scenario.values)
 ```
 
-### Important MCMC considerations
+### Guidance
 
-Unlike MC, LHS, Sobol and Halton sampling, successive Gibbs samples are generally **not independent**.
-
-Consequently, the effective sample size can be substantially smaller than the nominal number of generated samples.
-
-The following should therefore be considered:
-
-* burn-in;
-* chain convergence;
-* autocorrelation;
-* effective sample size;
-* sensitivity to initial values;
-* potentially multiple independent chains.
-
-`n_thin` is provided as an option, but thinning should not automatically be interpreted as improving statistical efficiency.
-
-### Use cases
-
-* Complex parameter dependencies
-* Joint distributions specified through full conditional distributions
-* Bayesian or hierarchical models
-* Cases where direct independent sampling is difficult
+Use `MonteCarloSampler` for independent marginal draws. Do not use
+`GibbsSampler` when conditional sampling, dependent joint distributions, or
+MCMC guarantees are required. The legacy class and its parameters remain for
+compatibility pending a separate API decision.
 
 ---
 
@@ -985,7 +970,7 @@ There is no universally optimal sampling strategy. Selection should be based on 
 | Hierarchical parameter dependence            | Conditional sampling       |
 | Multiple uncertainty scales                  | Nested MC                  |
 | Known important operating regimes            | Stratified sampling        |
-| Complex joint distribution with conditionals | Gibbs                      |
+| Complex joint distribution with conditionals | No supported conditional sampler |
 | Sequential decisions                         | Scenario tree              |
 | Heterogeneous parameter groups               | Mixed strategy             |
 
@@ -1004,7 +989,7 @@ Start
 │      └─ Yes → Conditional Sampling
 │
 ├─ Only conditional distributions available?
-│      └─ Yes → Gibbs
+│      └─ Yes → No supported conditional sampler; do not use GibbsSampler
 │
 ├─ Important physical/operational regimes known?
 │      └─ Yes → Stratified
@@ -1174,7 +1159,7 @@ Consequently, reducing the number of simulations can be particularly valuable fo
 | Conditional   |                                 $O(NL)$ | Across scenarios          |
 | Nested        |        $O(N_\mathrm{out}N_\mathrm{in})$ | Across outer/inner groups |
 | Stratified    |                    approximately $O(N)$ | Yes                       |
-| Gibbs         |                   $O(Nd)$, plus burn-in | No, within chain          |
+| GibbsSampler  | $O(d(n_\mathrm{burn}+Nn_\mathrm{thin}))$ | Independent marginal draws |
 | Scenario tree |                Depends on number of nodes | Paths can be independent  |
 | Mixed         |           Depends on component strategies | Usually yes               |
 
@@ -1204,7 +1189,9 @@ Nested sampling can generally parallelise across outer scenarios and, where appr
 
 ### Sequential methods
 
-Gibbs sampling is inherently sequential within a Markov chain because each state depends on the previous state.
+`GibbsSampler` does not implement a Markov chain. Its generated scenarios are
+independent marginal resamples; the configured burn-in and thinning only skip
+draws.
 
 Scenario trees have a different structure: individual paths may be evaluated independently once the tree has been generated, although decisions and information-sharing constraints must be respected in subsequent stochastic optimisation.
 
@@ -1261,14 +1248,17 @@ scenario.metadata = {
 }
 ```
 
-### Gibbs sampling
+### Legacy `GibbsSampler` metadata
 
 ```python
 scenario.metadata = {
     "iteration": int,
-    "chain_position": int,
+    "chain_position": int,  # legacy field name; not a Markov-chain position
 }
 ```
+
+These counters do not imply that the samples are dependent or that a Gibbs
+transition was performed.
 
 ### Scenario tree
 
@@ -1327,15 +1317,13 @@ Instead, examine convergence of quantities of interest such as:
 \hat{q}_{0.95,N}.
 ```
 
-### 5. Treat MCMC differently
+### 5. Do not interpret `GibbsSampler` as MCMC
 
-For Gibbs sampling, assess:
-
-* burn-in;
-* autocorrelation;
-* effective sample size;
-* convergence across chains;
-* sensitivity to initial conditions.
+The current `GibbsSampler` does not implement MCMC. It samples each parameter
+independently from its marginal distribution, so burn-in, autocorrelation,
+effective sample size, and chain-convergence diagnostics do not apply to its
+current behavior. Use a real conditional sampler if dependent joint sampling
+is required.
 
 ### 6. Preserve the probabilistic interpretation
 
@@ -1385,7 +1373,7 @@ This is particularly relevant for transient and extended-period simulations, whe
 
 **[9]** Neyman, J. (1934). On the two different aspects of the representative method: The method of stratified sampling and the method of purposive selection. *Journal of the Royal Statistical Society*, 97(4), 558–606. DOI: `10.1111/j.2397-2335.1934.tb04184.x`.
 
-### Gibbs Sampling / MCMC
+### Background literature on Gibbs sampling (method not implemented here)
 
 **[10]** Gelfand, A. E. & Smith, A. F. M. (1990). Sampling-based approaches to calculating marginal densities. *Journal of the American Statistical Association*, 85(410), 398–409. DOI: `10.1080/01621459.1990.10476213`.
 
@@ -1543,4 +1531,3 @@ When adding a new sampling strategy:
 ## License
 
 This module is part of the HydroForge library for uncertainty-aware modelling of water distribution network systems.
-

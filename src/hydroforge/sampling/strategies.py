@@ -10,7 +10,7 @@ from uncertain parameters, including:
 - Conditional/Hierarchical Monte Carlo: Sequential sampling with dependencies
 - Nested Monte Carlo: Inner-outer sampling for multilevel uncertainty
 - Stratified sampling: Layered sampling with controlled coverage
-- Gibbs sampling: MCMC for conditional distributions
+- `GibbsSampler`: legacy independent marginal resampling; not MCMC
 - Scenario trees: Discretized branching for decision analysis
 - Mixed strategies: Different sampling methods for different parameter groups
 """
@@ -993,27 +993,22 @@ class StratifiedSampler(Sampler):
 
 
 # ================================================================
-#  Gibbs Sampler (MCMC)
+#  Legacy independent resampling (`GibbsSampler`)
 # ================================================================
 
 
 class GibbsSampler(Sampler):
-    """Gibbs sampling (Markov Chain Monte Carlo).
+    """Legacy independent marginal resampler with a misleading class name.
 
-    Samples parameters one at a time from conditional distributions:
-    - X^(t+1) ~ p(X | Y^(t), Z^(t))
-    - Y^(t+1) ~ p(Y | X^(t+1), Z^(t))
-    - Z^(t+1) ~ p(Z | X^(t+1), Y^(t+1))
-
-    Useful when:
-    - Joint distribution is hard to sample from
-    - Conditional distributions are easy to sample from
-    - Parameters have complex dependencies
+    Each parameter is sampled independently from its marginal distribution.
+    This implementation does not use conditional distributions and does not
+    implement Gibbs sampling or a Markov chain Monte Carlo (MCMC) method.
 
     Attributes:
-        n_burn_in: Number of initial samples to discard (burn-in period)
-        n_thin: Keep every n_thin samples (thinning to reduce autocorrelation)
-        initial_values: Starting values for the chain (optional)
+        n_burn_in: Number of initial independent draws to discard.
+        n_thin: Keep every ``n_thin``-th independent draw.
+        initial_values: Initial values accepted for compatibility; they do not
+            affect the independent draws.
     """
 
     def __init__(
@@ -1034,17 +1029,17 @@ class GibbsSampler(Sampler):
         self.initial_values = initial_values or {}
 
     def generate(self, n: int) -> Generator[Scenario, None, None]:
-        """Generate n scenarios using Gibbs sampling.
+        """Generate ``n`` scenarios using independent marginal draws.
 
-        Note: n samples after burn-in and thinning. Total iterations will be
-        n_burn_in + n * n_thin.
+        ``n_burn_in`` and ``n_thin`` control how many independent draws are
+        discarded. They do not define MCMC burn-in or thinning.
         """
         if n <= 0:
             raise ValueError(f"Number of samples must be positive, got {n}")
         if self.n_thin <= 0:
             raise ValueError(f"Thinning parameter must be positive, got {self.n_thin}")
 
-        # Initialize chain
+        # Initialize compatibility state; values do not condition later draws.
         current_values = {}
         for param in self.parameters:
             if param.name in self.initial_values:
@@ -1059,7 +1054,7 @@ class GibbsSampler(Sampler):
         # Total iterations needed
 
         while samples_generated < n:
-            # Update each parameter conditioned on others
+            # Draw each parameter independently from its marginal distribution.
             for param in self.parameters:
                 param.reset()
                 # In a full implementation, we'd pass current_values to inform

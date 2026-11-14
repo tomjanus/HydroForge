@@ -1,4 +1,4 @@
-"""FOUND: Water network uncertainty analysis and leakage localization toolkit.
+"""HydroForge: Water network uncertainty analysis and leakage localization toolkit.
 
 This package provides tools for:
 - Water distribution network modeling and simulation

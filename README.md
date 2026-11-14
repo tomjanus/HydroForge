@@ -4,226 +4,282 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![Status: Alpha](https://img.shields.io/badge/status-Alpha-orange.svg)](https://github.com/tomjanus/HydroForge)
 
-**HydroForge** is an uncertainty injection and scenario generation framework for water distribution network (WDN) model simulations. It allows creating perturbed EPANET network models and applying non-ideal sensors for measuring flows and pressures in WDN network models.
+**HydroForge** is a toolkit for uncertainty injection and scenario generation in
+water distribution network (WDN) simulations. It provides probability
+distributions and uncertain parameters, sampling strategies, sensor-imperfection
+models, network modifiers, EPANET file I/O, graph analysis, sensor placement, and
+a common simulation-backend facade.
 
-## Table of Contents
+## Project status
 
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Core Features](#core-features)
-- [API Overview](#api-overview)
-- [Examples](#examples)
-- [Configuration](#configuration)
-- [Development](#development)
-- [Citation](#citation)
-- [License](#license)
+HydroForge is alpha software. The supported simulation entry point is
+`hydroforge.backends`. The older `hydroforge.simulation` package is retained for
+compatibility but is currently incomplete, and
+`hydroforge.scenario_generation` is not yet connected to the current API. See
+[`spec/0002-code-review-remediation.md`](spec/0002-code-review-remediation.md)
+for the reviewed defects and remediation plan.
 
 ## Installation
 
-HydroForge can be installed via `pip` or `uv`.
-
-### Using pip
+HydroForge requires Python 3.10 or newer. Install from a source checkout:
 
 ```bash
-pip install hydroforge
-```
-
-### Using uv
-
-```bash
-uv add hydroforge
-```
-
-### From source
-
-If you want to install from the source code:
-
-```bash
-# Clone the repository
 git clone https://github.com/tomjanus/HydroForge.git
 cd HydroForge
 
-# Install in development mode
+# Runtime installation
 pip install -e .
-# or with uv
-uv pip install -e .
+
+# Development installation (black, flake8, mypy, pytest)
+pip install -e ".[dev]"
 ```
 
-## Quick Start
+The core dependencies are declared in `pyproject.toml` and include NumPy, SciPy,
+pandas, NetworkX, Matplotlib, PyYAML, Rich, pygad, cloudpickle, and WNTR.
 
-After installation, you can use the HydroForge command-line interface:
+Optional transient backends are not yet declared as package extras. Install
+their solver packages separately when needed:
 
-```bash
-hydroforge --version
-```
+| Backend | Solver package |
+| --- | --- |
+| `wntr` | WNTR (core dependency) |
+| `tsnet` | TSNet |
+| `tsnetplus` | TSNetPlus |
+| `ptsnet` | PTSNet |
 
-Available commands:
-- `hydroforge run-analysis config.yaml` - Run uncertainty analysis
-- `hydroforge localize network.inp measurements.csv` - Run leak localization
-- `hydroforge sensor-placement network.inp` - Optimize sensor placement
+The sampling package imports `SALib`. `SALib` is required by the current source
+but is not yet declared in `pyproject.toml`; install it explicitly until the
+packaging defect is fixed.
 
-Or import the package directly in Python:
+## Quick start
 
 ```python
 from hydroforge import __version__
+from hydroforge.sensors import RandomNoiseSensor
+
 print(f"HydroForge version {__version__}")
 
-from hydroforge.sensors.sensors import PerfectSensor, RandomNoiseSensor
-sensor = PerfectSensor()
-result = sensor.measure(1.0)
+sensor = RandomNoiseSensor(sigma=0.05, seed=42)
+measurement = sensor.measure(1.0)
 ```
 
-## Core Features
+The command-line interface is currently a placeholder. `hydroforge --version`
+works, but `run-analysis`, `localize`, and `sensor-placement` report that they
+are not implemented and exit with a non-zero status.
 
-- **Uncertainty distributions**: Normal, Uniform, Dirac Delta, Discrete Normal, Discrete Histogram, Categorical Uniform, Categorical Histogram, Categorical Normal
-- **Sensor models**: PerfectSensor, FixedPrecisionSensor, RandomNoiseSensor, OffsetSensor, SensitivityErrorSensor, DeadBandSensor, SaturationSensor, DriftSensor, CompositeSensor
-- **Water network backends**: WNTR, EPANET integration
-- **Scenario generation**: Sobol sequences, Latin Hypercube Sampling
-- **Leak localization**: Differential pressure, graph interpolation, genetic algorithm methods
-- **Sensor placement optimization**: Shortest-path-based sensor placement
+## Package layout
 
-## API Overview
+| Package | Purpose | Current state |
+| --- | --- | --- |
+| `hydroforge.uncertainty` | Distributions, uncertainty transforms, parameters, CDFs | Supported |
+| `hydroforge.sampling` | Monte Carlo, LHS, Sobol, Halton, stratified, conditional, nested, scenario-tree and mixed sampling | Supported once `SALib` is installed |
+| `hydroforge.sensors` | Imperfect-sensor models, window averaging, sensor placement, sensor-network graph | Supported |
+| `hydroforge.graphs` | EPANET network graph analysis and visualization | Supported |
+| `hydroforge.networks` | Model/graph selectors and `JunctionLeaks` | Supported |
+| `hydroforge.modifiers` | WNTR model and graph modifiers | Supported |
+| `hydroforge.epanetfile_io` | Typed EPANET `.inp` parsing, editing, and writing without WNTR | Supported |
+| `hydroforge.backends` | Common backend facade for WNTR, EPANET, TSNet, TSNetPlus, and PTSNet | Supported; optional solvers required |
+| `hydroforge.auxiliary` | Configuration I/O, logging, exceptions, utility helpers | Supported |
+| `hydroforge.topology` | Topology helpers for sensor and transient networks | Partial |
+| `hydroforge.simulation` | Legacy `Simulator`/`SimulationResults` interface | Legacy; currently incomplete |
+| `hydroforge.scenario_generation` | Synthetic measurement generation | Not functional; pending migration |
+| `hydroforge.uncertainty_sampling` | Divergent legacy sampling copy | Deprecated and currently unimportable; use `hydroforge.sampling` |
 
-### Uncertainty distributions (`hydroforge.uncertainty`)
+## API overview
 
-- `NormalDistribution(mean, std_dev)` - Continuous normal distribution
-- `UniformDistribution(lower, upper)` - Continuous uniform distribution
-- `DiracDeltaDistribution(value)` - Point mass distribution
-- `DiscreteNormalDistribution(mean, std_dev)` - Discrete normal approximation
-- `DiscreteHistogramDistribution(values, probabilities)` - Discrete histogram
-- `CategoricalUniformDistribution(categories, nominal_category)` - Categorical uniform
-- `CategoricalHistogramDistribution(categories, probabilities)` - Categorical histogram
-- `CategoricalNormalDistribution(categories, spread, nominal_category)` - Categorical normal
-- `DistributionChecker` - Helper functions for distribution properties
+### Uncertainty distributions and parameters
 
-### Sensor models (`hydroforge.sensors`)
+```python
+from hydroforge.uncertainty import (
+    NormalDistribution,
+    UniformDistribution,
+    AdditiveUncertainty,
+    Parameter,
+    ParameterType,
+)
 
-- `PerfectSensor` - Ideal sensor with no error
-- `FixedPrecisionSensor(delta_y)` - Fixed precision error
-- `RandomNoiseSensor(sigma, seed)` - Additive Gaussian noise
-- `OffsetSensor(offset)` - Constant offset bias
-- `SensitivityErrorSensor(scale)` - Multiplicative scale error
-- `DeadBandSensor(threshold)` - Deadband/hysteresis effect
-- `SaturationSensor(min_val, max_val)` - Saturation limits
-- `DriftSensor(offset_rate)` - Time-dependent drift
-- `CompositeSensor` - Combination of multiple sensors
+diameter = Parameter(
+    name="diameter",
+    nominal_value=200.0,
+    uncertainty=AdditiveUncertainty(NormalDistribution(mean=0.0, std_dev=2.5)),
+    type=ParameterType.NUMERICAL,
+)
 
-### Water network simulation (`hydroforge.backends`)
-
-- `get_backend("wntr")` - WNTR backend for EPANET simulations
-- `get_backend("epanet")` - Direct EPANET integration
-
-### CLI
-
+value = diameter.sample()
+controlled = diameter.sample_from_unit(0.5)
+cdf_at_200 = diameter.cdf(200.0)
 ```
-hydroforge --version
-hydroforge run-analysis config.yaml
-hydroforge localize network.inp measurements.csv
-hydroforge sensor-placement network.inp
+
+Available distributions include `NormalDistribution`, `UniformDistribution`,
+`DiscreteNormalDistribution`, `DiscreteUniformDistribution`,
+`DiscreteHistogramDistribution`, `DiracDeltaDistribution`, the categorical
+variants, and `DistributionChecker`.
+
+### Sampling
+
+```python
+from hydroforge.sampling import MonteCarloSampler, LatinHypercubeSampler
+
+sampler = LatinHypercubeSampler([diameter])
+for scenario in sampler.generate(100):
+    print(scenario.id, scenario.values)
+```
+
+The sampling package also exports `SobolSampler`, `HaltonSampler`,
+`StratifiedSampler`, `ConditionalMonteCarloSampler`,
+`NestedMonteCarloSampler`, `ScenarioTreeSampler`, `MixedStrategySampler`,
+`GibbsSampler` (a legacy independent marginal resampler, not MCMC), and
+supporting specification types. See
+[`src/hydroforge/sampling/README.md`](src/hydroforge/sampling/README.md) for the
+statistical assumptions and current limitations.
+
+### Sensors and sensor placement
+
+```python
+from hydroforge.sensors import (
+    FixedPrecisionSensor,
+    RandomNoiseSensor,
+    CompositeSensor,
+)
+from hydroforge.sensors.sensors import WindowAverager
+
+sensor = CompositeSensor(
+    FixedPrecisionSensor(delta_y=0.01),
+    RandomNoiseSensor(sigma=0.005, seed=42),
+)
+measured = sensor.measure(1.234)
+
+averager = WindowAverager(window_size=3)
+averaged = averager.average([1.0, 1.1, 0.9, 1.2, 1.0, 1.1])
+```
+
+Placement strategies are available through `hydroforge.sensors.placement`:
+`GreedySensorPlacement`, `KCentreSensorPlacement`, `RandomSensorPlacement`,
+`CentralityBasedSensorPlacement`, `CoverageBasedSensorPlacement`,
+`DominatingSetBasedSensorPlacement`, and `FixedLocationSensorPlacement`, all
+orchestrated by `SensorPlacer`.
+
+### Simulation backends
+
+```python
+from hydroforge.backends import get_backend
+
+backend = get_backend("wntr")
+model = backend.load_model("tests/base_networks/Net1_shortened.inp")
+results = backend.create_simulator().run(model)
+
+pressure = results.get_node_variable(
+    "pressure",
+    list(model.junction_name_list)[:3],
+    as_dataframe=True,
+)
+```
+
+Backend configuration is split into persistent model options
+(`backend.apply_config(...)`) and simulator runtime options
+(`backend.create_simulator(...)`). WNTR uses `WNTRConfig`,
+`WNTRSimulatorConfig`, and `EPANETSimulatorConfig`; the transient backends
+currently use one configuration type for both scopes.
+
+`get_backend()` currently caches backend instances. Do not assume isolation
+between successive runs in one process; this is a known defect tracked in
+`spec/0002-code-review-remediation.md`.
+
+### EPANET file I/O
+
+```python
+from hydroforge.epanetfile_io import EPANETNetworkModelIO
+
+network = EPANETNetworkModelIO.from_inp_file("network.inp")
+network.junctions.modify_by_field("id", "J1", elevation=105.0)
+EPANETNetworkModelIO.to_inp_file(network, "modified.inp")
+```
+
+### Graphs
+
+```python
+from hydroforge.graphs.graph import EPANETNetworkGraph
+from hydroforge.graphs.visualization import EPANETGraphPlotter
+
+network = EPANETNetworkGraph.from_epanet_file("network.inp")
+print(network.find_total_length())
+print(network.find_bridges())
+
+EPANETGraphPlotter(network).plot(title="Water network")
 ```
 
 ## Examples
 
-Run the included example scripts:
+Examples are grouped under `examples/`. The following example is verified to run
+with the core dependencies:
 
 ```bash
-# Sensor demonstration
-python examples/sensors/ex1_sensors.py
-
-# Uncertainty distributions
-python examples/uncertainty/ex1_pdfs.py
-
-# Static hydraulic simulation
-python examples/simulation/ex1_static_simulation.py
+PYTHONPATH=src python examples/sensors/ex1_sensors.py
 ```
 
-Full example list is available in the `examples/` directory.
+Other examples demonstrate the backend registry, EPANET file I/O, graph
+analysis, sampling, uncertainty distributions, and sensor placement. Some
+require optional solvers or `SALib`; several are currently being repaired (see
+`spec/0002-code-review-remediation.md`). In particular,
+`examples/graphs/ex1_graph_creation.py` and
+`examples/simulation/ex1_static_simulation.py` contain stale API calls, and
+`examples/uncertainty/ex1_pdfs.py` requires `SALib`.
 
 ## Configuration
 
-HydroForge uses YAML configuration files for experiment setup. A typical configuration includes:
-
-- Network model path (EPANET `.inp` file)
-- Uncertainty parameters and their distributions
-- Sensor placement specifications
-- Simulation time settings
-- Output directory and file naming
-
-See `examples/` and `docs/` for sample configuration files.
+`hydroforge.auxiliary.load_config()` reads YAML with `yaml.safe_load`. The
+repository contains legacy configuration files under `data/config/`; they
+reference retired modules and should not be treated as working templates until
+migrated.
 
 ## Development
 
-### Setting up the development environment
-
 ```bash
-# Clone and install in development mode
-git clone https://github.com/tomjanus/HydroForge.git
-cd HydroForge
-pip install -e ".[dev]"  # installs dev dependencies
-# or with uv
-uv pip install -e ".[dev]"
-```
+# Formatting
+black --check .
 
-### Running tests
+# Linting
+flake8 --config=.flake8 .
 
-```bash
+# Type checking
+mypy .
+
+# Tests
 pytest
-# or with uv
-uv run pytest
 ```
 
-### Linting
+The CI workflow runs the same commands on Python 3.12 and builds the package.
+Test coverage is currently minimal; adding behavioural tests is part of the
+remediation plan.
 
-```bash
-ruff check .
-# or with uv
-uv run ruff check .
-```
+Repository conventions and the development workflow are described in
+[`WORKFLOW_GUIDELINES.md`](WORKFLOW_GUIDELINES.md). Domain terminology is in
+[`GLOSSARY.md`](GLOSSARY.md).
 
 ## Citation
 
-If you use HydroForge in your research, please cite:
-
-> Janus, T. (2024). HydroForge: An uncertainty injection and scenario generation framework for water distribution network model simulations. doi:10.5281/zenodo.XXXXXXX
+If you use HydroForge in research, cite the HydroForge repository and record the
+version or commit used. A formal archived citation and DOI have not yet been
+assigned for this project, so no DOI is provided here.
 
 ## License
 
-HydroForge is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+HydroForge is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
 
-HydroForge is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+HydroForge is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along with HydroForge. If not, see <https://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License along with
+HydroForge. If not, see <https://www.gnu.org/licenses/>.
 
 ## Contributing
 
-We welcome contributions to HydroForge! Please see the following guidelines:
-
-- **Bug reports**: Use the issue tracker on GitHub
-- **Feature requests**: Open a discussion with your proposal
-- **Code contributions**: Fork the repository, make your changes, and submit a pull request
-- **Documentation**: Feel free to improve or expand this README, examples, or docs
-- **Testing**: Add or update tests for new functionality
-- **Citation**: If you use HydroForge in your research, please cite the package
-
-See the `.github/` directory for issue templates and pull request guidelines.
-
-Contributions must follow the project's code style (checked via `ruff`) and include appropriate tests.
-
-### Development Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/tomjanus/HydroForge.git
-cd HydroForge
-
-# Install in development mode with optional dev dependencies
-pip install -e ".[dev]"
-# or with uv
-uv pip install -e ".[dev]"
-
-# Run the test suite
-pytest
-
-# Lint the code
-ruff check .
-```
+Bug reports and feature requests can be opened on the GitHub issue tracker.
+Contributions should follow the repository style checks (`black`, `flake8`,
+`mypy`) and include tests for new behaviour. Do not open a pull request that
+claims validation for a backend or optional dependency that was not actually
+exercised.

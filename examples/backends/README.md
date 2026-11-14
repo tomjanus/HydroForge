@@ -4,9 +4,9 @@ These examples demonstrate the `hydroforge.backends` API: selecting a backend,
 loading a model, applying backend-specific configuration, and constructing the
 matching HydroForge simulator.
 
-They are intentionally separate from `hydroforge/examples/simulation`, whose
-examples focus on running particular network simulations. The examples here
-focus on the backend abstraction and its integration points.
+They are intentionally separate from `examples/simulation`, whose examples focus
+on running particular network simulations. The examples here focus on the
+backend abstraction and its integration points.
 
 ## Requirements
 
@@ -14,17 +14,14 @@ Run the examples from the HydroForge repository root with the project source
 directory on `PYTHONPATH`:
 
 ```bash
-PYTHONPATH=src python src/hydroforge/examples/backends/backend_registry.py
+PYTHONPATH=src python examples/backends/backend_registry.py
 ```
 
 The examples use the optional solver packages only when their corresponding
-script is run. Install the extras required for a backend as needed:
-
-```bash
-python -m pip install -e ".[tsnet]"
-python -m pip install -e ".[tsnetplus]"
-python -m pip install -e ".[ptsnet]"
-```
+script is run. The project currently declares no optional-dependency extras for
+those solvers, so install TSNet, TSNetPlus, or PTSNet through your normal
+environment-management workflow if you want to run the corresponding script.
+WNTR is a core dependency.
 
 ## Examples
 
@@ -60,7 +57,7 @@ It then creates an EPANET adapter to demonstrate that `EPANETSimulatorConfig`
 is supplied only when constructing the EPANET simulator.
 
 ```bash
-PYTHONPATH=src python src/hydroforge/examples/backends/wntr_backend.py
+PYTHONPATH=src python examples/backends/wntr_backend.py
 ```
 
 ### `tsnet_backend.py`
@@ -71,7 +68,7 @@ runtime dependencies is unavailable, the example reports the reason and exits
 without affecting other examples.
 
 ```bash
-PYTHONPATH=src python src/hydroforge/examples/backends/tsnet_backend.py
+PYTHONPATH=src python examples/backends/tsnet_backend.py
 ```
 
 ### `ptsnet_backend.py`
@@ -82,7 +79,7 @@ NumPy compatibility requirements; an unavailable or incompatible installation
 is reported cleanly.
 
 ```bash
-PYTHONPATH=src python src/hydroforge/examples/backends/ptsnet_backend.py
+PYTHONPATH=src python examples/backends/ptsnet_backend.py
 ```
 
 ### `tsnetplus_backend.py`
@@ -91,7 +88,7 @@ Selects TSNetPlus, applies `TSNetPlusConfig`, schedules a validated
 `DemandPulseEvent`, and runs the transient model.
 
 ```bash
-PYTHONPATH=src python src/hydroforge/examples/backends/tsnetplus_backend.py
+PYTHONPATH=src python examples/backends/tsnetplus_backend.py
 ```
 
 ## Common Pattern

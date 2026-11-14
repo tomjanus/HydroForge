@@ -247,7 +247,7 @@ EPANETNetworkModelIO.to_inp_file(network, "modified.inp")
 
 A complete, runnable version of this workflow — covering both JSON and
 `.inp` files, plus round-trip validation — is available in
-[`examples/epanetfile_io/example.py`](../../../examples/epanetfile_io/example.py).
+[`examples/epanetfile_io/ex1.py`](../../../examples/epanetfile_io/ex1.py).
 
 ---
 

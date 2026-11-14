@@ -84,7 +84,10 @@ an informational message and makes no changes.
 
 ## Examples
 
-Runnable backend examples are located in
-`src/hydroforge/examples/backends`. They cover registry discovery,
-configuration inspection, WNTR and EPANET runtime configuration, and transient
-TSNet, TSNetPlus, and PTSNet workflows.
+Runnable backend examples are located in the repository's
+[`examples/backends`](../../../examples/backends) directory. They cover registry
+discovery, configuration inspection, WNTR and EPANET runtime configuration, and
+transient TSNet, TSNetPlus, and PTSNet workflows.
+
+See [`examples/backends/README.md`](../../../examples/backends/README.md) for
+the exact commands.

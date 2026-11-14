@@ -1,91 +1,77 @@
-This module is designed to create uncertainty scenarios for running analyses on networks with added model and measurement uncertainty with uncertainties sampled using more or less structured sampling algorithms, such as LHS or Sobol.
+# Scenario Generation Module (not currently functional)
 
-The intended output is a configuration file with network modifications and sensor specifications for each unique scenario, which
-can be used to batch simulate versions of the same network with differing (sampled) model parameters and outputs recorded with non-ideal measurement devices modelled as imprecise sensors with defined characteristics such as offset, precision, drift, etc.
+Intended purpose: generate synthetic sensor measurements for a network under
+model and measurement uncertainty, for testing calibration and leak-detection
+workflows.
 
-## Overview
-- **ArtificialMeasurementCreator**: Create synthetic sensor measurements with model and measurement uncertainties
+## Actual contents
 
-### Key Features
-- ✅ **Synthetic Measurements**: Generate realistic sensor data with uncertainties for testing/calibration
-
-### Measurement Creator
-
-#### ArtificialMeasurementCreator
-
-Create synthetic sensor measurements with model and measurement uncertainties for testing, calibration, or scenario analysis.
-
-**Key Features:**
-- Apply model uncertainties (pipe roughness, demands, etc.) via NetworkModifierPipeline
-- Add sensor measurement uncertainties (noise, bias, precision)
-- Simulate pressure and flow measurements
-- Export to CSV for analysis
-
-**Example:**
-```python
-from hydroforge.simulation.measurement_creator import ArtificialMeasurementCreator
-from hydroforge.simulation.simulator import WNTRSimulator
-from hydroforge.sensors.sensors import GaussianNoiseSensor
-import wntr
-
-wn = wntr.network.WaterNetworkModel('network.inp')
-simulator = WNTRSimulator(wn, time_duration=86400)
-
-# Create measurement generator with noisy sensors
-measurement_creator = ArtificialMeasurementCreator(
-    simulator=simulator,
-    name='scenario_1',
-    simulation_time_hours=24,
-    pressure_sensor_names=['J1', 'J5', 'J10'],
-    pressure_sensors=GaussianNoiseSensor(std_dev=0.5)  # ±0.5m noise
-)
-
-# Generate measurements with uncertainties
-measurements = measurement_creator.create_artificial_measurements(
-    save_to_csv=True,
-    output_dir='./measurements'
-)
-
-print(measurements['pressure'])  # DataFrame with noisy pressure data
-print(measurements['flow'])      # DataFrame with flow data
+```
+scenario_generation/
+├── __init__.py          # Empty
+├── measurement_creator.py
+└── README.md
 ```
 
-## Usage Examples
+The only implementation is `measurement_creator.py`, which defines two
+dataclasses:
 
-### Example 1: Creating Synthetic Measurements for Calibration
+- `ArtificialMeasurementCreator`
+- `ArtificialMeasurementMultiCreator`
+
+## Current status: import fails
+
+`measurement_creator.py` imports the retired `found` package for its simulator,
+sensor, and modifier interfaces. `found` is not part of this repository, so:
 
 ```python
-from hydroforge.scenario_generation.measurement_creator import ArtificialMeasurementCreator
-from hydroforge.simulation.simulator import WNTRSimulator
-from hydroforge.sensors.sensors import GaussianNoiseSensor
-from hydroforge.networks.network_model_modifier import NetworkModifierPipeline, RoughnessModifier
-import wntr
-
-wn = wntr.network.WaterNetworkModel('network.inp')
-simulator = WNTRSimulator(wn, time_duration=0)
-
-# Define model uncertainties (e.g., roughness variation)
-modifiers = NetworkModifierPipeline([
-    RoughnessModifier(multiplier_range=(0.8, 1.2))  # ±20% roughness
-])
-
-# Create realistic sensor measurements with noise
-measurement_creator = ArtificialMeasurementCreator(
-    simulator=simulator,
-    name='calibration_data',
-    simulation_time_hours=1,
-    pressure_sensor_names=['J1', 'J5', 'J10', 'J15'],
-    pressure_sensors=GaussianNoiseSensor(std_dev=0.3),  # ±0.3m noise
-    network_modifiers=modifiers
-)
-
-# Generate measurements (applies model + sensor uncertainties)
-measurements = measurement_creator.create_artificial_measurements(
-    save_to_csv=True,
-    output_dir='./calibration_data'
-)
-
-# Use these synthetic measurements for calibration testing
-print(f"Generated {len(measurements['pressure'])} pressure measurements")
-print(f"Measurement files saved to: ./calibration_data/")
+import hydroforge.scenario_generation.measurement_creator
 ```
+
+raises `ModuleNotFoundError: No module named 'found'`. The module also depends
+on the incomplete `hydroforge.simulation` abstraction and on modifier and
+sensor classes that have since moved or been renamed. It is not covered by
+tests.
+
+Do not rely on the class signatures described in older revisions of this file.
+They referenced `GaussianNoiseSensor`, `hydroforge.simulation.simulator`,
+`RoughnessModifier`, and a constructor shape that do not match the current
+source.
+
+## Intended design (as written in the module)
+
+`ArtificialMeasurementCreator` fields:
+
+- `simulator`
+- `name`
+- `network_modifiers`
+- `simulation_time_hours` (default 24)
+- `pressure_sensor_names`, `flow_sensor_names`
+- `pressure_sensors`, `flow_sensors`
+- `output_measurements` (set internally)
+
+Its `create_artificial_measurements(save_to_csv=False, output_dir=None)`
+orchestrates model modification, simulation, measurement perturbation, and
+optional CSV export. `ArtificialMeasurementMultiCreator` batches multiple
+creators and can export CSV or Excel.
+
+These are design intentions, not currently working APIs.
+
+## Path forward
+
+The migration is specified in
+[`spec/0001-uncertainty-scenario-generation.md`](../../../spec/0001-uncertainty-scenario-generation.md).
+Replacement building blocks already exist:
+
+- `hydroforge.backends` for simulation
+- `hydroforge.modifiers` for network modification
+- `hydroforge.sensors` for sensor measurement models
+- `hydroforge.sampling` for scenario sampling (requires `SALib`)
+
+See `spec/0002-code-review-remediation.md` for the remediation plan. No source
+modules have been deleted in this documentation pass.
+
+## License
+
+Part of the HydroForge uncertainty injection toolbox. See the repository
+`LICENSE` file.

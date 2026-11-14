@@ -1,17 +1,6 @@
 # Auxiliary Module
 
-Utility functions, I/O wrappers, constants, and helper tools for the HydroForge framework.
-
----
-
-## Overview
-
-The auxiliary module provides foundational utilities used throughout the HydroForge package:
-- **File I/O**: Loading/saving configuration files (YAML, JSON), DataFrames (CSV, Excel)
-- **EPANET Parsing**: Reading and writing EPANET input files
-- **Dynamic Loading**: Automatic discovery and registration of leak locator classes
-- **Logging**: Timestamped logging with color-coded output
-- **Utilities**: Package resource access, directory management, execution timing
+Utility functions, file I/O helpers, and error types shared across HydroForge.
 
 ---
 
@@ -19,428 +8,228 @@ The auxiliary module provides foundational utilities used throughout the HydroFo
 
 ```
 auxiliary/
-├── __init__.py              # Package initialization
-├── exceptions.py            # Custom exception classes
-├── io_wrappers.py           # File I/O wrapper functions
-├── epanet_file_parser.py    # EPANET input file parser
-├── utils.py                 # General utility functions
-└── README.md                # This file
+├── __init__.py          # Re-exports the public helpers below
+├── exceptions.py        # UserConfigLoadException
+├── io.py                # load_config, save_to_json, save_dataframe, save_pickle, read_pickle
+├── logging_utils.py     # LoggingConfig, get_logger, configure_logging, set_log_level
+├── utils.py             # ensure_directory_exists, get_package_file, get_package_root, log, timer
+└── README.md
 ```
+
+All public names are re-exported from `hydroforge.auxiliary`, so either
+`from hydroforge.auxiliary import load_config` or
+`from hydroforge.auxiliary.io import load_config` works.
 
 ---
 
-## Core Components
+## Exceptions
 
----
+### `UserConfigLoadException`
 
-### 1. Custom Exceptions ([custom_exceptions.py](./custom_exceptions.py))
-
-Custom exception classes with enhanced error reporting.
-
-#### UserConfigLoadException
-
-Exception for configuration loading errors with optional original exception tracking.
+Wraps configuration-file failures (missing file, permissions, encoding,
+YAML syntax, generic I/O) in a single user-friendly exception.
 
 ```python
-from hydroforge.auxiliary.custom_exceptions import UserConfigLoadException
-
-try:
-    config = load_yaml("config.yaml")
-except FileNotFoundError as e:
-    raise UserConfigLoadException(
-        "Configuration file not found",
-        original=e,
-        show_original=True
-    )
-```
-
-**Features**:
-- Human-friendly error messages
-- Original exception preservation
-- Pretty-printed logging with Rich formatting
-- Optional exception chaining display
-
-**Methods**:
-- `log()`: Pretty-print error message with optional original exception
-
----
-
-### 2. I/O Wrappers ([io_wrappers.py](./io_wrappers.py))
-
-Convenient wrapper functions for file input/output operations.
-
-#### Configuration Loading
-
-```python
-from hydroforge.auxiliary.io_wrappers import load_config, read_yaml_config
-
-# Modern approach (recommended)
-config = load_config("config.yaml")
-
-# Legacy approach (deprecated)
-config = read_yaml_config("config.yaml")
-```
-
-**load_config()**:
-- Comprehensive error handling with `UserConfigLoadException`
-- Handles: FileNotFoundError, PermissionError, UnicodeDecodeError, YAMLError, OSError
-- UTF-8 encoding by default
-
-#### Data Saving
-
-```python
-from hydroforge.auxiliary.io_wrappers import save_to_json, save_dataframe
-import pathlib
-import pandas as pd
-
-# Save dictionary to JSON
-data = {"sensors": ["S1", "S2", "S3"], "count": 3}
-save_to_json(data, pathlib.Path("output.json"), indent=4)
-
-# Save DataFrame to CSV or Excel
-df = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
-
-# Automatically creates directory if missing
-save_dataframe(df, pathlib.Path("results/data.csv"), create_path_if_missing=True)
-save_dataframe(df, pathlib.Path("results/data.xlsx"), create_path_if_missing=True)
-```
-
-**save_dataframe()** features:
-- Auto-detects format from extension (`.csv`, `.xlsx`, `.xls`)
-- CSV uses semicolon (`;`) separator
-- Optional automatic directory creation
-- Excel files saved to 'Sheet1'
-
----
-
-### 5. EPANET File Parser ([epanet_file_parser.py](./epanet_file_parser.py))
-
-Parser for EPANET input files.
-
-#### Reading EPANET Files
-
-```python
-from hydroforge.auxiliary.epanet_file_parser import EPANETFileParser
-from collections import OrderedDict
-
-# Read EPANET input file
-model_data: OrderedDict = EPANETFileParser.read_inp_file("network.inp")
-
-# Access sections
-junctions = model_data.get("JUNCTIONS", [])
-pipes = model_data.get("CONDUITS", [])
-```
-
-**Format**:
-- Returns `OrderedDict` preserving section order
-- Each section maps to a list of tokenized lines
-- Automatically removes comments and blank lines
-- Sections identified by `[SECTION_NAME]` headers
-
-#### Writing EPANET Files
-
-```python
-from hydroforge.auxiliary.epanet_file_parser import EPANETFileParser
-
-# Modify data
-model_data["JUNCTIONS"].append(["J1", "100", "0", "0", "0", "0"])
-
-# Write back to file
-EPANETFileParser.write_inp_file("modified_network.inp", model_data)
-```
-
-#### Error Handling
-
-```python
-from hydroforge.auxiliary.exceptions import EPANETFileParserError
-
-try:
-    model = read_inp_file("network.inp")
-except EPANETFileParserError as e:
-    print(f"Parse error: {e}")
-```
-
-**EPANETFileParserError**: Raised when file format is invalid (e.g., missing section headers)
-
-#### Command-Line Usage
-
-```bash
-# Parse and rewrite EPANET file
-python -m hydroforge.auxiliary.epanet_file_parser input.inp output.inp
-```
-
----
-
-### 6. Utilities ([utils.py](./utils.py))
-
-General-purpose utility functions for common tasks.
-
-#### Directory Management
-
-```python
-from hydroforge.auxiliary.utils import ensure_directory_exists
-import pathlib
-
-# Ensure parent directories exist before saving
-file_path = pathlib.Path("outputs/results/data.csv")
-ensure_directory_exists(file_path)
-
-# Now safe to save file
-with open(file_path, 'w') as f:
-    f.write("data")
-```
-
-#### Package Resources
-
-```python
-from hydroforge.auxiliary.utils import get_package_root, get_package_file
-
-# Get package root directory (useful for accessing test data, configs)
-root = get_package_root()
-# Returns: /path/to/HydroForge/
-
-# Access packaged data files
-network_file = get_package_file("data", "inputs", "base_networks", "L-Town.inp")
-# Returns: /path/to/hydroforge/data/inputs/base_networks/L-Town.inp
-```
-
-**get_package_root()**: Finds project root by looking for indicators like `setup.py`, `pyproject.toml`, `.git`
-
-#### Logging
-
-```python
-from hydroforge.auxiliary.utils import log
-
-log("INFO", "Processing started")
-log("WARN", "High memory usage detected")
-log("ERROR", "Connection failed")
-```
-
-**Features**:
-- Timestamp prefixed (YYYY-MM-DD HH:MM:SS)
-- Color-coded output (INFO=blue, WARN=yellow, ERROR=red)
-- Rich formatting
-- Output to stderr
-
-#### Execution Timing
-
-```python
-from hydroforge.auxiliary.utils import timer
-
-@timer
-def expensive_computation():
-    # Long-running operation
-    result = sum(range(1000000))
-    return result
-
-# Automatically prints:
-# ⏱️  expensive_computation() executed in 0.045123 seconds
-result = expensive_computation()
-
-# Also works with methods
-class DataProcessor:
-    @timer
-    def process_data(self):
-        # Processing logic
-        pass
-
-# Prints:
-# ⏱️  DataProcessor.process_data() executed in 0.123456 seconds
-```
-
----
-
-## Common Workflows
-
-### Workflow 1: Loading Configuration with Error Handling
-
-```python
-from hydroforge.auxiliary.io_wrappers import load_config
-from hydroforge.auxiliary.custom_exceptions import UserConfigLoadException
-import sys
-
-try:
-    config = load_config("user_config.yaml")
-    
-    # Access configuration
-    network_path = config["network"]["path"]
-    sensors = config["sensors"]["locations"]
-    
-except UserConfigLoadException as e:
-    e.log()  # Pretty-print with Rich
-    sys.exit(1)
-```
-
-### Workflow 2: EPANET File Manipulation
-
-```python
-from hydroforge.auxiliary.epanet_file_parser import EPANETFileParser
-import pathlib
-
-# Read EPANET input
-model = EPANETFileParser.read_inp_file("original.inp")
-
-# Modify junctions
-for junction in model["JUNCTIONS"]:
-    # junction is a list: [name, elevation, ...]
-    if junction[0] == "J1":
-        junction[1] = "105.0"  # Update elevation
-
-# Add new pipe
-model["PIPES"].append([
-    "P1",      # Name
-    "J1",      # From node
-    "J2",      # To node
-    "300",     # Length
-    "0.5",     # Roughness
-    "0",       # InletOffset
-    "0",       # OutletOffset
-    "0",       # InitFlow
-    "0"        # MaxFlow
-])
-
-# Write modified model
-EPANETFileParser.write_inp_file("modified.inp", model)
-```
-
-### Workflow 3: Timed Operations with Logging
-
-```python
-from hydroforge.auxiliary.utils import timer, log
-from hydroforge.auxiliary.io_wrappers import save_dataframe
-import pandas as pd
-
-@timer
-def generate_dataset(network_path: str, num_scenarios: int) -> pd.DataFrame:
-    log("INFO", f"Generating {num_scenarios} scenarios")
-    
-    # Expensive computation
-    results = []
-    for i in range(num_scenarios):
-        # Simulate network
-        result = simulate_scenario(network_path, scenario=i)
-        results.append(result)
-    
-    df = pd.DataFrame(results)
-    log("INFO", f"Generated {len(df)} scenarios")
-    return df
-
-# Execute
-df = generate_dataset("network.inp", 1000)
-# Prints:
-# 2025-12-29 10:30:15: INFO: Generating 1000 scenarios
-# 2025-12-29 10:30:45: INFO: Generated 1000 scenarios
-# ⏱️  generate_dataset() executed in 30.123456 seconds
-
-# Save results
-save_dataframe(df, pathlib.Path("results/scenarios.csv"))
-```
-
-### Workflow 4: Accessing Package Data
-
-```python
-from hydroforge.auxiliary.utils import get_package_root, get_package_file
-
-# Access test networks included with package
-test_network = get_package_file("data", "inputs", "base_networks", "Real_network.inp")
-
-# Access configuration templates
-config_template = get_package_file("data", "config", "default_config.yaml")
-
-# Build paths relative to package root
-root = get_package_root()
-output_dir = root / "outputs" / "experiment_1"
-output_dir.mkdir(parents=True, exist_ok=True)
-```
-
----
-
-## Integration with Other Modules
-
-### With `hydroforge.graphs`
-
-```python
-from hydroforge.graphs.graph import EPANETNetworkGraph
-from hydroforge.auxiliary.epanet_file_parser import read_inp_file
-
-# Parse EPANET file
-model = EPANETFileParser.read_inp_file("network.inp")
-
-# Create graph from parsed data
-network = EPANETNetworkGraph.from_model(model)
-```
-
-### With `hydroforge.uncertainty`
-
-```python
-from hydroforge.auxiliary.io_wrappers import load_config
-from hydroforge.uncertainty.parameters import Parameter
-from hydroforge.uncertainty.distributions import NormalDistribution
-
-# Load parameter definitions from config
-config = load_config("uncertainty_config.yaml")
-
-# Create uncertain parameters
-params = []
-for param_name, param_spec in config["parameters"].items():
-    dist = NormalDistribution(
-        mean=param_spec["mean"],
-        std_dev=param_spec["std_dev"]
-    )
-    param = Parameter(name=param_name, nominal_value=param_spec["nominal"], distribution=dist)
-    params.append(param)
-```
-
----
-
-## Error Handling Best Practices
-
-### Configuration Loading
-
-```python
-from hydroforge.auxiliary.io_wrappers import load_config
-from hydroforge.auxiliary.exceptions import UserConfigLoadException
+from hydroforge.auxiliary import UserConfigLoadException
 
 try:
     config = load_config("config.yaml")
-except UserConfigLoadException as e:
-    # Log with pretty formatting
-    e.log()
-    
-    # Or handle programmatically
-    if "not found" in e.message:
-        print("Using default configuration")
-        config = get_default_config()
-    else:
-        raise
+except UserConfigLoadException as exc:
+    exc.log()          # rich-formatted message to the console
+    raise
 ```
 
-### EPAENT Parsing
+Constructor: `UserConfigLoadException(message, original=None, *, show_original=False)`.
+The `original` exception is included in `str()` and `log()` output when
+`show_original=True`.
+
+> `exceptions.py` currently defines only `UserConfigLoadException`. There is no
+> `EPANETFileParserError`; EPANET parsing lives in `hydroforge.epanetfile_io`.
+
+---
+
+## File I/O (`io.py`)
+
+### `load_config(file_path) -> dict`
+
+Load a YAML configuration file with UTF-8 encoding. Raises
+`UserConfigLoadException` for `FileNotFoundError`, `PermissionError`,
+`UnicodeDecodeError`, `yaml.YAMLError`, and `OSError`.
 
 ```python
-from hydroforge.auxiliary.epanet_file_parser import EPANETFileParser
-from hydroforge.auxiliary.exceptions import EPANETFileParserError
+from hydroforge.auxiliary import load_config
 
-try:
-    model = EPANETFileParser.read_inp_file("network.inp")
-except EPANETFileParserError as e:
-    print(f"Invalid EPANET file format: {e}")
-    # Optionally validate or repair
-except FileNotFoundError:
-    print("Network file not found")
+config = load_config("config.yaml")
+```
+
+Note: `yaml.safe_load` returns `None` for an empty file; the return type
+annotation is `dict`, so callers should validate content when empty files are
+possible.
+
+### `save_to_json(data, filepath, indent=4) -> None`
+
+Serialize a dictionary to JSON. Parent directories are **not** created
+automatically.
+
+```python
+import pathlib
+from hydroforge.auxiliary import save_to_json
+
+save_to_json({"count": 3}, pathlib.Path("output.json"), indent=2)
+```
+
+### `save_dataframe(df, filename, create_path_if_missing=True) -> None`
+
+Save a pandas `DataFrame`, choosing the format from the extension:
+
+| Extension | Behaviour |
+|-----------|-----------|
+| `.csv` | Semicolon separator, `index=False` |
+| `.xlsx`, `.xls` | Sheet name `Sheet1`, `index=False` |
+
+Any other extension raises `ValueError`. When `create_path_if_missing=True`
+(the default) missing parent directories are created.
+
+```python
+import pathlib
+import pandas as pd
+from hydroforge.auxiliary import save_dataframe
+
+df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+save_dataframe(df, pathlib.Path("results/data.csv"))
+```
+
+### `save_pickle(obj, path, *, create_parent=True) -> pathlib.Path`
+
+Serialize an object with the highest pickle protocol. Returns the destination
+path. `pickle.PicklingError` is re-raised as `TypeError`; write failures raise
+`OSError`.
+
+```python
+from hydroforge.auxiliary import save_pickle
+
+path = save_pickle({"state": 1}, "checkpoints/run1.pkl")
+```
+
+### `read_pickle(path) -> Any`
+
+Deserialize a pickle file. Raises `FileNotFoundError`, `OSError`, or
+`pickle.UnpicklingError`.
+
+```python
+from hydroforge.auxiliary import read_pickle
+
+state = read_pickle("checkpoints/run1.pkl")
+```
+
+> Pickle files execute arbitrary code on load. Only read files you trust.
+
+---
+
+## Logging (`logging_utils.py`)
+
+### `LoggingConfig`
+
+Dataclass with fields `level="INFO"`, `rich=True`, `rich_tracebacks=True`,
+`show_path=False`, `format="%(message)s"`.
+
+### `get_logger(name=None) -> logging.Logger`
+
+Return the package root logger when `name` is `None`. Names beginning with
+`hydroforge` are returned directly; other names become children of the package
+logger.
+
+```python
+from hydroforge.auxiliary import get_logger
+
+logger = get_logger(__name__)
+logger.info("starting")
+```
+
+### `configure_logging(config=None) -> None`
+
+Attach a handler to the `hydroforge` logger. Uses `rich.logging.RichHandler`
+when available (falling back to `logging.StreamHandler`), and sets
+`propagate = False`. Repeated calls are safe: if a handler is already
+configured, only the level is updated.
+
+```python
+from hydroforge.auxiliary import LoggingConfig, configure_logging
+
+configure_logging(LoggingConfig(level="DEBUG", rich=False))
+```
+
+### `set_log_level(level) -> None`
+
+Set the package logger level from a string or numeric level.
+
+```python
+from hydroforge.auxiliary import set_log_level
+
+set_log_level("WARNING")
 ```
 
 ---
 
-## Type Aliases
+## Utilities (`utils.py`)
+
+### `ensure_directory_exists(file_path) -> None`
+
+Create the parent directories of `file_path` (`parents=True, exist_ok=True`).
+
+### `get_package_file(*folders) -> pathlib.Path`
+
+Resolve a packaged data path using `importlib.resources`. The result is
+resolved to an absolute path.
 
 ```python
-from hydroforge.auxiliary.utils import LogType
+from hydroforge.auxiliary import get_package_file
 
-# LogType = Literal['INFO', 'WARN', 'WARNING', 'ERROR']
+network = get_package_file("data", "inputs", "base_networks", "L-Town.inp")
 ```
 
+### `get_package_root() -> pathlib.Path`
+
+Return the project root (two levels above `src/hydroforge`). Raises
+`FileNotFoundError` if none of `setup.py`, `setup.cfg`, `pyproject.toml`,
+`requirements.txt`, or `.git` is found. This assumes the standard
+`src/hydroforge` layout.
+
+### `log(log_type, msg) -> None`
+
+Print a timestamped, colour-coded message to **stderr** via `rich`.
+`log_type` is one of `INFO`, `WARN`, `WARNING`, `ERROR` (`LogType` alias).
+
+```python
+from hydroforge.auxiliary import log
+
+log("INFO", "processing started")
+```
+
+### `timer(func)`
+
+Decorator that prints the wall-clock execution time using
+`time.perf_counter()` and preserves the wrapped function's metadata.
+
+```python
+from hydroforge.auxiliary import timer
+
+@timer
+def expensive() -> int:
+    return sum(range(1_000_000))
+```
+
+---
+
+## Related Modules
+
+- EPANET `.inp` parsing and writing: `hydroforge.epanetfile_io`
+- Network graph construction: `hydroforge.graphs`
+- Sampling and uncertainty: `hydroforge.sampling` (requires `SALib`)
+
+---
 
 ## License
 
-This module is part of the HydroForge uncertainty injection toolbox.
+Part of the HydroForge uncertainty injection toolbox. See the repository
+`LICENSE` file.

@@ -56,7 +56,6 @@ Notes:
     - Supports time-series measurements with configurable duration
     - Output format compatible with calibration and analysis tools
 
-Author: FOUND Development Team
 License: See LICENSE file in repository root
 """
 

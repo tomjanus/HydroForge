@@ -21,4 +21,4 @@ six>=1.16.0
 wntr>=1.0.0
 
 # Dev/linting/testing dependencies
-# See pyproject.toml [project.extras] for full lists
+# See pyproject.toml [project.optional-dependencies] for full lists

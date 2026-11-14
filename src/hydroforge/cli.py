@@ -1,4 +1,4 @@
-"""Command-line interface for FOUND uncertainty analysis toolkit."""
+"""Command-line interface for the HydroForge uncertainty analysis toolkit."""
 
 import sys
 import argparse
