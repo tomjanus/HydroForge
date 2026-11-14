@@ -53,10 +53,6 @@ whose package is missing, HydroForge explains which package is required and
 asks whether to install it. Installation happens only after an explicit `y`
 or `yes`; pressing Enter (or answering `n`) leaves the environment unchanged.
 
-The sampling package imports `SALib`. `SALib` is required by the current source
-but is not yet declared in `pyproject.toml`; install it explicitly until the
-packaging defect is fixed.
-
 ## Quick start
 
 ```python

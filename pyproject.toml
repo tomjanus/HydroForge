@@ -44,7 +44,8 @@ dependencies = [
     "scipy>=1.8.0",
     "setuptools>=60.0.0",
     "six>=1.16.0",
-    "wntr>=1.0.0",
+    "wntr",
+    "SALib"
 ]
 [project.scripts]
 hydroforge = "hydroforge.cli:main"
