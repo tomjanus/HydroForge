@@ -223,8 +223,6 @@ tasks/
 .opencode/
 .skill-manager.json
 AGENTS.md
-GLOSSARY.md
-WORKFLOW_GUIDELINES.md
 PROMPT.md
 CAPABILITY-MAP.md
 .gituntracked
