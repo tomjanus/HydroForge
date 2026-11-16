@@ -100,7 +100,6 @@ def run_analysis(args):
 
     # TODO: Implement actual analysis logic
     # Example:
-    # from found import case_study_editing, hydraulic_tools
     # config = load_config(args.config)
     # results = run_uncertainty_analysis(config)
     # save_results(results, args.output)
@@ -119,12 +118,7 @@ def run_localization(args):
 
     # TODO: Implement actual localization logic
     # Example:
-    # if args.method == 'differential':
-    #     from found import localisation_differential_pressure
-    #     results = localisation_differential_pressure.run(args.network, args.measurements)
-    # elif args.method == 'interpolation':
-    #     from found import localisation_graph_state_interpolation
-    #     results = localisation_graph_state_interpolation.run(args.network, args.measurements)
+    # results = localisation_method.run(args.network, args.measurements)
     # save_results(results, args.output)
 
     print("⚠️  Localization command not yet implemented")
@@ -140,10 +134,8 @@ def run_sensor_placement(args):
 
     # TODO: Implement actual sensor placement logic
     # Example:
-    # from found import sensor_placement_shortest_path
-    # sensor_locations = sensor_placement_shortest_path.optimize(
-    #     args.network,
-    #     num_sensors=args.num_sensors
+    # sensor_locations = optimize_sensor_placement(
+    #     args.network, num_sensors=args.num_sensors
     # )
     # save_sensor_locations(sensor_locations, args.output)
 

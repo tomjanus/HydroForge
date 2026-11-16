@@ -61,16 +61,11 @@ sensor_placement:
 leak_location_methods:
   differential_pressure:
     method_type: "data-driven"
-    location_module: "found.localisation_differential_pressure"
   graph_state:
     method_type: "data-driven"
-    location_module: "found.localisation_graph_state_interpolation"
   sensitivity_analysis:
     method_type: "model-based"
-    location_module: "found.localisation_sensitivity_analyses"
   graph_based_GA:
     method_type: "model-based"
-    location_module: "found.localisation_graph-based_GA"
   styx:
     method_type: "model-based"
-    location_module: "found.burst_detector_styx"

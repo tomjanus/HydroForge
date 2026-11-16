@@ -1,4 +1,4 @@
-"""Allow running the package as: python -m found"""
+"""Allow running the package as: python -m hydroforge"""
 
 from .cli import main
 

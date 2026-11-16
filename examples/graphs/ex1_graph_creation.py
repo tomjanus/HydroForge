@@ -1,15 +1,15 @@
 """ """
 
 from rich import print as rprint
-from hydroforge.graphs.graph import EPANETNetworkGraph
+from hydroforge.wdn_modelling.graphs.graph import EPANETNetworkGraph
+from hydroforge.wdn_modelling.graphs.visualization import EPANETGraphPlotter
+from hydroforge.wdn_modelling.epanetfile_io import EPANETNetworkModelIO
 from hydroforge.auxiliary.utils import get_package_root
-from hydroforge.auxiliary.epanet_file_parser import EPANETFileParser
-from hydroforge.graphs.visualization import EPANETGraphPlotter
 
 
 def main():
     model_path = get_package_root() / "tests/base_networks/L-Town.inp"
-    model = EPANETFileParser.read_inp_file(model_path)
+    model = EPANETNetworkModelIO.from_inp_file(model_path)
     rprint("🔧 Testing graph creation on L-Town network...")
     rprint("\n📦 `EPANETNetworkGraph.from_model`:")
     G1 = EPANETNetworkGraph.from_model(model)

@@ -18,7 +18,8 @@ matplotlib.use("TkAgg")
 class EPANETGraphPlotter:
     """
     A class for visualizing EPANET water distribution networks as graphs using NetworkX and Matplotlib.
-    This class takes an 'EPANETNetworkGraph' object from found.graphs.graph, which is a NetworkX graph
+    This class takes an 'EPANETNetworkGraph' object from
+    :mod:`hydroforge.wdn_modelling.graphs.graph`, which is a NetworkX graph
     representation of an EPANET water network, and provides methods to plot the network with different node
     and edge styles, display labels, legends, and network statistics. It allows for
     customization of the plot, including showing or hiding labels and legends, and differentiating
