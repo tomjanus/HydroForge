@@ -18,8 +18,8 @@ networks/
 Import paths:
 
 ```python
-from hydroforge.networks.junction_leaks import JunctionLeaks
-from hydroforge.networks.network_model_component_selectors import (
+from hydroforge.wdn_modelling.networks.junction_leaks import JunctionLeaks
+from hydroforge.wdn_modelling.networks.network_model_component_selectors import (
     PipeNameSelector,
     DiameterThresholdSelector,
     ModelComponentSelector,
@@ -60,7 +60,7 @@ selector accepts `text_logging` and `structured_logging` flags.
 Selectors can be chained with `ModelComponentSelector`:
 
 ```python
-from hydroforge.networks.network_model_component_selectors import (
+from hydroforge.wdn_modelling.networks.network_model_component_selectors import (
     DiameterThresholdSelector,
     ModelComponentSelector,
     PipeNameSelector,
@@ -87,7 +87,7 @@ Graph component selectors are not implemented; the implemented selectors live in
 default `unit` is `"m³/s"`.
 
 ```python
-from hydroforge.networks.junction_leaks import JunctionLeaks
+from hydroforge.wdn_modelling.networks.junction_leaks import JunctionLeaks
 
 leaks = JunctionLeaks()
 leaks.add_leak("J1", 0.05)      # add or increment

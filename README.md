@@ -60,7 +60,7 @@ or `yes`; pressing Enter (or answering `n`) leaves the environment unchanged.
 
 ```python
 from hydroforge import __version__
-from hydroforge.sensors import RandomNoiseSensor
+from hydroforge.measurements import RandomNoiseSensor
 
 print(f"HydroForge version {__version__}")
 
@@ -74,17 +74,40 @@ are not implemented and exit with a non-zero status.
 
 ## Package layout
 
+### Generic (domain-agnostic, importable without any WDN dependency)
+
 | Package | Purpose | Current state |
 | --- | --- | --- |
 | `hydroforge.uncertainty` | Distributions, uncertainty transforms, parameters, CDFs | Supported |
 | `hydroforge.sampling` | Monte Carlo, LHS, Sobol, Halton, stratified, conditional, nested, scenario-tree and mixed sampling | Supported once `SALib` is installed |
-| `hydroforge.sensors` | Imperfect-sensor models, window averaging, sensor placement, sensor-network graph | Supported |
-| `hydroforge.graphs` | EPANET network graph analysis and visualization | Supported |
-| `hydroforge.networks` | Model/graph selectors and `JunctionLeaks` | Supported |
-| `hydroforge.modifiers` | WNTR model and graph modifiers | Supported |
-| `hydroforge.epanetfile_io` | Typed EPANET `.inp` parsing, editing, and writing without WNTR | Supported |
-| `hydroforge.backends` | Common backend facade for WNTR, EPANET, TSNet, TSNetPlus, and PTSNet | Supported; optional solvers required |
+| `hydroforge.measurements` | Imperfect-sensor models and window averaging (renamed from `sensors`) | Supported |
 | `hydroforge.auxiliary` | Configuration I/O, logging, exceptions, utility helpers | Supported |
+
+### WDN / EPANET-specific modelling
+
+| Package | Purpose | Current state |
+| --- | --- | --- |
+| `hydroforge.wdn_modelling.backends` | Common backend facade for WNTR, EPANET, TSNet, TSNetPlus, and PTSNet | Supported; optional solvers required |
+| `hydroforge.wdn_modelling.epanetfile_io` | Typed EPANET `.inp` parsing, editing, and writing without WNTR | Supported |
+| `hydroforge.wdn_modelling.graphs` | EPANET network graph analysis and visualization | Supported |
+| `hydroforge.wdn_modelling.networks` | Model/graph selectors and `JunctionLeaks` | Supported |
+| `hydroforge.wdn_modelling.modifiers` | WNTR model and graph modifiers | Supported |
+| `hydroforge.wdn_modelling.measurement_placement` | Sensor placement and sensor-network graph (depends on `graphs`) | Supported |
+
+### Backwards-compatibility shims (deprecated)
+
+The following old top-level packages remain as thin re-export shims that
+delegate to `hydroforge.wdn_modelling.*` (or `hydroforge.measurements` for
+`sensors`) and emit a `DeprecationWarning` on import:
+
+| Shim package | Delegates to | Notes |
+| --- | --- | --- |
+| `hydroforge.backends` | `hydroforge.wdn_modelling.backends` | Deprecated; preserves `get_backend` facade |
+| `hydroforge.graphs` | `hydroforge.wdn_modelling.graphs` | Deprecated |
+| `hydroforge.modifiers` | `hydroforge.wdn_modelling.modifiers` | Deprecated |
+| `hydroforge.networks` | `hydroforge.wdn_modelling.networks` | Deprecated |
+| `hydroforge.epanetfile_io` | `hydroforge.wdn_modelling.epanetfile_io` | Deprecated |
+| `hydroforge.sensors` | `hydroforge.measurements` + `hydroforge.wdn_modelling.measurement_placement` | Deprecated |
 
 ## API overview
 
@@ -137,12 +160,12 @@ statistical assumptions and current limitations.
 ### Sensors and sensor placement
 
 ```python
-from hydroforge.sensors import (
+from hydroforge.measurements import (
     FixedPrecisionSensor,
     RandomNoiseSensor,
     CompositeSensor,
+    WindowAverager,
 )
-from hydroforge.sensors.sensors import WindowAverager
 
 sensor = CompositeSensor(
     FixedPrecisionSensor(delta_y=0.01),
@@ -154,7 +177,7 @@ averager = WindowAverager(window_size=3)
 averaged = averager.average([1.0, 1.1, 0.9, 1.2, 1.0, 1.1])
 ```
 
-Placement strategies are available through `hydroforge.sensors.placement`:
+Placement strategies are available through `hydroforge.wdn_modelling.measurement_placement`:
 `GreedySensorPlacement`, `KCentreSensorPlacement`, `RandomSensorPlacement`,
 `CentralityBasedSensorPlacement`, `CoverageBasedSensorPlacement`,
 `DominatingSetBasedSensorPlacement`, and `FixedLocationSensorPlacement`, all
@@ -195,8 +218,8 @@ EPANETNetworkModelIO.to_inp_file(network, "modified.inp")
 ### Graphs
 
 ```python
-from hydroforge.graphs.graph import EPANETNetworkGraph
-from hydroforge.graphs.visualization import EPANETGraphPlotter
+from hydroforge.wdn_modelling.graphs.graph import EPANETNetworkGraph
+from hydroforge.wdn_modelling.graphs.visualization import EPANETGraphPlotter
 
 network = EPANETNetworkGraph.from_epanet_file("network.inp")
 print(network.find_total_length())
@@ -211,7 +234,7 @@ Examples are grouped under `examples/`. The following example is verified to run
 with the core dependencies:
 
 ```bash
-PYTHONPATH=src python examples/sensors/ex1_sensors.py
+PYTHONPATH=src python examples/measurements/ex1_sensors.py
 ```
 
 Other examples demonstrate the backend registry, EPANET file I/O, graph

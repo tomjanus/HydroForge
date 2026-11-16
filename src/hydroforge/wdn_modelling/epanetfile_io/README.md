@@ -47,7 +47,7 @@ epanetfile_io/
 `EPANETFileIO` reads and writes raw EPANET input files.
 
 ```python
-from hydroforge.epanetfile_io.file_io import EPANETFileIO
+from hydroforge.wdn_modelling.epanetfile_io.file_io import EPANETFileIO
 from collections import OrderedDict
 
 # Read EPANET input file
@@ -160,7 +160,7 @@ provides two container types:
   item_type)` drive the conversions performed by `model_io.py`.
 
 ```python
-from hydroforge.epanetfile_io.model_io import EPANETNetworkModelIO
+from hydroforge.wdn_modelling.epanetfile_io.model_io import EPANETNetworkModelIO
 
 # Load a network (see model_io.py below for file I/O)
 network = EPANETNetworkModelIO.from_inp_file("network.inp")
@@ -196,7 +196,7 @@ itself, which focuses only on representing and manipulating data already
 in memory.
 
 ```python
-from hydroforge.epanetfile_io.model_io import EPANETNetworkModelIO
+from hydroforge.wdn_modelling.epanetfile_io.model_io import EPANETNetworkModelIO
 
 # Read an .inp file directly into a typed model
 network = EPANETNetworkModelIO.from_inp_file("network.inp")
@@ -224,8 +224,8 @@ written by `to_inp_file()` can be reliably re-parsed by `EPANETFileIO`.
 ## Common Workflow: Read, Modify, Save
 
 ```python
-from hydroforge.epanetfile_io.model_io import EPANETNetworkModelIO
-from hydroforge.epanetfile_io.components import Pipe
+from hydroforge.wdn_modelling.epanetfile_io.model_io import EPANETNetworkModelIO
+from hydroforge.wdn_modelling.epanetfile_io.components import Pipe
 
 # Read the .inp file straight to a typed, mutable model — no WNTR needed
 network = EPANETNetworkModelIO.from_inp_file("original.inp")

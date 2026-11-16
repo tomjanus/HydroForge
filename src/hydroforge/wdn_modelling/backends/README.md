@@ -33,12 +33,12 @@ For TSNet, TSNetPlus, and PTSNet, their current configuration class is used in
 both places. WNTR uses two explicit scopes:
 
 ```python
-from hydroforge.backends.wntr import (
+from hydroforge.wdn_modelling.backends.wntr import (
 	EPANETSimulatorConfig,
 	WNTRConfig,
 	WNTRSimulatorConfig,
 )
-from hydroforge.backends.wntr_backend import WNTRBackend
+from hydroforge.wdn_modelling.backends.wntr_backend import WNTRBackend
 
 backend = WNTRBackend(simulator="epanet")
 model = backend.load_model("network.inp")
@@ -62,7 +62,7 @@ added after loading the model and before running the simulator:
 
 ```python
 from hydroforge.backends import get_backend
-from hydroforge.backends.tsnetplus.events import DemandPulseEvent
+from hydroforge.wdn_modelling.backends.tsnetplus.events import DemandPulseEvent
 
 backend = get_backend("tsnetplus")
 model = backend.load_model("network.inp")

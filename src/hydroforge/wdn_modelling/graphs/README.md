@@ -18,8 +18,8 @@ graphs/
 Import paths:
 
 ```python
-from hydroforge.graphs.graph import EPANETNetworkGraph, pretty_print_graph_diffs
-from hydroforge.graphs.visualization import EPANETGraphPlotter
+from hydroforge.wdn_modelling.graphs.graph import EPANETNetworkGraph, pretty_print_graph_diffs
+from hydroforge.wdn_modelling.graphs.visualization import EPANETGraphPlotter
 ```
 
 ---
@@ -29,7 +29,7 @@ from hydroforge.graphs.visualization import EPANETGraphPlotter
 ```python
 import pathlib
 import networkx as nx
-from hydroforge.graphs.graph import EPANETNetworkGraph
+from hydroforge.wdn_modelling.graphs.graph import EPANETNetworkGraph
 
 # From an EPANET .inp file
 network = EPANETNetworkGraph.from_epanet_file(pathlib.Path("network.inp"))
@@ -113,7 +113,7 @@ positions = network.get_sensor_positions(["S1", "S2"])
 # Dict[sensor_name, Position(x=..., y=...)]
 ```
 
-`Position` is a named tuple defined in `hydroforge.graphs.graph`.
+`Position` is a named tuple defined in `hydroforge.wdn_modelling.graphs.graph`.
 
 ---
 
@@ -121,8 +121,8 @@ positions = network.get_sensor_positions(["S1", "S2"])
 
 ```python
 import pathlib
-from hydroforge.graphs.graph import EPANETNetworkGraph
-from hydroforge.graphs.visualization import EPANETGraphPlotter
+from hydroforge.wdn_modelling.graphs.graph import EPANETNetworkGraph
+from hydroforge.wdn_modelling.graphs.visualization import EPANETGraphPlotter
 
 network = EPANETNetworkGraph.from_epanet_file(pathlib.Path("network.inp"))
 plotter = EPANETGraphPlotter(network)
@@ -163,7 +163,7 @@ plot(
 Node and edge styling is controlled by the class dictionaries
 `NODE_TYPE_STYLES` and `EDGE_TYPE_STYLES`.
 
-> **Headless environments:** importing `hydroforge.graphs.visualization` calls
+> **Headless environments:** importing `hydroforge.wdn_modelling.graphs.visualization` calls
 > `matplotlib.use("TkAgg")` unconditionally. On machines without a display,
 > import this module only when plotting, or set a non-interactive backend first.
 
@@ -178,7 +178,7 @@ Node and edge styling is controlled by the class dictionaries
 - The historical `found.*` import paths no longer exist. Use `hydroforge.*`.
   EPANET `.inp` parsing now lives in `hydroforge.epanetfile_io`.
 - `hydroforge.graphs` has no module-level exports (`__init__.py` is empty);
-  import from `hydroforge.graphs.graph` and `hydroforge.graphs.visualization`.
+  import from `hydroforge.wdn_modelling.graphs.graph` and `hydroforge.wdn_modelling.graphs.visualization`.
 
 ---
 

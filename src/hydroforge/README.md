@@ -14,15 +14,19 @@ hydroforge/
 ├── __main__.py                  # python -m hydroforge entry point
 ├── cli.py                       # Placeholder command-line interface
 │
-├── auxiliary/                   # Configuration I/O, logging, exceptions, utilities
-├── uncertainty/                 # Distributions, uncertainties, parameters, CDFs
-├── sampling/                    # Monte Carlo, LHS, Sobol, Halton and structured samplers
-├── sensors/                     # Sensor models, placement strategies, sensor-network graph
-├── graphs/                      # EPANETNetworkGraph and EPANETGraphPlotter
-├── networks/                    # Component selectors and JunctionLeaks
-├── modifiers/                   # WNTR model and graph modifiers
-├── epanetfile_io/               # Typed EPANET .inp parsing, editing and writing
-└── backends/                    # WNTR, EPANET, TSNet, TSNetPlus and PTSNet facade
+├── auxiliary/                   # GENERIC: Configuration I/O, logging, exceptions, utilities
+├── uncertainty/                 # GENERIC: Distributions, uncertainties, parameters, CDFs
+├── sampling/                    # GENERIC: Monte Carlo, LHS, Sobol, Halton and structured samplers
+├── measurements/                # GENERIC: Sensor / measurement imperfection models
+│
+└── wdn_modelling/               # WDN / EPANET-specific modelling
+    ├── __init__.py              # Convenience re-exports (get_backend, EPANETNetworkGraph, ...)
+    ├── backends/                # WNTR, EPANET, TSNet, TSNetPlus and PTSNet facade
+    ├── epanetfile_io/           # Typed EPANET .inp parsing, editing and writing
+    ├── graphs/                  # EPANETNetworkGraph and EPANETGraphPlotter
+    ├── modifiers/               # WNTR model and graph modifiers
+    ├── networks/                # Component selectors and JunctionLeaks
+    └── measurement_placement/   # Sensor placement and sensor-network graph (depends on graphs)
 ```
 
 ## Supported entry points
@@ -55,8 +59,7 @@ package.
 ### Sensors
 
 ```python
-from hydroforge.sensors import RandomNoiseSensor
-from hydroforge.sensors.sensors import WindowAverager
+from hydroforge.measurements import RandomNoiseSensor, WindowAverager
 
 sensor = RandomNoiseSensor(sigma=0.05, seed=42)
 print(sensor.measure([1.0, 1.1, 0.9]))
@@ -82,14 +85,16 @@ see `spec/0002-code-review-remediation.md`.
 
 ### EPANET files, graphs and sensor placement
 
-- `hydroforge.epanetfile_io` provides `EPANETFileIO` for low-level tokenized
+- `hydroforge.wdn_modelling.epanetfile_io` provides `EPANETFileIO` for low-level tokenized
   sections and `EPANETNetworkModelIO` / `EPANETNetworkModel` for a typed,
   editable model.
-- `hydroforge.graphs` provides `EPANETNetworkGraph` and `EPANETGraphPlotter`.
-- `hydroforge.sensors.placement` provides the placement strategies and
-  `SensorPlacer`.
-- `hydroforge.networks` provides model component selectors and `JunctionLeaks`;
-  model and graph modification classes live in `hydroforge.modifiers`.
+- `hydroforge.wdn_modelling.graphs` provides `EPANETNetworkGraph` and
+  `EPANETGraphPlotter`.
+- `hydroforge.wdn_modelling.measurement_placement` provides the placement
+  strategies and `SensorPlacer`.
+- `hydroforge.wdn_modelling.networks` provides model component selectors and
+  `JunctionLeaks`; model and graph modification classes live in
+  `hydroforge.wdn_modelling.modifiers`.
 
 ## Legacy and incomplete packages
 
@@ -109,11 +114,12 @@ for the retirement record.
 - [`auxiliary/README.md`](auxiliary/README.md)
 - [`uncertainty/README.md`](uncertainty/README.md)
 - [`sampling/README.md`](sampling/README.md)
-- [`sensors/README.md`](sensors/README.md)
-- [`graphs/README.md`](graphs/README.md)
-- [`networks/README.md`](networks/README.md)
-- [`epanetfile_io/README.md`](epanetfile_io/README.md)
-- [`backends/README.md`](backends/README.md)
+- [`measurements/README.md`](measurements/README.md)
+- [`wdn_modelling/backends/README.md`](wdn_modelling/backends/README.md)
+- [`wdn_modelling/epanetfile_io/README.md`](wdn_modelling/epanetfile_io/README.md)
+- [`wdn_modelling/graphs/README.md`](wdn_modelling/graphs/README.md)
+- [`wdn_modelling/networks/README.md`](wdn_modelling/networks/README.md)
+- [`wdn_modelling/modifiers/README.md`](wdn_modelling/modifiers/README.md)
 
 ## License
 
