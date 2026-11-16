@@ -17,10 +17,10 @@ if TYPE_CHECKING:
 # Lazy registration to keep the registry importable even when optional backend
 # packages are not installed.
 _BACKENDS: dict[str, str] = {
-    "wntr": "hydroforge.backends.wntr_backend:WNTRBackend",
-    "tsnet": "hydroforge.backends.tsnet_backend:TSNetBackend",
-    "tsnetplus": "hydroforge.backends.tsnetplus_backend:TSNetPlusBackend",
-    "ptsnet": "hydroforge.backends.ptsnet_backend:PTSNetBackend",
+    "wntr": "hydroforge.wdn_modelling.backends.wntr_backend:WNTRBackend",
+    "tsnet": "hydroforge.wdn_modelling.backends.tsnet_backend:TSNetBackend",
+    "tsnetplus": "hydroforge.wdn_modelling.backends.tsnetplus_backend:TSNetPlusBackend",
+    "ptsnet": "hydroforge.wdn_modelling.backends.ptsnet_backend:PTSNetBackend",
 }
 
 _OPTIONAL_DEPENDENCIES: dict[str, tuple[str, str]] = {

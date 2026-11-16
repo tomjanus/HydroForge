@@ -10,7 +10,7 @@ from collections import namedtuple
 from dataclasses import dataclass, field
 import networkx as nx
 import numpy as np
-from hydroforge.graphs.graph import PressureZones
+from hydroforge.wdn_modelling.graphs.graph import PressureZones
 
 SensorName: TypeAlias = str | int
 Position = namedtuple("Position", ["x", "y"])

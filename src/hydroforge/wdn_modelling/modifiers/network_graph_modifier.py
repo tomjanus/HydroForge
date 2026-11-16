@@ -17,7 +17,7 @@ from .common import PipeNotFoundException, BridgeRemovalException
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from rich import print as rprint
-from hydroforge.graphs.graph import EPANETNetworkGraph
+from hydroforge.wdn_modelling.graphs.graph import EPANETNetworkGraph
 from .common import LoggingMixin, StructuredLoggingMixin
 
 ComponentName: TypeAlias = Any

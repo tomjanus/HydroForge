@@ -95,5 +95,5 @@ def test_resolving_backend_checks_dependency_before_import(monkeypatch):
     assert events == [
         ("check", "ptsnet"),
         ("install", "ptsnet"),
-        ("import", "hydroforge.backends.ptsnet_backend"),
+        ("import", "hydroforge.wdn_modelling.backends.ptsnet_backend"),
     ]

@@ -7,7 +7,7 @@ from typing import Literal
 
 from .common.backends import Backend
 from .common.events import TransientEvent
-from ..auxiliary.logging_utils import get_logger
+from ...auxiliary.logging_utils import get_logger
 from .wntr import (
     EPANETSimulatorConfig,
     WNTRConfig,

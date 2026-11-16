@@ -9,7 +9,7 @@ from .config import EPANETSimulatorConfig, WNTRSimulatorConfig
 from .model import WNTRModel
 from .results import WNTRSimulationResults
 from ..common.simulator import Simulator
-from ...auxiliary.logging_utils import get_logger
+from ....auxiliary.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

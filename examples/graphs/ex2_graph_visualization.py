@@ -4,7 +4,7 @@ import tempfile
 import pathlib
 import networkx as nx
 from rich import print as rprint
-from hydroforge.graphs.visualization import EPANETGraphPlotter
+from hydroforge.wdn_modelling.graphs.visualization import EPANETGraphPlotter
 
 
 def main():
@@ -61,7 +61,7 @@ def main():
 
     # Import here to avoid circular dependency issues
     try:
-        from hydroforge.graphs.graph import EPANETNetworkGraph
+        from hydroforge.wdn_modelling.graphs.graph import EPANETNetworkGraph
 
         test_network = EPANETNetworkGraph.from_graph(G)
         rprint("✅ Created synthetic network")

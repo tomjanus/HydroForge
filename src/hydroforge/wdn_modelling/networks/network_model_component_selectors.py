@@ -19,7 +19,7 @@ import numpy as np
 import networkx as nx
 import wntr
 from rich import print as rprint
-from hydroforge.graphs.graph import EPANETNetworkGraph
+from hydroforge.wdn_modelling.graphs.graph import EPANETNetworkGraph
 
 PipeName: TypeAlias = Any
 NodeName: TypeAlias = Any

@@ -23,7 +23,7 @@ from .config import TSNetPlusConfig
 from .model import TSNetPlusModel
 from .results import TSNetPlusSimulationResults
 from ..common.simulator import Simulator
-from ...auxiliary.io import save_pickle
+from ....auxiliary.io import save_pickle
 
 
 @dataclass(slots=True)

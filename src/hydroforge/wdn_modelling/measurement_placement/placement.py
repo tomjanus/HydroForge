@@ -17,8 +17,8 @@ import heapq
 import json
 import networkx as nx
 from rich import print as rprint
-from hydroforge.graphs.graph import EPANETNetworkGraph
-from hydroforge.graphs.visualization import EPANETGraphPlotter
+from hydroforge.wdn_modelling.graphs.graph import EPANETNetworkGraph
+from hydroforge.wdn_modelling.graphs.visualization import EPANETGraphPlotter
 
 # Method for connecting newly added sensors to sources for cases with multiple sources
 # 'nearest' - connects to the nearest source

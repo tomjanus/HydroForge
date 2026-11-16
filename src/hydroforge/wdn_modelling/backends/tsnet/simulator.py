@@ -30,7 +30,7 @@ from .config import TSNetSimulatorConfig
 from .model import TSNetModel
 from .results import TSNetSimulationResults
 from ..common.simulator import Simulator
-from ...auxiliary.io import save_pickle
+from ....auxiliary.io import save_pickle
 
 
 @dataclass(slots=True)

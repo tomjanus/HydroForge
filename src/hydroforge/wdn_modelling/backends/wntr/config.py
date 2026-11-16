@@ -12,7 +12,7 @@ from rich import box
 from rich.console import Console
 from rich.text import Text
 
-from ...auxiliary.logging_utils import get_logger
+from ....auxiliary.logging_utils import get_logger
 from ..common.constants import DemandModel
 
 ConfigT = TypeVar("ConfigT", bound="WNTRConfigSection")
