@@ -1,20 +1,23 @@
 """Sensor modeling, placement, and analysis for water distribution networks.
 
-Submodules
-----------
-sensors
-    Sensor models simulating measurement error and noise (e.g., fixed
-    precision, random noise, offset, drift) plus window-averaging helpers.
-sensor_network
-    `SensorNetworkGraph`, a graph representation of a sensor network built
-    on top of a NetworkX graph.
-sensor_placement
-    Sensor placement strategies (greedy, K-center, random, centrality-based,
-    coverage-based, dominating set, fixed location) and the `SensorPlacer`
-    orchestrator class.
+.. deprecated:: 1.0.0
+    ``hydroforge.sensors`` is a backwards-compatibility shim. Its contents
+    have moved:
+
+    * Generic sensor / measurement imperfection models
+      (``Sensor``, ``RandomNoiseSensor``, ``WindowAverager``, ...):
+      :mod:`hydroforge.measurements`
+    * WDN-specific sensor placement and the sensor-network graph:
+      :mod:`hydroforge.wdn_modelling.measurement_placement`
+
+    Top-level generic packages (``hydroforge.measurements``,
+    ``hydroforge.auxiliary``, ``hydroforge.uncertainty``,
+    ``hydroforge.sampling``) never import from :mod:`hydroforge.wdn_modelling`.
 """
 
-from .sensors import (
+import warnings
+
+from hydroforge.measurements import (
     Sensor,
     PerfectSensor,
     FixedPrecisionSensor,
@@ -25,9 +28,12 @@ from .sensors import (
     SaturationSensor,
     DriftSensor,
     CompositeSensor,
+    BaseWindowAverager,
+    WindowAverager,
+    MovingWindowAverager,
 )
 
-from .placement import (
+from hydroforge.wdn_modelling.measurement_placement import (
     SourceFinder,
     GreedySensorPlacement,
     KCentreSensorPlacement,
@@ -37,12 +43,15 @@ from .placement import (
     DominatingSetBasedSensorPlacement,
     FixedLocationSensorPlacement,
     SensorPlacer,
+    SensorNetworkGraph,
 )
 
-from .sensor_network import SensorNetworkGraph
-
-__doc____ = (
-    """Sensor modeling, placement, and analysis for water distribution networks."""
+warnings.warn(
+    "hydroforge.sensors is a deprecated compatibility shim; import sensor "
+    "models from hydroforge.measurements and placement / sensor-network code "
+    "from hydroforge.wdn_modelling.measurement_placement instead.",
+    DeprecationWarning,
+    stacklevel=2,
 )
 
 __all__ = [
@@ -56,6 +65,9 @@ __all__ = [
     "SaturationSensor",
     "DriftSensor",
     "CompositeSensor",
+    "BaseWindowAverager",
+    "WindowAverager",
+    "MovingWindowAverager",
     "SourceFinder",
     "GreedySensorPlacement",
     "KCentreSensorPlacement",
