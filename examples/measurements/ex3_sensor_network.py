@@ -5,7 +5,7 @@ from rich import print as rprint
 from rich.table import Table
 from rich.console import Console
 import networkx as nx
-from hydroforge.sensors import SensorNetworkGraph
+from hydroforge.wdn_modelling.measurement_placement import SensorNetworkGraph
 
 if __name__ == "__main__":
     """ """

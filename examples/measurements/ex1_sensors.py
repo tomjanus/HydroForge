@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 from rich import print as rprint
-from hydroforge.sensors.sensors import (
+from hydroforge.measurements import (
     WindowAverager,
     MovingWindowAverager,
     PerfectSensor,

@@ -2,7 +2,7 @@
 
 import pathlib
 from rich import print as rprint
-from hydroforge.sensors.placement import (
+from hydroforge.wdn_modelling.measurement_placement import (
     GreedySensorPlacement,
     SensorPlacer,
     FixedLocationSensorPlacement,
@@ -12,8 +12,8 @@ from hydroforge.sensors.placement import (
     DominatingSetBasedSensorPlacement,
     RandomSensorPlacement,
 )
-from hydroforge.graphs.graph import EPANETNetworkGraph
-from hydroforge.epanetfile_io import EPANETNetworkModelIO
+from hydroforge.wdn_modelling.graphs.graph import EPANETNetworkGraph
+from hydroforge.wdn_modelling.epanetfile_io import EPANETNetworkModelIO
 from hydroforge.auxiliary.utils import get_package_root, timer
 
 
