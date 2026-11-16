@@ -1,8 +1,8 @@
 # Backend Examples
 
-These examples demonstrate the `hydroforge.backends` API: selecting a backend,
-loading a model, applying backend-specific configuration, and constructing the
-matching HydroForge simulator.
+These examples demonstrate the `hydroforge.wdn_modelling.backends` API:
+selecting a backend, loading a model, applying backend-specific configuration,
+and constructing the matching HydroForge simulator.
 
 They are intentionally separate from `examples/simulation`, whose examples focus
 on running particular network simulations. The examples here focus on the
@@ -36,8 +36,8 @@ the other backends from being inspected.
 Displays the fields and defaults of `TSNetConfig` and `PTSNetConfig`:
 
 ```python
-from hydroforge.backends.ptsnet.config import PTSNetConfig
-from hydroforge.backends.tsnet.config import TSNetConfig
+from hydroforge.wdn_modelling.backends.ptsnet.config import PTSNetConfig
+from hydroforge.wdn_modelling.backends.tsnet.config import TSNetConfig
 ```
 
 These configuration modules are safe to import without loading TSNet, TSNetPlus,
@@ -96,7 +96,7 @@ PYTHONPATH=src python examples/backends/tsnetplus_backend.py
 Every backend adapter follows the same selection and execution shape:
 
 ```python
-from hydroforge.backends import get_backend
+from hydroforge.wdn_modelling.backends import get_backend
 
 backend = get_backend("wntr")
 model = backend.load_model("network.inp")

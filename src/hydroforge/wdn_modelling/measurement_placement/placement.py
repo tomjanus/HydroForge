@@ -676,7 +676,7 @@ class SensorPlacer:
     ):
         """Plot the network graph with sensor locations highlighted.
 
-        Uses `hydroforge.graphs.visualization.EPANETGraphPlotter` to render
+        Uses `hydroforge.wdn_modelling.graphs.visualization.EPANETGraphPlotter` to render
         the network.
 
         Parameters

@@ -15,7 +15,7 @@ intuitive methods, and the model can be converted back to the original
 This module only defines the in-memory data model (dataclasses, the generic
 :class:`NetworkCollection` container and :class:`EPANETNetworkModel` itself).
 Serialization to/from dictionaries and file I/O (JSON, EPANET INP) are the
-responsibility of :mod:`hydroforge.epanetfile_io.model_io`, which keeps this
+responsibility of :mod:`hydroforge.wdn_modelling.epanetfile_io.model_io`, which keeps this
 module focused solely on representing and manipulating network data already
 in memory.
 
@@ -394,13 +394,13 @@ class EPANETNetworkModel:
 
     Conversion to/from dictionaries and files (JSON, EPANET INP) is handled
     separately by
-    :class:`hydroforge.epanetfile_io.model_io.EPANETNetworkModelIO`, keeping
+    :class:`hydroforge.wdn_modelling.epanetfile_io.model_io.EPANETNetworkModelIO`, keeping
     this class focused on representing and manipulating data already in
     memory.
 
     Examples
     --------
-    >>> from hydroforge.epanetfile_io.model_io import EPANETNetworkModelIO
+    >>> from hydroforge.wdn_modelling.epanetfile_io.model_io import EPANETNetworkModelIO
     >>> network = EPANETNetworkModelIO.from_inp_file('network.inp')
     >>> junction = network.junctions.get_by_field('id', 'J1')
     >>> junction.elevation = 100.0

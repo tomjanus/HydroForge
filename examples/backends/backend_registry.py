@@ -3,7 +3,7 @@
 from rich.console import Console
 from rich.table import Table
 
-from hydroforge.backends import BackendName, get_backend
+from hydroforge.wdn_modelling.backends import BackendName, get_backend
 
 console = Console()
 

@@ -44,7 +44,8 @@ The `original` exception is included in `str()` and `log()` output when
 `show_original=True`.
 
 > `exceptions.py` currently defines only `UserConfigLoadException`. There is no
-> `EPANETFileParserError`; EPANET parsing lives in `hydroforge.epanetfile_io`.
+> `EPANETFileParserError`; EPANET parsing lives in
+> `hydroforge.wdn_modelling.epanetfile_io`.
 
 ---
 
@@ -223,8 +224,8 @@ def expensive() -> int:
 
 ## Related Modules
 
-- EPANET `.inp` parsing and writing: `hydroforge.epanetfile_io`
-- Network graph construction: `hydroforge.graphs`
+- EPANET `.inp` parsing and writing: `hydroforge.wdn_modelling.epanetfile_io`
+- Network graph construction: `hydroforge.wdn_modelling.graphs`
 - Sampling and uncertainty: `hydroforge.sampling` (requires `SALib`)
 
 ---

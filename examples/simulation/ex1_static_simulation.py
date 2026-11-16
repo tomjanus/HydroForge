@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from rich import print as rprint
 
-from hydroforge.backends import get_backend
-from hydroforge.backends.wntr.config import (
+from hydroforge.wdn_modelling.backends import get_backend
+from hydroforge.wdn_modelling.backends.wntr.config import (
     WNTRConfig,
     WNTRHydraulicConfig,
     WNTRSimulatorConfig,

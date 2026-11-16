@@ -70,7 +70,7 @@ print(WindowAverager(window_size=2).average([1.0, 1.1, 0.9, 1.2]))
 ### Simulation backends
 
 ```python
-from hydroforge.backends import get_backend
+from hydroforge.wdn_modelling.backends import get_backend
 
 backend = get_backend("wntr")
 model = backend.load_model("network.inp")
@@ -103,9 +103,9 @@ see `spec/0002-code-review-remediation.md`.
 
 The legacy `hydroforge.simulation`, `hydroforge.scenario_generation`,
 `hydroforge.topology`, and `hydroforge.uncertainty_sampling` packages have been
-removed from the source tree. `hydroforge.backends` is the sole supported
-simulation implementation and `hydroforge.sampling` is the canonical sampling
-package; see
+removed from the source tree. `hydroforge.wdn_modelling.backends` is the sole
+supported simulation implementation and `hydroforge.sampling` is the canonical
+sampling package; see
 [`spec/SPEC-legacy-surface-retirement.md`](../../spec/SPEC-legacy-surface-retirement.md)
 for the retirement record.
 

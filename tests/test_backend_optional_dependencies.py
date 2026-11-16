@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from hydroforge.backends import registry
+from hydroforge.wdn_modelling.backends import registry
 
 
 @pytest.fixture(autouse=True)

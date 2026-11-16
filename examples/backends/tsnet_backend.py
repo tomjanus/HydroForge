@@ -4,8 +4,8 @@ from pathlib import Path
 
 from rich.console import Console
 
-from hydroforge.backends import get_backend
-from hydroforge.backends.tsnet.config import TSNetConfig
+from hydroforge.wdn_modelling.backends import get_backend
+from hydroforge.wdn_modelling.backends.tsnet.config import TSNetConfig
 
 MODEL = Path(__file__).resolve().parents[2] / "tests/base_networks/Net1.inp"
 console = Console()

@@ -2,15 +2,15 @@
 
 # HydroForge Backends
 
-`hydroforge.backends` provides a common entry point for selecting hydraulic
-and transient simulation engines. The registry lazily imports optional solver
-dependencies, so importing the package does not require every supported solver
-to be installed.
+`hydroforge.wdn_modelling.backends` provides a common entry point for selecting
+hydraulic and transient simulation engines. The registry lazily imports
+optional solver dependencies, so importing the package does not require every
+supported solver to be installed.
 
 ## Select a Backend
 
 ```python
-from hydroforge.backends import get_backend
+from hydroforge.wdn_modelling.backends import get_backend
 
 backend = get_backend("wntr")
 model = backend.load_model("network.inp")
@@ -61,7 +61,7 @@ TSNet, TSNetPlus, and PTSNet support validated transient events. Events are
 added after loading the model and before running the simulator:
 
 ```python
-from hydroforge.backends import get_backend
+from hydroforge.wdn_modelling.backends import get_backend
 from hydroforge.wdn_modelling.backends.tsnetplus.events import DemandPulseEvent
 
 backend = get_backend("tsnetplus")

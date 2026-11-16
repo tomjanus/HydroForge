@@ -27,7 +27,7 @@ from hydroforge.wdn_modelling.networks.network_model_component_selectors import 
 ```
 
 > Model and graph **modifiers** are not part of this package. They live in
-> `hydroforge.modifiers` (see [Modifiers](#modifiers) below).
+> `hydroforge.wdn_modelling.modifiers` (see [Modifiers](#modifiers) below).
 > There is no `NetworkDataAccessor` in the current source tree.
 
 ---
@@ -119,15 +119,16 @@ required. There are no `to_csv` / `from_csv` methods.
 
 ## Modifiers
 
-Modification classes moved to `hydroforge.modifiers`:
+Modification classes moved to `hydroforge.wdn_modelling.modifiers`:
 
-- `hydroforge.modifiers.network_model_modifier`:
+- `hydroforge.wdn_modelling.modifiers.network_model_modifier`:
   `WNTRNetworkModifier`, `NetworkModifierPipeline`, `PipeDiameterModifier`,
   `PipeDiameterMultiplierModifier`, `PipeRoughnessModifier`,
   `NodeDemandModifier`, `NodeDemandDataFrameModifier`, `NodeLeakageModifier`,
   `NodeEmitterModifier`, `ValveModifier`, `NetworkPipeRemover`
-- `hydroforge.modifiers.network_graph_modifier`: `NetworkGraphPipeRemover`
-- `hydroforge.modifiers.common`: `PipeNotFoundException`,
+- `hydroforge.wdn_modelling.modifiers.network_graph_modifier`:
+  `NetworkGraphPipeRemover`
+- `hydroforge.wdn_modelling.modifiers.common`: `PipeNotFoundException`,
   `BridgeRemovalException`
 
 See [`../modifiers/`](../modifiers/) for the implementation.
@@ -136,9 +137,9 @@ See [`../modifiers/`](../modifiers/) for the implementation.
 
 ## Related documentation
 
-- EPANET `.inp` parsing: `hydroforge.epanetfile_io`
-- Graph representation: `hydroforge.graphs`
-- Sensor placement: `hydroforge.sensors.placement`
+- EPANET `.inp` parsing: `hydroforge.wdn_modelling.epanetfile_io`
+- Graph representation: `hydroforge.wdn_modelling.graphs`
+- Sensor placement: `hydroforge.wdn_modelling.measurement_placement`
 
 ---
 

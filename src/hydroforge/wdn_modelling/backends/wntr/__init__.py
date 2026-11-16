@@ -16,8 +16,8 @@ The module exposes concrete simulator strategies and helper dataclasses:
 
 Examples
 --------
->>> from hydroforge.backends.wntr import WNTRSimulator, WNTRSimulatorConfig, WNTRNetworkModel
->>> from hydroforge.backends.common import DemandModel
+>>> from hydroforge.wdn_modelling.backends.wntr import WNTRSimulator, WNTRSimulatorConfig, WNTRNetworkModel
+>>> from hydroforge.wdn_modelling.backends.common import DemandModel
 >>> import wntr
 >>>
 >>> wn = WNTRNetworkModel('network.inp')

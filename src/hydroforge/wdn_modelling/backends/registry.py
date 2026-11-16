@@ -111,7 +111,7 @@ def get_backend(name: str) -> Backend[Any, Any, Any, Any]:
 
     Example
     -------
-    >>> from hydroforge.backends import get_backend
+    >>> from hydroforge.wdn_modelling.backends import get_backend
     >>> backend = get_backend("wntr")
     >>> backend
     <WNTRBackend>

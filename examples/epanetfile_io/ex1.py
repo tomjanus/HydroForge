@@ -1,9 +1,9 @@
-"""Usage examples for :mod:`hydroforge.epanetfile_io`.
+"""Usage examples for :mod:`hydroforge.wdn_modelling.epanetfile_io`.
 
 Demonstrates the full read -> inspect -> modify -> save workflow supported
-by :class:`~hydroforge.epanetfile_io.model_wrapper.EPANETNetworkModel` and
-:class:`~hydroforge.epanetfile_io.model_io.EPANETNetworkModelIO`, without
-depending on any external simulation package (e.g. WNTR).
+by :class:`~hydroforge.wdn_modelling.epanetfile_io.model_wrapper.EPANETNetworkModel`
+and :class:`~hydroforge.wdn_modelling.epanetfile_io.model_io.EPANETNetworkModelIO`,
+without depending on any external simulation package (e.g. WNTR).
 
 Covers both supported file formats -- JSON and EPANET ``.inp`` -- as well as
 the round-trip validation of each: reading a file and writing it back out
@@ -12,9 +12,9 @@ should reproduce an equivalent :class:`EPANETNetworkModel`.
 
 from rich import print as rprint
 from hydroforge.auxiliary.utils import get_package_root
-from hydroforge.epanetfile_io.model_wrapper import EPANETNetworkModel
-from hydroforge.epanetfile_io.components import Pipe
-from hydroforge.epanetfile_io.model_io import EPANETNetworkModelIO
+from hydroforge.wdn_modelling.epanetfile_io.model_wrapper import EPANETNetworkModel
+from hydroforge.wdn_modelling.epanetfile_io.components import Pipe
+from hydroforge.wdn_modelling.epanetfile_io.model_io import EPANETNetworkModelIO
 
 
 def demo_json_workflow() -> EPANETNetworkModel:

@@ -4,13 +4,13 @@ from pathlib import Path
 
 from rich.console import Console
 
-from hydroforge.backends import get_backend
-from hydroforge.backends.wntr.config import (
+from hydroforge.wdn_modelling.backends import get_backend
+from hydroforge.wdn_modelling.backends.wntr.config import (
     EPANETSimulatorConfig,
     WNTRConfig,
     WNTRTimeConfig,
 )
-from hydroforge.backends.wntr_backend import WNTRBackend
+from hydroforge.wdn_modelling.backends.wntr_backend import WNTRBackend
 
 MODEL = Path(__file__).resolve().parents[2] / "tests/base_networks/Net1.inp"
 console = Console()

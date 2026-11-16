@@ -35,7 +35,7 @@ from hydroforge.wdn_modelling.graphs.graph import EPANETNetworkGraph
 network = EPANETNetworkGraph.from_epanet_file(pathlib.Path("network.inp"))
 
 # From a parsed model (OrderedDict or EPANETNetworkModel)
-from hydroforge.epanetfile_io import EPANETFileIO, EPANETNetworkModelIO
+from hydroforge.wdn_modelling.epanetfile_io import EPANETFileIO, EPANETNetworkModelIO
 
 raw = EPANETFileIO.read_inp_file("network.inp")      # OrderedDict
 model = EPANETNetworkModelIO.from_dict(raw)          # EPANETNetworkModel
@@ -176,9 +176,9 @@ Node and edge styling is controlled by the class dictionaries
   directly. `network.graph` / `network.get_networkx_graph()` return the wrapped
   graph.
 - The historical `found.*` import paths no longer exist. Use `hydroforge.*`.
-  EPANET `.inp` parsing now lives in `hydroforge.epanetfile_io`.
-- `hydroforge.graphs` has no module-level exports (`__init__.py` is empty);
-  import from `hydroforge.wdn_modelling.graphs.graph` and `hydroforge.wdn_modelling.graphs.visualization`.
+  EPANET `.inp` parsing now lives in `hydroforge.wdn_modelling.epanetfile_io`.
+- `hydroforge.wdn_modelling.graphs` exports `EPANETNetworkGraph`; import
+  `EPANETGraphPlotter` from `hydroforge.wdn_modelling.graphs.visualization`.
 
 ---
 

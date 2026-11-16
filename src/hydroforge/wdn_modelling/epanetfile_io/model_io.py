@@ -1,11 +1,11 @@
 """Serialization and file I/O for :class:`EPANETNetworkModel`.
 
 This module is responsible for everything that turns an in-memory
-:class:`~hydroforge.epanetfile_io.model_wrapper.EPANETNetworkModel` into a
+:class:`~hydroforge.wdn_modelling.epanetfile_io.model_wrapper.EPANETNetworkModel` into a
 serialized representation (a plain dictionary, a JSON file, or an EPANET
 ``.inp`` file) and back again. It deliberately contains no data-modeling
 logic of its own -- that responsibility belongs to
-:mod:`hydroforge.epanetfile_io.model_wrapper`. This split keeps the model
+:mod:`hydroforge.wdn_modelling.epanetfile_io.model_wrapper`. This split keeps the model
 focused on representing and manipulating network data, while this module
 focuses purely on converting to/from external representations.
 
@@ -41,7 +41,7 @@ class EPANETNetworkModelIO:
         network_data : OrderedDict
             Dictionary keyed by EPANET section name (e.g. ``'JUNCTIONS'``),
             with each value being a list of tokenized rows, as produced by
-            :meth:`hydroforge.epanetfile_io.file_io.EPANETFileIO.read_inp_file`.
+            :meth:`hydroforge.wdn_modelling.epanetfile_io.file_io.EPANETFileIO.read_inp_file`.
 
         Returns
         -------
@@ -75,7 +75,7 @@ class EPANETNetworkModelIO:
         dict
             Dictionary keyed by EPANET section name, with each value being
             a list of tokenized rows, suitable for
-            :meth:`hydroforge.epanetfile_io.file_io.EPANETFileIO.write_inp_file`
+            :meth:`hydroforge.wdn_modelling.epanetfile_io.file_io.EPANETFileIO.write_inp_file`
             or JSON serialization. Empty sections are omitted.
         """
         result: OrderedDict = OrderedDict()

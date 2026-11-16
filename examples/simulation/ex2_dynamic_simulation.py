@@ -6,7 +6,7 @@ from pathlib import Path
 
 from rich import print as rprint
 
-from hydroforge.backends import get_backend
+from hydroforge.wdn_modelling.backends import get_backend
 
 
 def _tsnet_network_path() -> Path:
@@ -24,7 +24,7 @@ def _tsnet_network_path() -> Path:
 
 def run_tsnetplus() -> None:
     """Run TSNetPlus through the common backend API."""
-    from hydroforge.backends.tsnetplus.config import TSNetPlusConfig
+    from hydroforge.wdn_modelling.backends.tsnetplus.config import TSNetPlusConfig
 
     backend = get_backend("tsnetplus")
     model = backend.load_model(_tsnet_network_path())
@@ -57,8 +57,8 @@ def run_tsnetplus_with_events() -> None:
     The event is applied to the loaded transient model before the simulator
     is constructed and run.
     """
-    from hydroforge.backends.tsnetplus.config import TSNetPlusConfig
-    from hydroforge.backends.tsnetplus.events import DemandPulseEvent
+    from hydroforge.wdn_modelling.backends.tsnetplus.config import TSNetPlusConfig
+    from hydroforge.wdn_modelling.backends.tsnetplus.events import DemandPulseEvent
 
     backend = get_backend("tsnetplus")
     model = backend.load_model(_tsnet_network_path())

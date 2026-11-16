@@ -78,7 +78,3 @@ class TSNetConfig:
             "results_name": self.results_name,
             "clean_files": self.clean_files,
         }
-
-
-# Backwards-compatible alias used by simulator modules and example code.
-TSNetSimulatorConfig = TSNetConfig

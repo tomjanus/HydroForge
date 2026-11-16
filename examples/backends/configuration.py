@@ -6,10 +6,13 @@ from typing import Any
 from rich.console import Console
 from rich.table import Table
 
-from hydroforge.backends.ptsnet.config import PTSNetConfig
-from hydroforge.backends.tsnet.config import TSNetConfig
-from hydroforge.backends.tsnetplus.config import TSNetPlusConfig
-from hydroforge.backends.wntr.config import EPANETSimulatorConfig, WNTRSimulatorConfig
+from hydroforge.wdn_modelling.backends.ptsnet.config import PTSNetConfig
+from hydroforge.wdn_modelling.backends.tsnet.config import TSNetConfig
+from hydroforge.wdn_modelling.backends.tsnetplus.config import TSNetPlusConfig
+from hydroforge.wdn_modelling.backends.wntr.config import (
+    EPANETSimulatorConfig,
+    WNTRSimulatorConfig,
+)
 
 console = Console()
 

@@ -7,7 +7,7 @@ import pathlib
 import wntr
 from rich import print as rprint
 
-from hydroforge.backends.wntr.config import (
+from hydroforge.wdn_modelling.backends.wntr.config import (
     WNTRConfig,
     WNTRHydraulicConfig,
     WNTRReportConfig,

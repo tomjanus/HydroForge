@@ -1,12 +1,12 @@
 """Core interfaces for HydroForge simulation backends.
 
-The :mod:`hydroforge.backends` package defines the core interfaces and
-utilities for HydroForge simulation backends. A backend provides access to a
-hydraulic modelling package and knows how to construct models and HydroForge
-simulators using that package. The package currently supports backends based
-on WNTR, TSNet, TSNetPlus, and PTSNet.
-The :class:`Backend` interface defines the methods that a backend must implement,
-including loading models and creating simulators. The :class:`BackendName`
+The :mod:`hydroforge.wdn_modelling.backends` package defines the core
+interfaces and utilities for HydroForge simulation backends. A backend
+provides access to a hydraulic modelling package and knows how to construct
+models and HydroForge simulators using that package. The package currently
+supports backends based on WNTR, TSNet, TSNetPlus, and PTSNet.
+The :class:`Backend` interface defines the methods that a backend must
+implement, including loading models and creating simulators. The :class:`BackendName`
 enumeration provides a list of supported backend names.
 """
 

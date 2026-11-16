@@ -16,11 +16,12 @@ a common simulation-backend facade.
 
 ## Project status
 
-HydroForge is alpha software. The supported simulation entry point is
-`hydroforge.backends`, which is the sole supported simulation implementation.
+HydroForge is alpha software. `hydroforge.wdn_modelling.backends` is the
+supported simulation entry point and sole supported implementation.
 The legacy `hydroforge.simulation`, `hydroforge.scenario_generation`,
 `hydroforge.topology`, and `hydroforge.uncertainty_sampling` packages have been
-retired in favour of `hydroforge.backends` and `hydroforge.sampling`.
+retired in favour of `hydroforge.wdn_modelling.backends` and
+`hydroforge.sampling`.
 
 ## Installation
 
@@ -74,7 +75,7 @@ are not implemented and exit with a non-zero status.
 
 ## Package layout
 
-### Generic (domain-agnostic, importable without any WDN dependency)
+### Generic (domain-agnostic, importable without any WDN modelling package dependencies)
 
 | Package | Purpose | Current state |
 | --- | --- | --- |
@@ -93,21 +94,6 @@ are not implemented and exit with a non-zero status.
 | `hydroforge.wdn_modelling.networks` | Model/graph selectors and `JunctionLeaks` | Supported |
 | `hydroforge.wdn_modelling.modifiers` | WNTR model and graph modifiers | Supported |
 | `hydroforge.wdn_modelling.measurement_placement` | Sensor placement and sensor-network graph (depends on `graphs`) | Supported |
-
-### Backwards-compatibility shims (deprecated)
-
-The following old top-level packages remain as thin re-export shims that
-delegate to `hydroforge.wdn_modelling.*` (or `hydroforge.measurements` for
-`sensors`) and emit a `DeprecationWarning` on import:
-
-| Shim package | Delegates to | Notes |
-| --- | --- | --- |
-| `hydroforge.backends` | `hydroforge.wdn_modelling.backends` | Deprecated; preserves `get_backend` facade |
-| `hydroforge.graphs` | `hydroforge.wdn_modelling.graphs` | Deprecated |
-| `hydroforge.modifiers` | `hydroforge.wdn_modelling.modifiers` | Deprecated |
-| `hydroforge.networks` | `hydroforge.wdn_modelling.networks` | Deprecated |
-| `hydroforge.epanetfile_io` | `hydroforge.wdn_modelling.epanetfile_io` | Deprecated |
-| `hydroforge.sensors` | `hydroforge.measurements` + `hydroforge.wdn_modelling.measurement_placement` | Deprecated |
 
 ## API overview
 
@@ -186,7 +172,7 @@ orchestrated by `SensorPlacer`.
 ### Simulation backends
 
 ```python
-from hydroforge.backends import get_backend
+from hydroforge.wdn_modelling.backends import get_backend
 
 backend = get_backend("wntr")
 model = backend.load_model("tests/base_networks/Net1_shortened.inp")
@@ -208,7 +194,7 @@ currently use one configuration type for both scopes.
 ### EPANET file I/O
 
 ```python
-from hydroforge.epanetfile_io import EPANETNetworkModelIO
+from hydroforge.wdn_modelling.epanetfile_io import EPANETNetworkModelIO
 
 network = EPANETNetworkModelIO.from_inp_file("network.inp")
 network.junctions.modify_by_field("id", "J1", elevation=105.0)

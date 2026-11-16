@@ -633,15 +633,17 @@ HydroForge/
 ├── src/hydroforge/          # Main source code
 │   ├── __init__.py
 │   ├── cli.py               # Command-line interface
-│   ├── networks/            # WDN network models
-│   ├── simulation/          # Simulation engine
+│   ├── auxiliary/           # Shared utilities and I/O
 │   ├── uncertainty/         # Uncertainty injection
 │   ├── sampling/            # Sampling methods
-│   ├── sensors/             # Sensor models
-│   ├── modifiers/           # Model modifiers
-│   ├── graphs/              # Graph data structures
-│   ├── scenario_generation/ # Scenario generation
-│   └── ...
+│   ├── measurements/        # Sensor models
+│   └── wdn_modelling/       # WDN-specific functionality
+│       ├── backends/
+│       ├── epanetfile_io/
+│       ├── graphs/
+│       ├── modifiers/
+│       ├── networks/
+│       └── measurement_placement/
 ├── tests/                   # Test directory (pytest-based)
 │   ├── base_networks/       # EPANET input files for testing
 │   └── test_*.py            # Test files

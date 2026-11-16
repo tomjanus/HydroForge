@@ -5,7 +5,7 @@ simulations using TSNetPlus.
 
 The simulator follows the common :class:`Simulator` interface used by the
 other HydroForge simulation backends while exposing TSNet+-specific
-configuration through :class:`TSNetSimulatorConfig`.
+configuration through :class:`TSNetPlusConfig`.
 
 TSNet+ simulations consist of two stages:
 
@@ -34,7 +34,7 @@ class TSNetSPlusSimulator(
 
     Parameters
     ----------
-    config : TSNetSimulationConfig, optional
+    config : TSNetPlusConfig, optional
         Configuration for the transient simulation.
     inplace : bool, optional
         If ``True``, the supplied TSNet model is modified directly.
@@ -51,8 +51,8 @@ class TSNetSPlusSimulator(
 
     Examples
     --------
-    >>> from hydroforge.backends import get_backend
-    >>> from hydroforge.backends.tsnetplus.config import TSNetPlusConfig
+    >>> from hydroforge.wdn_modelling.backends import get_backend
+    >>> from hydroforge.wdn_modelling.backends.tsnetplus.config import TSNetPlusConfig
     >>>
     >>> backend = get_backend("tsnetplus")
     >>> model = backend.load_model("network.inp")

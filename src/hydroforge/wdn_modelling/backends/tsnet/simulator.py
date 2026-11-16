@@ -5,7 +5,7 @@ simulations using TSNet.
 
 The simulator follows the common :class:`Simulator` interface used by the
 other HydroForge simulation backends while exposing TSNet-specific
-configuration through :class:`TSNetSimulatorConfig`.
+configuration through :class:`TSNetConfig`.
 
 TSNet simulations consist of two stages:
 
@@ -26,7 +26,7 @@ import os
 import copy
 from dataclasses import dataclass, field
 import tsnet
-from .config import TSNetSimulatorConfig
+from .config import TSNetConfig
 from .model import TSNetModel
 from .results import TSNetSimulationResults
 from ..common.simulator import Simulator
@@ -34,14 +34,12 @@ from ....auxiliary.io import save_pickle
 
 
 @dataclass(slots=True)
-class TSNetSimulator(
-    Simulator[TSNetModel, TSNetSimulationResults, TSNetSimulatorConfig]
-):
+class TSNetSimulator(Simulator[TSNetModel, TSNetSimulationResults, TSNetConfig]):
     """TSNet transient hydraulic simulator.
 
     Parameters
     ----------
-    config : TSNetSimulationConfig, optional
+    config : TSNetConfig, optional
         Configuration for the transient simulation.
     inplace : bool, optional
         If ``True``, the supplied TSNet model is modified directly.
@@ -58,8 +56,8 @@ class TSNetSimulator(
 
     Examples
     --------
-    >>> from hydroforge.backends import get_backend
-    >>> from hydroforge.backends.tsnet.config import TSNetConfig
+    >>> from hydroforge.wdn_modelling.backends import get_backend
+    >>> from hydroforge.wdn_modelling.backends.tsnet.config import TSNetConfig
     >>>
     >>> backend = get_backend("tsnet")
     >>> model = backend.load_model("network.inp")
@@ -72,14 +70,14 @@ class TSNetSimulator(
     >>> results = simulator.run(model)
     """
 
-    config: TSNetSimulatorConfig = field(
-        default_factory=lambda: TSNetSimulatorConfig(
+    config: TSNetConfig = field(
+        default_factory=lambda: TSNetConfig(
             duration=0.0,
         )
     )
     inplace: bool = True
 
-    def configure(self, config: TSNetSimulatorConfig) -> None:
+    def configure(self, config: TSNetConfig) -> None:
         self.config = config
 
     def _cleanup_temp_files(self) -> None:
