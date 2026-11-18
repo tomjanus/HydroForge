@@ -1,4 +1,5 @@
-""" """
+"""Uncertainty modelling: distributions, uncertainty strategies, parameters,
+and the generic uncertainty specification document layer."""
 
 from .parameters import Parameter, ParameterType
 from .uncertainties import (
@@ -25,6 +26,15 @@ from .distributions import (
     DistributionChecker,
 )
 from .common import TheoreticalCDFAbsent
+from .specification import (
+    SensorDefinition,
+    UncertaintySpecification,
+    SpecificationError,
+    SpecificationFormatError,
+    SpecificationValidationError,
+    load_specification,
+    save_specification,
+)
 
 __all__ = [
     "Parameter",
@@ -49,4 +59,11 @@ __all__ = [
     "CategoricalHistogramDistribution",
     "DistributionChecker",
     "TheoreticalCDFAbsent",
+    "SensorDefinition",
+    "UncertaintySpecification",
+    "SpecificationError",
+    "SpecificationFormatError",
+    "SpecificationValidationError",
+    "load_specification",
+    "save_specification",
 ]
