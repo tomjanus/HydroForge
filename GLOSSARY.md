@@ -166,6 +166,35 @@ have a well-defined CDF.
 
 ---
 
+## Uncertainty Specification
+
+### UncertaintySpecification
+A model-independent document that maps observation points to sensor definitions and,
+in later stages, model components to parameters. It is the in-memory form of a
+`.json` or `.yaml` specification file.
+
+### Sensor
+A measurement-imperfection model that transforms a true signal into an observed
+measurement (for example quantization, Gaussian noise, offset, saturation, or drift).
+Sensor models are generic and have no network or simulator dependence.
+
+### SensorDefinition
+A named, declarative sensor model configuration: a sensor type, its parameters, and
+an optional network location. A sensor definition describes a sensor; it is not
+itself a live sensor.
+
+### Measurement
+The observed value produced by applying a sensor to a true signal.
+_Avoid_: using "measurement" as a synonym for a sensor or a sensor definition.
+(The on-disk key `measurements` is accepted only as a legacy alias for the
+`sensors` section of a specification; it is not a separate domain concept.)
+
+### SensorType
+The registry name identifying which sensor class a sensor definition constructs, such
+as `FixedPrecision` or `FixedPrecisionSensor`.
+
+---
+
 ## Leak Management
 
 ### JunctionLeaks
