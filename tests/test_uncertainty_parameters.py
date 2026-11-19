@@ -207,3 +207,61 @@ def test_binary_parameter_rejects_infix_arithmetic_syntax():
     ):
         with pytest.raises(TypeError, match="[Bb]inary"):
             expression()
+
+
+# ---------------------------------------------------------------
+# Symmetric discrete arithmetic operand rules (#37, ADR-0002 decision 7)
+# ---------------------------------------------------------------
+
+
+def _discrete_parameter(value=10, uncertainty=None):
+    return Parameter(
+        name="count",
+        nominal_value=value,
+        uncertainty=uncertainty or NoUncertainty(),
+        type=ParameterType.DISCRETE,
+    )
+
+
+def _numerical_parameter(value=100.0):
+    return Parameter(
+        name="demand",
+        nominal_value=value,
+        uncertainty=NoUncertainty(),
+        type=ParameterType.NUMERICAL,
+    )
+
+
+def test_discrete_operand_blocks_division_from_either_side():
+    discrete = _discrete_parameter()
+    numerical = _numerical_parameter()
+    # left operand discrete already raised before this change
+    with pytest.raises(TypeError, match="Division not allowed"):
+        _ = discrete / numerical
+    # right operand discrete must now raise too (the C4 gap)
+    with pytest.raises(TypeError, match="Division not allowed"):
+        _ = numerical / discrete
+
+
+def test_discrete_operand_multiplication_requires_integer_partner():
+    # a discrete parameter used as an operand must respect the integer rule
+    discrete = _discrete_parameter()
+    numerical = _numerical_parameter(2.0)  # samples to float 2.0
+    with pytest.raises(TypeError, match="integer multiplier"):
+        _ = numerical * discrete
+    with pytest.raises(TypeError, match="integer multiplier"):
+        _ = discrete * numerical
+
+
+def test_integer_parameter_products_remain_allowed():
+    discrete_a = _discrete_parameter(value=6)
+    discrete_b = _discrete_parameter(value=3)
+    assert discrete_a * discrete_b == pytest.approx(18)
+
+
+def test_value_operand_discrete_rules_unchanged():
+    discrete = _discrete_parameter()
+    assert discrete * 2 == pytest.approx(20)
+    assert discrete + 2 == pytest.approx(12)
+    with pytest.raises(TypeError, match="integer multiplier"):
+        _ = discrete * 2.5

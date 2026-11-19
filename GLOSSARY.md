@@ -322,14 +322,17 @@ handled by the user or upstream I/O utilities.
 
 - **NUMERICAL**: All arithmetic operations (add, sub, mul, div) allowed.
 - **DISCRETE**: Addition, subtraction allowed. Multiplication allowed only with integer
-  multipliers. Division not allowed.
+  multipliers. Division not allowed. These discrete rules bind every `Parameter`
+  operand of the expression, regardless of operand order: `numerical / discrete` and
+  `numerical * non_integer_discrete_partner` raise just like the left-operand forms.
 - **CATEGORICAL**: No arithmetic operations allowed (raises TypeError).
 - **BINARY**: Treated as categorical for arithmetic purposes.
 
 ### Arithmetic Edge Cases
 
 - **Division by zero**: Raises `ValueError` or propagates depending on implementation.
-- **Multiplication of discrete by non-integer**: Raises `TypeError`.
+- **Multiplication of discrete by non-integer**: Raises `TypeError`, in either operand
+  position.
 - **Categorical + numeric**: Always raises `TypeError`, regardless of operand order.
 
 ---
