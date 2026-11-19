@@ -27,6 +27,7 @@ from .distributions import (
 )
 from .common import TheoreticalCDFAbsent
 from .specification import (
+    ParameterDefinition,
     SensorDefinition,
     UncertaintySpecification,
     SpecificationError,
@@ -60,6 +61,7 @@ __all__ = [
     "DistributionChecker",
     "TheoreticalCDFAbsent",
     "SensorDefinition",
+    "ParameterDefinition",
     "UncertaintySpecification",
     "SpecificationError",
     "SpecificationFormatError",
