@@ -184,13 +184,24 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             self.type = inferred_type
 
     def _infer_parameter_type(self) -> ParameterType:
-        """Infer the parameter type based on the nominal value."""
-        if isinstance(self.nominal_value, (int, float)):
-            return ParameterType.NUMERICAL
-        if isinstance(self.nominal_value, bool) or isinstance(
+        """Infer the parameter type based on the nominal value.
+
+        Returns
+        -------
+        ParameterType
+            ``BINARY`` for boolean nominal values or binary-flip uncertainty,
+            ``CATEGORICAL`` for string nominal values or categorical
+            replacement uncertainty, ``NUMERICAL`` for ``int``/``float``
+            values, ``DISCRETE`` for list/array values, and ``UNDEFINED``
+            otherwise.  ``bool`` is checked before ``int`` because
+            ``bool`` is a subclass of ``int`` in Python.
+        """
+        if isinstance(self.nominal_value, (bool, np.bool_)) or isinstance(
             self.uncertainty, BinaryStateFlipUncertainty
         ):
             return ParameterType.BINARY
+        if isinstance(self.nominal_value, (int, float)):
+            return ParameterType.NUMERICAL
         if isinstance(self.nominal_value, str) or isinstance(
             self.uncertainty,
             (

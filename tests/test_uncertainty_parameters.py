@@ -77,6 +77,39 @@ def test_binary_parameter_operand_rejected_in_right_position():
 
 
 # ---------------------------------------------------------------
+# Type inference for boolean nominal values (#30, finding C2)
+# ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("nominal_value", [True, False, np.bool_(True)])
+def test_boolean_nominal_value_infers_binary_type(nominal_value):
+    parameter = Parameter(name="flag", nominal_value=nominal_value)
+    assert parameter.type is ParameterType.BINARY
+
+
+def test_numeric_and_string_inference_are_unchanged():
+    assert Parameter(name="p", nominal_value=1).type is ParameterType.NUMERICAL
+    assert Parameter(name="p", nominal_value=1.5).type is ParameterType.NUMERICAL
+    assert Parameter(name="p", nominal_value="PVC").type is ParameterType.CATEGORICAL
+
+
+def test_binary_uncertainty_still_infers_binary():
+    from hydroforge.uncertainty import BinaryStateFlipUncertainty
+
+    parameter = Parameter(
+        name="valve",
+        nominal_value="OPEN",
+        uncertainty=BinaryStateFlipUncertainty(flip_prob=0.0),
+    )
+    assert parameter.type is ParameterType.BINARY
+
+
+def test_explicit_type_is_never_overridden_by_inference():
+    parameter = Parameter(name="flag", nominal_value=True, type=ParameterType.NUMERICAL)
+    assert parameter.type is ParameterType.NUMERICAL
+
+
+# ---------------------------------------------------------------
 # Existing policy regressions (categorical / discrete / numerical)
 # ---------------------------------------------------------------
 
