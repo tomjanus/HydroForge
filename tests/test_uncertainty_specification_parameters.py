@@ -282,7 +282,7 @@ def test_unknown_parameter_type_name_is_rejected():
 
 def test_unknown_uncertainty_type_lists_registered_names():
     document = _parameter_document()
-    document["parameters"]["p1"]["uncertainty"]["type"] = "Multiplicative"
+    document["parameters"]["p1"]["uncertainty"]["type"] = "Triangular"
 
     with pytest.raises(SpecificationValidationError) as exc:
         UncertaintySpecification.from_dict(document)
@@ -293,14 +293,14 @@ def test_unknown_uncertainty_type_lists_registered_names():
         if candidate.path == "parameters.p1.uncertainty.type"
     )
     assert "unknown uncertainty type" in issue.message
-    assert "Additive" in issue.message  # only entries registered at this stage
+    assert "Additive" in issue.message
 
 
 def test_unknown_distribution_type_is_rejected_with_path():
     document = _parameter_document()
     document["parameters"]["p1"]["uncertainty"]["parameters"]["distribution"][
         "type"
-    ] = "Uniform"
+    ] = "Kernel"
 
     assert (
         _first_path(document)

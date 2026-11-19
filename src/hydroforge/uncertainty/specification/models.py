@@ -114,6 +114,8 @@ def _describe(annotation: Any) -> str:
         if type(None) in args:
             parts.append("null")
         return " or ".join(parts)
+    if origin in (tuple, list):
+        return "a list"
     return "a valid value"
 
 
@@ -127,6 +129,8 @@ def _annotation_allows(value: Any, annotation: Any) -> bool:
     """
     if annotation is None or annotation is Any:
         return True
+    if annotation is type(None):
+        return value is None
     origin = typing.get_origin(annotation)
     if origin in (Union, types.UnionType):
         return any(
@@ -140,6 +144,24 @@ def _annotation_allows(value: Any, annotation: Any) -> bool:
         return isinstance(value, str)
     if annotation is bool:
         return isinstance(value, bool)
+    if origin is tuple:
+        # documents carry JSON arrays where Python tuples are accepted
+        # (ADR-0002 decision 4); fixed-length tuples also fix the length
+        if not isinstance(value, (list, tuple)):
+            return False
+        args = typing.get_args(annotation)
+        if len(args) == 2 and args[1] is Ellipsis:
+            return all(_annotation_allows(item, args[0]) for item in value)
+        return len(value) == len(args) and all(
+            _annotation_allows(item, arg) for item, arg in zip(value, args)
+        )
+    if origin is list:
+        if not isinstance(value, list):
+            return False
+        args = typing.get_args(annotation)
+        return (
+            all(_annotation_allows(item, args[0]) for item in value) if args else True
+        )
     return True
 
 

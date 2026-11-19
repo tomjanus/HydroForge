@@ -19,8 +19,30 @@ from hydroforge.measurements import (
     SensitivityErrorSensor,
     Sensor,
 )
-from hydroforge.uncertainty.distributions import Distribution, NormalDistribution
-from hydroforge.uncertainty.uncertainties import AdditiveUncertainty, Uncertainty
+from hydroforge.uncertainty.distributions import (
+    CategoricalDiracDeltaDistribution,
+    CategoricalHistogramDistribution,
+    CategoricalNormalDistribution,
+    CategoricalUniformDistribution,
+    ContinuousDiracDeltaDistribution,
+    DiscreteDiracDeltaDistribution,
+    DiscreteHistogramDistribution,
+    DiscreteNormalDistribution,
+    DiscreteUniformDistribution,
+    Distribution,
+    NormalDistribution,
+    UniformDistribution,
+)
+from hydroforge.uncertainty.uncertainties import (
+    AdditiveUncertainty,
+    BinaryStateFlipUncertainty,
+    BiasUncertainty,
+    CategoricalRandomReplacementUncertainty,
+    CategoricalReplacementUncertainty,
+    MultiplicativeUncertainty,
+    NoUncertainty,
+    Uncertainty,
+)
 
 from .exceptions import SpecificationIssue, SpecificationValidationError
 
@@ -155,19 +177,43 @@ class _ClassRegistry:
         )
 
 
-# Stage 2 seeds these registries with the classes the end-to-end slice needs
-# (Normal distribution, Additive uncertainty). The full catalog is a later
-# ticket; unregistered concrete classes report an allow-list error.
+# Registries hold every concrete class. The generic DiracDeltaDistribution is
+# deliberately absent: without a type tag its document form is ambiguous and
+# its CDF is undefined (ADR-0002 decision 2).
+_DISTRIBUTION_CLASSES: tuple[type[Distribution], ...] = (
+    NormalDistribution,
+    UniformDistribution,
+    ContinuousDiracDeltaDistribution,
+    DiscreteDiracDeltaDistribution,
+    CategoricalDiracDeltaDistribution,
+    DiscreteNormalDistribution,
+    DiscreteUniformDistribution,
+    DiscreteHistogramDistribution,
+    CategoricalNormalDistribution,
+    CategoricalUniformDistribution,
+    CategoricalHistogramDistribution,
+)
+
+_UNCERTAINTY_CLASSES: tuple[type[Uncertainty], ...] = (
+    NoUncertainty,
+    AdditiveUncertainty,
+    MultiplicativeUncertainty,
+    BiasUncertainty,
+    CategoricalRandomReplacementUncertainty,
+    CategoricalReplacementUncertainty,
+    BinaryStateFlipUncertainty,
+)
+
 _DISTRIBUTION_REGISTRY = _ClassRegistry(
     kind="distribution",
     suffix="Distribution",
-    classes=(NormalDistribution,),
+    classes=_DISTRIBUTION_CLASSES,
 )
 
 _UNCERTAINTY_REGISTRY = _ClassRegistry(
     kind="uncertainty",
     suffix="Uncertainty",
-    classes=(AdditiveUncertainty,),
+    classes=_UNCERTAINTY_CLASSES,
 )
 
 
