@@ -423,6 +423,12 @@ class Distribution(Generic[ValueT], ABC):
     def to_dict(self, recursive: bool = False) -> dict[str, Any]:
         """Convert distribution parameters to a dictionary.
 
+        Only constructor (``init=True``) fields are included, so the result is
+        the set of document arguments that would rebuild the distribution.
+        Internal-state fields (``init=False``, such as empirical-sample caches
+        and category lookup tables) and fields opting out via
+        ``field(metadata={"serialize": False})`` are always excluded.
+
         Parameters
         ----------
         recursive : bool, default=False
@@ -445,7 +451,7 @@ class Distribution(Generic[ValueT], ABC):
                         else getattr(obj, item.name)
                     )
                     for item in fields(obj)
-                    if item.metadata.get("serialize", True)
+                    if item.init and item.metadata.get("serialize", True)
                 }
             if recursive and isinstance(obj, (list, tuple)):
                 return type(obj)(convert(item) for item in obj)

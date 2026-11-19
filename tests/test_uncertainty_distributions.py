@@ -104,3 +104,80 @@ def test_empirical_numeric_cdf_still_works():
     assert abs(float(result) - 0.5) < 0.05
 
 
+# ---------------------------------------------------------------
+# to_dict internal-state leakage (#32, finding A1)
+# ---------------------------------------------------------------
+
+
+def test_to_dict_returns_only_constructor_fields():
+    assert NormalDistribution(mean=0.0, std_dev=1.0).to_dict() == {
+        "mean": 0.0,
+        "std_dev": 1.0,
+    }
+
+
+@pytest.mark.parametrize("family", sorted(_ORDERED_CATEGORICAL))
+def test_to_dict_excludes_internal_category_and_cache_fields(family):
+    payload = _make(family).to_dict()
+    assert "_empirical_cache" not in payload
+    assert "_cat_to_num" not in payload
+    assert "_num_to_cat" not in payload
+
+
+def test_to_dict_is_json_serializable_after_empirical_cdf_calls():
+    """Tuple ndarray cache keys used to break json.dumps(to_dict()) (A1)."""
+    distribution = _make("histogram")
+    distribution.cdf("OPEN", empirical=True, n_samples=100, random_state=1)
+    payload = distribution.to_dict()
+    json.dumps(payload)
+
+
+def test_to_dict_recursive_excludes_non_init_fields():
+    distribution = _make("histogram")
+    payload = distribution.to_dict(recursive=True)
+    assert "_empirical_cache" not in payload
+    assert payload["categories"] == ("CLOSED", "HALF", "OPEN")
+
+
+def test_to_dict_honours_serialize_metadata_optout():
+    from dataclasses import dataclass, field
+    from typing import ClassVar
+
+    from hydroforge.uncertainty.distributions import (
+        ContinuousDiracDeltaDistribution,
+        Distribution,
+        DistributionBoundsType,
+        DistributionDomain,
+        DistributionFamily,
+        DistributionProperties,
+    )
+
+    @dataclass
+    class ProbeDistribution(Distribution[float]):
+        """Minimal concrete distribution probing to_dict field filtering."""
+
+        alpha: float = 1.0
+        hidden: float = field(default=2.0, metadata={"serialize": False})
+        properties: ClassVar[DistributionProperties] = DistributionProperties(
+            family=DistributionFamily.OTHER,
+            bounds_type=DistributionBoundsType.SEMI_BOUNDED,
+            domain=DistributionDomain.CONTINUOUS,
+        )
+
+        @property
+        def nominal_value(self) -> float:
+            return self.alpha
+
+        def reduce(self) -> ContinuousDiracDeltaDistribution:
+            return ContinuousDiracDeltaDistribution(value=self.alpha)
+
+        def sample_from_unit(self, u):
+            raise NotImplementedError
+
+        def _theoretical_cdf(self, x):
+            raise NotImplementedError
+
+    payload = ProbeDistribution(alpha=3.5).to_dict()
+    assert payload == {"alpha": 3.5}
+    assert "hidden" not in payload
+    assert "_empirical_cache" not in payload
