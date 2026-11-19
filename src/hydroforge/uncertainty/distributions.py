@@ -329,6 +329,15 @@ class Distribution(Generic[ValueT], ABC):
             If a theoretical CDF is unavailable and ``empirical=False``.
         ValueError
             If ``n_samples`` is not positive.
+
+        Notes
+        -----
+        Empirical draws are cached per ``(n_samples, random_state)`` and
+        reused by later calls.  The cache assumes constructor arguments are
+        not mutated after construction; mutating them can serve draws from
+        the previous parameters.  Under CPython the dict operations are
+        individually atomic, so concurrent empirical calls at worst
+        duplicate draw work rather than corrupt the cache.
         """
         if empirical:
             return self._empirical_cdf(
@@ -364,15 +373,7 @@ class Distribution(Generic[ValueT], ABC):
         """
         if n_samples <= 0:
             raise ValueError("n_samples must be greater than zero")
-        # ``Generator`` instances are mutable, so using their identity in the
-        # cache key makes repeated CDF calls deterministic for a given generator
-        # object after the first call. Integer seeds and None are immutable.
-        state_key: int | None
-        if isinstance(random_state, (int, np.integer)) or random_state is None:
-            state_key = int(random_state) if random_state is not None else None
-        else:
-            state_key = id(random_state)
-        cache_key = (int(n_samples), state_key)
+        cache_key = _empirical_cache_key(n_samples, random_state)
         if cache_key not in self._empirical_cache:
             rng = (
                 random_state
@@ -431,6 +432,12 @@ class Distribution(Generic[ValueT], ABC):
     def to_dict(self, recursive: bool = False) -> dict[str, Any]:
         """Convert distribution parameters to a dictionary.
 
+        Only constructor (``init=True``) fields are included, so the result is
+        the set of document arguments that would rebuild the distribution.
+        Internal-state fields (``init=False``, such as empirical-sample caches
+        and category lookup tables) and fields opting out via
+        ``field(metadata={"serialize": False})`` are always excluded.
+
         Parameters
         ----------
         recursive : bool, default=False
@@ -453,7 +460,7 @@ class Distribution(Generic[ValueT], ABC):
                         else getattr(obj, item.name)
                     )
                     for item in fields(obj)
-                    if item.metadata.get("serialize", True)
+                    if item.init and item.metadata.get("serialize", True)
                 }
             if recursive and isinstance(obj, (list, tuple)):
                 return type(obj)(convert(item) for item in obj)
@@ -690,28 +697,27 @@ class CategoricalConversionMixin:
         ValueError
             If ``n_samples`` is not positive.
         """
-        _empirical_cache = getattr(self, "_empirical_cache", None)
-        if _empirical_cache is not None:
-            state_key: int | None
-            if isinstance(random_state, (int, np.integer)) or random_state is None:
-                state_key = int(random_state) if random_state is not None else None
-            else:
-                state_key = id(random_state)
-            cache_key = (int(n_samples), state_key)
-            return _empirical_cache[cache_key]
-
         if n_samples <= 0:
             raise ValueError("n_samples must be greater than zero")
 
-        rng = (
-            random_state
-            if isinstance(random_state, np.random.Generator)
-            else np.random.default_rng(random_state)
-        )
-        unit_samples = rng.random(int(n_samples))
-        cumulative = np.cumsum(probabilities, dtype=np.float64)
-        indices = np.searchsorted(cumulative, unit_samples, side="right")
-        indices = np.clip(indices, 0, len(self._num_to_cat) - 1)
+        # The CDF result depends on ``x``, so the cache stores the drawn
+        # category indices (which depend only on ``n_samples`` and
+        # ``random_state``) under the same key scheme as the numeric path.
+        # ``_empirical_cache`` is declared on the Distribution base class.
+        cache: dict[tuple[int, Any], NDArray[Any]] = getattr(self, "_empirical_cache")
+        cache_key = _empirical_cache_key(n_samples, random_state)
+        indices = cache.get(cache_key)
+        if indices is None:
+            rng = (
+                random_state
+                if isinstance(random_state, np.random.Generator)
+                else np.random.default_rng(random_state)
+            )
+            unit_samples = rng.random(int(n_samples))
+            cumulative = np.cumsum(probabilities, dtype=np.float64)
+            drawn = np.searchsorted(cumulative, unit_samples, side="right")
+            indices = np.clip(drawn, 0, len(self._num_to_cat) - 1)
+            cache[cache_key] = indices
 
         x_array = np.asarray(x, dtype=object)
         flat_x = x_array.reshape(-1)
@@ -765,7 +771,9 @@ class NormalDistribution(Distribution[float]):
     )
 
     def __post_init__(self) -> None:
-        """Validate distribution parameters."""
+        """Validate and normalise distribution parameters."""
+        self.mean = _require_real_number(self.mean, "mean")
+        self.std_dev = _require_real_number(self.std_dev, "std_dev")
         if self.std_dev <= 0:
             raise ValueError(
                 "Standard deviation must be positive for normal distribution"
@@ -853,8 +861,8 @@ class UniformDistribution(Distribution[float]):
 
     def __post_init__(self) -> None:
         """Validate and normalise distribution bounds."""
-        self.lower = float(self.lower)
-        self.upper = float(self.upper)
+        self.lower = _require_real_number(self.lower, "lower")
+        self.upper = _require_real_number(self.upper, "upper")
         if self.lower >= self.upper:
             raise ValueError(
                 "Lower bound must be less than upper bound for uniform distribution"
@@ -1200,9 +1208,8 @@ class DiscreteNormalDistribution(Distribution[int]):
 
     def __post_init__(self) -> None:
         """Validate and normalise distribution parameters."""
-        if isinstance(self.mean, float) and not self.mean.is_integer():
-            raise ValueError(f"Mean must be an integer, got {self.mean}")
-        self.mean = int(self.mean)
+        self.mean = _require_real_integer(self.mean, "mean")
+        self.std_dev = _require_real_number(self.std_dev, "std_dev")
         if self.std_dev <= 0:
             raise ValueError("Standard deviation must be positive")
 
@@ -1289,8 +1296,8 @@ class DiscreteUniformDistribution(Distribution[int]):
 
     def __post_init__(self) -> None:
         """Validate and normalise integer bounds."""
-        self.lower = int(self.lower)
-        self.upper = int(self.upper)
+        self.lower = _require_real_integer(self.lower, "lower")
+        self.upper = _require_real_integer(self.upper, "upper")
         if self.lower >= self.upper:
             raise ValueError("Lower bound must be less than upper bound")
 
@@ -1383,6 +1390,13 @@ class DiscreteHistogramDistribution(Distribution[float]):
             raise ValueError("Values must not be empty")
         if len(self.values) != len(self.probabilities):
             raise ValueError("Values and probabilities must have the same length")
+        self.values = tuple(
+            _require_real_number(value, "values") for value in self.values
+        )
+        self.probabilities = tuple(
+            _require_real_number(probability, "probabilities")
+            for probability in self.probabilities
+        )
         if any(probability < 0 for probability in self.probabilities):
             raise ValueError("Probabilities must be non-negative")
         probability_sum = float(sum(self.probabilities))
@@ -2026,6 +2040,103 @@ class DistributionChecker:
             ``True`` when the distribution domain is binary.
         """
         return distribution.properties.domain == DistributionDomain.BINARY
+
+
+def _empirical_cache_key(
+    n_samples: int,
+    random_state: int | np.random.Generator | None,
+) -> tuple[int, int | None]:
+    """Build the empirical-sample cache key for a draw configuration.
+
+    Parameters
+    ----------
+    n_samples : int
+        Number of samples in the draw.
+    random_state : int, numpy.random.Generator, or None
+        Seed or generator used for the draw.  ``Generator`` instances are
+        mutable, so their identity is used in the key; this makes repeated CDF
+        calls deterministic for a given generator object after the first call.
+        Integer seeds and ``None`` are immutable.
+
+    Returns
+    -------
+    tuple[int, int | None]
+        Cache key ``(n_samples, state_key)``.
+    """
+    state_key: int | None
+    if isinstance(random_state, (int, np.integer)) or random_state is None:
+        state_key = int(random_state) if random_state is not None else None
+    else:
+        state_key = id(random_state)
+    return (int(n_samples), state_key)
+
+
+def _require_real_number(value: Any, name: str) -> float:
+    """Validate a scalar constructor argument as a finite real number.
+
+    Parameters
+    ----------
+    value : Any
+        The constructor argument to validate.
+    name : str
+        Argument name used in the error messages.
+
+    Returns
+    -------
+    float
+        The value normalised to a Python ``float``.
+
+    Raises
+    ------
+    TypeError
+        If the value is not ``int``/``float`` or an equivalent NumPy scalar.
+        Booleans and strings (including numeric strings) are rejected,
+        matching the Stage 1 specification conventions.
+    ValueError
+        If the value is NaN or infinite.
+    """
+    if isinstance(value, (bool, np.bool_)) or not isinstance(
+        value, (int, float, np.integer, np.floating)
+    ):
+        raise TypeError(f"{name} must be a real number, got {type(value).__name__}")
+    number = float(value)
+    if not np.isfinite(number):
+        raise ValueError(f"{name} must be finite, got {number}")
+    return number
+
+
+def _require_real_integer(value: Any, name: str) -> int:
+    """Validate a scalar constructor argument as a finite integer value.
+
+    Parameters
+    ----------
+    value : Any
+        The constructor argument to validate.
+    name : str
+        Argument name used in the error messages.
+
+    Returns
+    -------
+    int
+        The value normalised to a Python ``int``.
+
+    Raises
+    ------
+    TypeError
+        If the value is not ``int``/``float`` or an equivalent NumPy scalar.
+        Booleans and strings are rejected.
+    ValueError
+        If the value is NaN, infinite, or a float without an integer value.
+    """
+    if isinstance(value, (bool, np.bool_)) or not isinstance(
+        value, (int, float, np.integer, np.floating)
+    ):
+        raise TypeError(f"{name} must be a real number, got {type(value).__name__}")
+    if not np.isfinite(float(value)):
+        raise ValueError(f"{name} must be finite, got {value}")
+    if isinstance(value, (float, np.floating)) and not float(value).is_integer():
+        raise ValueError(f"{name} must be an integer, got {value}")
+    return int(value)
 
 
 def _validate_unit_input(u: UnitInput) -> NDArray[np.float64]:

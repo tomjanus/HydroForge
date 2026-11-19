@@ -40,10 +40,6 @@ ScalarValue: TypeAlias = str | int | float | np.integer | np.floating | Enum
 
 T = TypeVar("T", bound=ScalarValue)
 
-# --- per-thread cache for sampling (currently not used) ---
-_local = threading.local()
-_local.cache = None  # dict | None
-
 CDFInput = float | Sequence[float] | np.ndarray
 CDFResult = float | np.ndarray
 
@@ -184,13 +180,24 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             self.type = inferred_type
 
     def _infer_parameter_type(self) -> ParameterType:
-        """Infer the parameter type based on the nominal value."""
-        if isinstance(self.nominal_value, (int, float)):
-            return ParameterType.NUMERICAL
-        if isinstance(self.nominal_value, bool) or isinstance(
+        """Infer the parameter type based on the nominal value.
+
+        Returns
+        -------
+        ParameterType
+            ``BINARY`` for boolean nominal values or binary-flip uncertainty,
+            ``CATEGORICAL`` for string nominal values or categorical
+            replacement uncertainty, ``NUMERICAL`` for ``int``/``float``
+            values, ``DISCRETE`` for list/array values, and ``UNDEFINED``
+            otherwise.  ``bool`` is checked before ``int`` because
+            ``bool`` is a subclass of ``int`` in Python.
+        """
+        if isinstance(self.nominal_value, (bool, np.bool_)) or isinstance(
             self.uncertainty, BinaryStateFlipUncertainty
         ):
             return ParameterType.BINARY
+        if isinstance(self.nominal_value, (int, float)):
+            return ParameterType.NUMERICAL
         if isinstance(self.nominal_value, str) or isinstance(
             self.uncertainty,
             (
@@ -527,17 +534,30 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         ------
         TypeError
             If the operation is not allowed for the parameter type.
-            Categorical parameters don't support any arithmetic.
+            Categorical and binary parameters don't support any arithmetic
+            (binary is treated as categorical for arithmetic purposes).
             Discrete parameters don't support division.
             Division and multiplication of discrete parameters require integer multipliers.
         """
-        # categorical: no arithmetic ever
+        # categorical and binary: no arithmetic ever
+        # (binary states are labels; numeric arithmetic on them is meaningless
+        # and silently produces garbage such as repeated strings)
         if self.type == ParameterType.CATEGORICAL:
             raise TypeError("Arithmetic not allowed for categorical parameters")
+        if self.type == ParameterType.BINARY:
+            raise TypeError(
+                "Arithmetic not allowed for binary parameters "
+                "(binary parameters are treated as categorical)"
+            )
 
         if isinstance(other, Parameter):
             if other.type == ParameterType.CATEGORICAL:
                 raise TypeError("Arithmetic not allowed for categorical parameters")
+            if other.type == ParameterType.BINARY:
+                raise TypeError(
+                    "Arithmetic not allowed for binary parameters "
+                    "(binary parameters are treated as categorical)"
+                )
 
         # discrete-specific rules
         if self.type == ParameterType.DISCRETE:
