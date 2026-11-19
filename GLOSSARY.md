@@ -194,6 +194,28 @@ _Avoid_: using "measurement" as a synonym for a sensor or a sensor definition.
 The registry name identifying which sensor class a sensor definition constructs, such
 as `FixedPrecision` or `FixedPrecisionSensor`.
 
+### ParameterDefinition
+A named, declarative model-parameter configuration: a nominal value, an optional
+uncertainty definition, an optional parameter type, and optional metadata. It is the
+Stage 2 analogue of `SensorDefinition`; it describes a parameter and is not itself a
+live `Parameter`. The document mapping key is the parameter name.
+
+### UncertaintyDefinition
+A tagged `{type, parameters}` object inside a parameter definition describing one
+perturbation model (e.g. `Additive`, `BinaryStateFlip`). Distribution arguments are
+nested distribution definitions. RNG-taking constructors appear as a document `seed`
+instead of a live generator.
+
+### DistributionDefinition
+A tagged `{type, parameters}` object describing one probability distribution
+(e.g. `Normal` with `mean`, `std_dev`). Only concrete registry classes are nameable;
+the generic `DiracDeltaDistribution` is not documentable.
+
+### Definition vs Realization
+Specification documents hold definitions (declarative configuration) only. Realized
+values — samples, locks, empirical caches, generator state — are runtime state and
+never serialize in either direction (ADR-0002).
+
 ---
 
 ## Leak Management
