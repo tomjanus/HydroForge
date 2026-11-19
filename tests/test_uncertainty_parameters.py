@@ -4,11 +4,14 @@ import numpy as np
 import pytest
 
 from hydroforge.uncertainty import (
+    AdditiveUncertainty,
     BinaryStateFlipUncertainty,
     NoUncertainty,
+    NormalDistribution,
     Parameter,
     ParameterType,
 )
+from hydroforge.uncertainty.uncertainties import Uncertainty
 
 
 def _binary_parameter(name: str = "valve") -> Parameter:
@@ -144,3 +147,48 @@ def test_numerical_and_discrete_rules_are_unchanged():
         _ = discrete * 2.5
     with pytest.raises(TypeError, match="Division not allowed"):
         _ = discrete / 2.0
+
+
+# ---------------------------------------------------------------
+# Locked sampling behaviour (#33, finding T1)
+# ---------------------------------------------------------------
+
+
+class _CountingUncertainty(Uncertainty):
+    """Uncertainty model that counts how often ``apply`` draws a new sample."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def apply(self, value, u=None):
+        self.calls += 1
+        return float(value) + self.calls
+
+
+def test_sample_is_locked_until_reset():
+    uncertainty = _CountingUncertainty()
+    parameter = Parameter(
+        name="x",
+        nominal_value=1.0,
+        uncertainty=uncertainty,
+        type=ParameterType.NUMERICAL,
+    )
+    first = parameter.sample()
+    second = parameter.sample()
+    assert first == second
+    assert uncertainty.calls == 1
+    parameter.reset()
+    third = parameter.sample()
+    assert uncertainty.calls == 2
+    assert third != first
+
+
+def test_repeated_operand_uses_one_sample():
+    """The README claims `p + p` uses the same sample for both operands."""
+    parameter = Parameter(
+        name="x",
+        nominal_value=100.0,
+        uncertainty=AdditiveUncertainty(NormalDistribution(mean=0.0, std_dev=1.0)),
+        type=ParameterType.NUMERICAL,
+    )
+    assert parameter + parameter == 2 * parameter.sample()

@@ -76,7 +76,7 @@ Common uncertainty types include `AdditiveUncertainty` (x + ε), `Multiplicative
 `Parameter` is the primary user-facing class and models a variable that consists of a *nominal* value and optional uncertainty. In other words, it encapsulates a `nominal_value` and `Uncertainty` model. Parameters are divided into categories via an attribute `ParameterType` (e.g., `NUMERICAL`, `DISCRETE`, `CATEGORICAL`). It is designed to be used just like a regular variable in calculations.
 
 -   **Key Features**:
-    -   **Locked Sampling**: Within a single context, `sample()` returns the same value on subsequent calls, ensuring consistency in calculations (e.g., `p + p` uses the same sample for both operands). The user needs to call `reset()` before a new 'uncertain' parameter sample can be drawn.
+    -   **Locked Sampling**: After the first call, `sample()` returns the same value on subsequent calls, ensuring consistency in calculations (e.g., `p + p` uses the same sample for both operands). The lock is per parameter and persists until the user calls `reset()`, after which a new sample is drawn on the next `sample()` call.
     -   **Operator Overloading**: Supports standard arithmetic (`+`, `*`, etc.).
     -   **NumPy Integration**: Works seamlessly with NumPy functions and arrays.
     -   **Type Safety**: Enforces arithmetic rules based on its `type` (e.g., prevents division on discrete parameters).

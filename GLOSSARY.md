@@ -145,10 +145,11 @@ distributions. Key subclasses include:
 A concrete implementation of `IUncertainParameter` that provides thread-safe sampling
 with optional caching via a locking mechanism.
 
-### SampleCache
-A context manager that ensures each uncertain parameter is sampled only once within an
-evaluation context, so repeated references to the same parameter use the same sampled
-realization.
+### Locked Sampling
+The consistency mechanism for uncertain parameters: after the first call, `Parameter.sample()`
+returns the same cached realization on subsequent calls, so repeated references to the same
+parameter use one sampled value. The lock persists until `Parameter.reset()` is called, at
+which point the next `sample()` draws a new value. There is no context-manager scoping.
 
 ### CDF (Cumulative Distribution Function)
 A function that gives the probability that a random variable is less than or equal to
@@ -342,10 +343,10 @@ Configuration classes specific to each backend, typically containing:
 
 ### Typical Workflow 2: Uncertainty Quantification
 1. Create `Parameter` instances with nominal values and uncertainty models.
-2. Use `SampleCache` context manager for consistent sampling.
-3. Sample parameters: `p.sample()` or `p.sample_from_unit(u)`.
-4. Run simulations with perturbed parameters.
-5. Compute CDFs or other statistics from sample results.
+2. Sample parameters: `p.sample()` or `p.sample_from_unit(u)`. `sample()` is locked —
+   it returns the same realization until `p.reset()` is called.
+3. Run simulations with perturbed parameters.
+4. Compute CDFs or other statistics from sample results.
 
 ### Typical Workflow 3: Leak Management
 1. Create a `JunctionLeaks()` instance.

@@ -42,44 +42,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Generic, Sequence, cast
 from abc import ABC, abstractmethod
-import threading
 import numpy as np
 from numpy.typing import NDArray
 from .common import T, S, is_array_like, CatValue, CatScalar, CDFNotAvailable
 from .distributions import Distribution
-
-# --- per-thread cache for sampling ---
-_local = threading.local()
-
-
-class SampleCache:
-    """
-    Context manager for caching uncertainty samples.
-
-    The cache ensures that each uncertain parameter is sampled only once
-    within an evaluation context, so repeated references to the same
-    parameter use the same sampled realization.
-
-    Supports nested contexts, for example::
-
-        with SampleCache():
-            ...
-            with SampleCache():
-                ...
-    """
-
-    def __enter__(self):
-        self._previous_cache = getattr(_local, "cache", None)
-        _local.cache = {}
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._previous_cache is None:
-            if hasattr(_local, "cache"):
-                del _local.cache
-        else:
-            _local.cache = self._previous_cache
-
 
 # TODO: Write a custom check for whether a variable is array-like (or sequence)
 

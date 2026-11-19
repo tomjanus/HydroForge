@@ -40,10 +40,6 @@ ScalarValue: TypeAlias = str | int | float | np.integer | np.floating | Enum
 
 T = TypeVar("T", bound=ScalarValue)
 
-# --- per-thread cache for sampling (currently not used) ---
-_local = threading.local()
-_local.cache = None  # dict | None
-
 CDFInput = float | Sequence[float] | np.ndarray
 CDFResult = float | np.ndarray
 
