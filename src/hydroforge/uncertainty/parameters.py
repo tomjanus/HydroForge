@@ -527,17 +527,30 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         ------
         TypeError
             If the operation is not allowed for the parameter type.
-            Categorical parameters don't support any arithmetic.
+            Categorical and binary parameters don't support any arithmetic
+            (binary is treated as categorical for arithmetic purposes).
             Discrete parameters don't support division.
             Division and multiplication of discrete parameters require integer multipliers.
         """
-        # categorical: no arithmetic ever
+        # categorical and binary: no arithmetic ever
+        # (binary states are labels; numeric arithmetic on them is meaningless
+        # and silently produces garbage such as repeated strings)
         if self.type == ParameterType.CATEGORICAL:
             raise TypeError("Arithmetic not allowed for categorical parameters")
+        if self.type == ParameterType.BINARY:
+            raise TypeError(
+                "Arithmetic not allowed for binary parameters "
+                "(binary parameters are treated as categorical)"
+            )
 
         if isinstance(other, Parameter):
             if other.type == ParameterType.CATEGORICAL:
                 raise TypeError("Arithmetic not allowed for categorical parameters")
+            if other.type == ParameterType.BINARY:
+                raise TypeError(
+                    "Arithmetic not allowed for binary parameters "
+                    "(binary parameters are treated as categorical)"
+                )
 
         # discrete-specific rules
         if self.type == ParameterType.DISCRETE:
