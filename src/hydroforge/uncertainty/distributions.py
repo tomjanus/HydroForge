@@ -364,15 +364,7 @@ class Distribution(Generic[ValueT], ABC):
         """
         if n_samples <= 0:
             raise ValueError("n_samples must be greater than zero")
-        # ``Generator`` instances are mutable, so using their identity in the
-        # cache key makes repeated CDF calls deterministic for a given generator
-        # object after the first call. Integer seeds and None are immutable.
-        state_key: int | None
-        if isinstance(random_state, (int, np.integer)) or random_state is None:
-            state_key = int(random_state) if random_state is not None else None
-        else:
-            state_key = id(random_state)
-        cache_key = (int(n_samples), state_key)
+        cache_key = _empirical_cache_key(n_samples, random_state)
         if cache_key not in self._empirical_cache:
             rng = (
                 random_state
@@ -690,28 +682,27 @@ class CategoricalConversionMixin:
         ValueError
             If ``n_samples`` is not positive.
         """
-        _empirical_cache = getattr(self, "_empirical_cache", None)
-        if _empirical_cache is not None:
-            state_key: int | None
-            if isinstance(random_state, (int, np.integer)) or random_state is None:
-                state_key = int(random_state) if random_state is not None else None
-            else:
-                state_key = id(random_state)
-            cache_key = (int(n_samples), state_key)
-            return _empirical_cache[cache_key]
-
         if n_samples <= 0:
             raise ValueError("n_samples must be greater than zero")
 
-        rng = (
-            random_state
-            if isinstance(random_state, np.random.Generator)
-            else np.random.default_rng(random_state)
-        )
-        unit_samples = rng.random(int(n_samples))
-        cumulative = np.cumsum(probabilities, dtype=np.float64)
-        indices = np.searchsorted(cumulative, unit_samples, side="right")
-        indices = np.clip(indices, 0, len(self._num_to_cat) - 1)
+        # The CDF result depends on ``x``, so the cache stores the drawn
+        # category indices (which depend only on ``n_samples`` and
+        # ``random_state``) under the same key scheme as the numeric path.
+        # ``_empirical_cache`` is declared on the Distribution base class.
+        cache: dict[tuple[int, Any], NDArray[Any]] = getattr(self, "_empirical_cache")
+        cache_key = _empirical_cache_key(n_samples, random_state)
+        indices = cache.get(cache_key)
+        if indices is None:
+            rng = (
+                random_state
+                if isinstance(random_state, np.random.Generator)
+                else np.random.default_rng(random_state)
+            )
+            unit_samples = rng.random(int(n_samples))
+            cumulative = np.cumsum(probabilities, dtype=np.float64)
+            drawn = np.searchsorted(cumulative, unit_samples, side="right")
+            indices = np.clip(drawn, 0, len(self._num_to_cat) - 1)
+            cache[cache_key] = indices
 
         x_array = np.asarray(x, dtype=object)
         flat_x = x_array.reshape(-1)
@@ -2026,6 +2017,35 @@ class DistributionChecker:
             ``True`` when the distribution domain is binary.
         """
         return distribution.properties.domain == DistributionDomain.BINARY
+
+
+def _empirical_cache_key(
+    n_samples: int,
+    random_state: int | np.random.Generator | None,
+) -> tuple[int, int | None]:
+    """Build the empirical-sample cache key for a draw configuration.
+
+    Parameters
+    ----------
+    n_samples : int
+        Number of samples in the draw.
+    random_state : int, numpy.random.Generator, or None
+        Seed or generator used for the draw.  ``Generator`` instances are
+        mutable, so their identity is used in the key; this makes repeated CDF
+        calls deterministic for a given generator object after the first call.
+        Integer seeds and ``None`` are immutable.
+
+    Returns
+    -------
+    tuple[int, int | None]
+        Cache key ``(n_samples, state_key)``.
+    """
+    state_key: int | None
+    if isinstance(random_state, (int, np.integer)) or random_state is None:
+        state_key = int(random_state) if random_state is not None else None
+    else:
+        state_key = id(random_state)
+    return (int(n_samples), state_key)
 
 
 def _validate_unit_input(u: UnitInput) -> NDArray[np.float64]:
