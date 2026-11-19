@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from typing import Any, Generic, Optional, Sequence, TypeAlias, TypeVar, cast
 from enum import Enum, auto
-from numbers import Integral
+from numbers import Integral, Real
 import threading
 import numpy as np
 from .uncertainties import Uncertainty, NoUncertainty
@@ -188,15 +188,16 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             ``BINARY`` for boolean nominal values or binary-flip uncertainty,
             ``CATEGORICAL`` for string nominal values or categorical
             replacement uncertainty, ``NUMERICAL`` for ``int``/``float``
-            values, ``DISCRETE`` for list/array values, and ``UNDEFINED``
-            otherwise.  ``bool`` is checked before ``int`` because
-            ``bool`` is a subclass of ``int`` in Python.
+            values (including NumPy scalar equivalents), ``DISCRETE`` for
+            list/array values, and ``UNDEFINED`` otherwise.  ``bool`` is
+            checked before the numeric classes because ``bool`` is a subclass
+            of ``int`` in Python.
         """
         if isinstance(self.nominal_value, (bool, np.bool_)) or isinstance(
             self.uncertainty, BinaryStateFlipUncertainty
         ):
             return ParameterType.BINARY
-        if isinstance(self.nominal_value, (int, float)):
+        if isinstance(self.nominal_value, (Integral, Real)):
             return ParameterType.NUMERICAL
         if isinstance(self.nominal_value, str) or isinstance(
             self.uncertainty,

@@ -8,13 +8,14 @@ and the ADR-0002 round-trip guarantees hold for every registry entry.
 from __future__ import annotations
 
 import json
-from enum import Enum
+from enum import Enum, IntEnum, StrEnum
 
 import numpy as np
 import pytest
 
 from test_uncertainty_specification_catalog import VALID_UNCERTAINTIES
 
+from hydroforge.uncertainty import ParameterType
 from hydroforge.uncertainty.specification import (
     UncertaintySpecification,
     load_specification,
@@ -98,6 +99,102 @@ def test_enum_nominal_value_is_not_documentable():
 
     document = _mutate(**{"parameters": {"p1": {"nominal_value": Mode.HIGH}}})
     assert "parameters.p1.nominal_value" in _errors(document)
+
+
+@pytest.mark.parametrize(
+    ("enum_class", "member_value"),
+    [(Enum, 1), (IntEnum, 1), (StrEnum, "high")],
+)
+def test_enum_subclasses_are_not_documentable_nominal_values(enum_class, member_value):
+    class Mode(enum_class):
+        HIGH = member_value
+
+    document = _mutate(**{"parameters": {"p1": {"nominal_value": Mode.HIGH}}})
+    assert "parameters.p1.nominal_value" in _errors(document)
+
+
+def test_numpy_scalars_are_coerced_in_definition_payloads():
+    document = _mutate(
+        **{
+            "parameters": {
+                "p1": {
+                    "nominal_value": np.int64(5),
+                    "uncertainty": {
+                        "type": "Additive",
+                        "parameters": {
+                            "distribution": {
+                                "type": "DiscreteNormal",
+                                "parameters": {
+                                    "mean": np.int64(3),
+                                    "std_dev": np.float32(1.0),
+                                },
+                            }
+                        },
+                    },
+                }
+            }
+        }
+    )
+
+    spec = UncertaintySpecification.from_dict(document)
+    payload = spec.to_dict()
+
+    definition = payload["parameters"]["p1"]
+    assert definition["nominal_value"] == 5
+    assert type(definition["nominal_value"]) is int
+    distribution_parameters = definition["uncertainty"]["parameters"]["distribution"][
+        "parameters"
+    ]
+    assert type(distribution_parameters["mean"]) is int
+    assert type(distribution_parameters["std_dev"]) is float
+    json.dumps(payload)  # coercion is what makes canonical output JSON-native
+    parameter = spec.create_parameter("p1")
+    assert parameter.type is ParameterType.NUMERICAL
+
+
+def test_numpy_integer_seed_is_accepted_and_coerced():
+    document = _mutate(
+        **{
+            "parameters": {
+                "p1": {
+                    "nominal_value": 1.0,
+                    "uncertainty": {
+                        "type": "BinaryStateFlip",
+                        "parameters": {
+                            "flip_prob": 0.5,
+                            "states": ["OPEN", "CLOSED"],
+                            "seed": np.int64(7),
+                        },
+                    },
+                }
+            }
+        }
+    )
+
+    spec = UncertaintySpecification.from_dict(document)
+    seed = spec.to_dict()["parameters"]["p1"]["uncertainty"]["parameters"]["seed"]
+    assert type(seed) is int and seed == 7
+    spec.create_parameter("p1")  # constructs deterministically
+
+
+def test_nested_unknown_key_does_not_mask_deeper_problems():
+    document = _mutate(
+        **{
+            "parameters": {
+                "p1": {
+                    "nominal_value": 1.0,
+                    "uncertainty": {
+                        "type": "Additive",
+                        "parameters": {},
+                        "bogus": 1,
+                    },
+                }
+            }
+        }
+    )
+    paths = _errors(document)
+    assert "parameters.p1.uncertainty.bogus" in paths
+    assert "parameters.p1.uncertainty.parameters.distribution" in paths
 
 
 def test_numpy_scalar_nominal_value_is_accepted():

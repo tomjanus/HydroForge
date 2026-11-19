@@ -13,6 +13,7 @@ import dataclasses
 import types
 import typing
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Union
 
 import numpy as np
@@ -137,9 +138,13 @@ def _annotation_allows(value: Any, annotation: Any) -> bool:
             _annotation_allows(value, arg) for arg in typing.get_args(annotation)
         )
     if annotation is float:
-        return isinstance(value, (int, float)) and not isinstance(value, bool)
+        return isinstance(
+            value, (int, float, np.integer, np.floating)
+        ) and not isinstance(value, (bool, np.bool_))
     if annotation is int:
-        return isinstance(value, int) and not isinstance(value, bool)
+        return isinstance(value, (int, np.integer)) and not isinstance(
+            value, (bool, np.bool_)
+        )
     if annotation is str:
         return isinstance(value, str)
     if annotation is bool:
@@ -584,16 +589,10 @@ def _validate_definition_body(
 
 
 def _validate_nested_mapping(
-    raw: Any, path: str, kind: str
+    raw: dict[str, Any], path: str, kind: str
 ) -> list[SpecificationIssue]:
-    """Check the shared shape of a tagged ``{type, parameters}`` definition."""
-    if not isinstance(raw, dict):
-        return [
-            SpecificationIssue(
-                path=path, message=f"expected a {kind} definition mapping"
-            )
-        ]
-    issues = [
+    """Report unknown keys at the ``{type, parameters}`` level of a definition."""
+    return [
         SpecificationIssue(
             path=_join(path, str(key)),
             message=f"unknown key; allowed: {sorted(_NESTED_DEFINITION_KEYS)}",
@@ -601,14 +600,17 @@ def _validate_nested_mapping(
         for key in raw
         if key not in _NESTED_DEFINITION_KEYS
     ]
-    return issues
 
 
 def _validate_distribution_mapping(raw: Any, path: str) -> list[SpecificationIssue]:
     """Validate a raw distribution definition located at ``path``."""
+    if not isinstance(raw, dict):
+        return [
+            SpecificationIssue(
+                path=path, message="expected a distribution definition mapping"
+            )
+        ]
     issues = _validate_nested_mapping(raw, path, "distribution")
-    if issues or not isinstance(raw, dict):
-        return issues
     type_name = raw.get("type")
     if not isinstance(type_name, str):
         return issues + [
@@ -647,9 +649,13 @@ def _validate_distribution_mapping(raw: Any, path: str) -> list[SpecificationIss
 
 def _validate_uncertainty_mapping(raw: Any, path: str) -> list[SpecificationIssue]:
     """Validate a raw uncertainty definition located at ``path``."""
+    if not isinstance(raw, dict):
+        return [
+            SpecificationIssue(
+                path=path, message="expected an uncertainty definition mapping"
+            )
+        ]
     issues = _validate_nested_mapping(raw, path, "uncertainty")
-    if issues or not isinstance(raw, dict):
-        return issues
     type_name = raw.get("type")
     if not isinstance(type_name, str):
         return issues + [
@@ -716,7 +722,13 @@ def _validate_parameter_mapping(raw: Any, path: str) -> list[SpecificationIssue]
         )
     else:
         nominal = raw["nominal_value"]
-        if not isinstance(nominal, (str, int, float, bool)):
+        # Enum values (including int/str subclasses) are runtime concepts and
+        # are not documentable (ADR-0002 decision 14); NumPy scalars are
+        # accepted here and coerced to Python scalars at construction.
+        if isinstance(nominal, Enum) or not isinstance(
+            nominal,
+            (str, int, float, bool, np.integer, np.floating, np.bool_),
+        ):
             issues.append(
                 SpecificationIssue(
                     path=_join(path, "nominal_value"),
@@ -860,6 +872,26 @@ def resolve_registered_type(type_name: Any, kind: str) -> type:
     return cls
 
 
+def _coerce_document_scalars(value: Any) -> Any:
+    """Recursively normalise a definition payload to JSON-native values.
+
+    NumPy scalars become Python scalars and tuples become lists
+    (ADR-0002 decision 4), so ``to_dict``/``save_specification`` never emit
+    values that JSON or YAML cannot represent.
+    """
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, dict):
+        return {key: _coerce_document_scalars(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_coerce_document_scalars(item) for item in value]
+    return value
+
+
 class ParameterDefinition(BaseModel):
     """A named parameter configuration in an uncertainty specification.
 
@@ -869,8 +901,10 @@ class ParameterDefinition(BaseModel):
     Parameters
     ----------
     nominal_value : str | int | float | bool
-        The base (unperturbed) value. Booleans are legitimate and infer a
-        ``BINARY`` parameter (ADR-0002 decision 14).
+        The base (unperturbed) value, normalised to a Python scalar.
+        Booleans are legitimate and infer a ``BINARY`` parameter, and NumPy
+        scalars are accepted and coerced (ADR-0002 decisions 4 and 14);
+        ``Enum`` values are runtime-only and not documentable.
     uncertainty : dict, optional
         Nested tagged uncertainty definition; ``None`` means
         ``NoUncertainty``.
@@ -890,6 +924,14 @@ class ParameterDefinition(BaseModel):
     type: str | None = None
     infer_type_from_data: bool = True
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_numpy_scalars(cls, document: Any) -> Any:
+        """Normalise NumPy scalars and tuples in the raw definition payload."""
+        if isinstance(document, dict):
+            return _coerce_document_scalars(document)
+        return document
 
     @model_validator(mode="before")
     @classmethod

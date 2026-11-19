@@ -259,6 +259,28 @@ def test_integer_parameter_products_remain_allowed():
     assert discrete_a * discrete_b == pytest.approx(18)
 
 
+def test_integral_valued_float_partner_still_rejected_in_discrete_product():
+    """Pinned reading of #37: the multiplier must be Integral-typed.
+
+    A float like 10.0 is mathematically integral but not an integer
+    multiplier: the rule protects the discrete invariant against silent
+    type widening, so a float operand raises regardless of its value.
+    """
+    discrete = _discrete_parameter()
+    numerical_integral_float = _numerical_parameter(10.0)
+    with pytest.raises(TypeError, match="integer multiplier"):
+        _ = numerical_integral_float * discrete
+    with pytest.raises(TypeError, match="integer multiplier"):
+        _ = discrete * numerical_integral_float
+
+
+@pytest.mark.parametrize("nominal_value", [np.int64(5), np.float32(2.5)])
+def test_numpy_integer_and_float_nominal_values_infer_numerical(nominal_value):
+    """NumPy integer scalars (np.float32 included) are real numbers (ADR-0002 §4)."""
+    parameter = Parameter(name="p", nominal_value=nominal_value)
+    assert parameter.type is ParameterType.NUMERICAL
+
+
 def test_value_operand_discrete_rules_unchanged():
     discrete = _discrete_parameter()
     assert discrete * 2 == pytest.approx(20)
