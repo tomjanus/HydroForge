@@ -9,7 +9,11 @@ from hydroforge.uncertainty.distributions import (
     CategoricalHistogramDistribution,
     CategoricalNormalDistribution,
     CategoricalUniformDistribution,
+    DiscreteHistogramDistribution,
+    DiscreteNormalDistribution,
+    DiscreteUniformDistribution,
     NormalDistribution,
+    UniformDistribution,
 )
 
 _ORDERED_CATEGORICAL = {
@@ -181,3 +185,89 @@ def test_to_dict_honours_serialize_metadata_optout():
     assert payload == {"alpha": 3.5}
     assert "hidden" not in payload
     assert "_empirical_cache" not in payload
+
+
+# ---------------------------------------------------------------
+# Construction validation of numeric distributions (#34, finding V6)
+# ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad_std_dev", [float("inf"), float("-inf"), float("nan")])
+def test_normal_distribution_rejects_non_finite_std_dev(bad_std_dev):
+    with pytest.raises(ValueError, match="finite"):
+        NormalDistribution(mean=0.0, std_dev=bad_std_dev)
+
+
+@pytest.mark.parametrize("bad_mean", [float("inf"), float("nan")])
+def test_normal_distribution_rejects_non_finite_mean(bad_mean):
+    with pytest.raises(ValueError, match="finite"):
+        NormalDistribution(mean=bad_mean, std_dev=1.0)
+
+
+@pytest.mark.parametrize("bad_mean", ["0", True, False])
+def test_normal_distribution_rejects_non_numeric_mean(bad_mean):
+    with pytest.raises(TypeError):
+        NormalDistribution(mean=bad_mean, std_dev=1.0)
+
+
+def test_normal_distribution_rejects_non_positive_std_dev():
+    with pytest.raises(ValueError):
+        NormalDistribution(mean=0.0, std_dev=0.0)
+    with pytest.raises(ValueError):
+        NormalDistribution(mean=0.0, std_dev=-1.0)
+
+
+@pytest.mark.parametrize("value", [3, 3.0, np.float64(3.0), np.int64(3)])
+def test_normal_distribution_accepts_numeric_types_and_normalises(value):
+    distribution = NormalDistribution(mean=value, std_dev=2)
+    assert isinstance(distribution.mean, float)
+    assert isinstance(distribution.std_dev, float)
+    assert distribution.mean == pytest.approx(3.0)
+
+
+def test_numeric_strings_are_not_coerced():
+    with pytest.raises(TypeError):
+        UniformDistribution(lower="1", upper="2")
+
+
+@pytest.mark.parametrize("lower,upper", [(float("nan"), 1.0), (0.0, float("inf"))])
+def test_uniform_distribution_rejects_non_finite_bounds(lower, upper):
+    with pytest.raises(ValueError, match="finite"):
+        UniformDistribution(lower=lower, upper=upper)
+
+
+@pytest.mark.parametrize("bad_std_dev", [float("inf"), float("nan")])
+def test_discrete_normal_rejects_non_finite_std_dev(bad_std_dev):
+    with pytest.raises(ValueError, match="finite"):
+        DiscreteNormalDistribution(mean=0, std_dev=bad_std_dev)
+
+
+@pytest.mark.parametrize("bad_mean", ["0", 2.5, True])
+def test_discrete_normal_rejects_bad_mean(bad_mean):
+    with pytest.raises((TypeError, ValueError)):
+        DiscreteNormalDistribution(mean=bad_mean, std_dev=1.0)
+
+
+@pytest.mark.parametrize("bad_bound", [float("nan"), float("inf")])
+def test_discrete_uniform_rejects_non_finite_bounds(bad_bound):
+    with pytest.raises(ValueError, match="finite"):
+        DiscreteUniformDistribution(lower=0, upper=bad_bound)
+
+
+@pytest.mark.parametrize("bad_prob", [float("nan"), float("inf")])
+def test_discrete_histogram_rejects_non_finite_probabilities(bad_prob):
+    with pytest.raises(ValueError, match="finite"):
+        DiscreteHistogramDistribution(values=(1.0, 2.0), probabilities=(0.5, bad_prob))
+
+
+def test_discrete_histogram_rejects_non_numeric_values():
+    with pytest.raises(TypeError):
+        DiscreteHistogramDistribution(values=("1", "2"), probabilities=(0.5, 0.5))
+
+
+@pytest.mark.parametrize("bad_prob", [float("nan"), float("inf")])
+def test_categorical_histogram_rejects_non_finite_probabilities(bad_prob):
+    with pytest.raises(ValueError, match="finite"):
+        CategoricalHistogramDistribution(
+            categories=("A", "B"), probabilities=(0.5, bad_prob)
+        )

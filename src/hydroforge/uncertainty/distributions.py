@@ -762,7 +762,9 @@ class NormalDistribution(Distribution[float]):
     )
 
     def __post_init__(self) -> None:
-        """Validate distribution parameters."""
+        """Validate and normalise distribution parameters."""
+        self.mean = _require_real_number(self.mean, "mean")
+        self.std_dev = _require_real_number(self.std_dev, "std_dev")
         if self.std_dev <= 0:
             raise ValueError(
                 "Standard deviation must be positive for normal distribution"
@@ -850,8 +852,8 @@ class UniformDistribution(Distribution[float]):
 
     def __post_init__(self) -> None:
         """Validate and normalise distribution bounds."""
-        self.lower = float(self.lower)
-        self.upper = float(self.upper)
+        self.lower = _require_real_number(self.lower, "lower")
+        self.upper = _require_real_number(self.upper, "upper")
         if self.lower >= self.upper:
             raise ValueError(
                 "Lower bound must be less than upper bound for uniform distribution"
@@ -1197,9 +1199,8 @@ class DiscreteNormalDistribution(Distribution[int]):
 
     def __post_init__(self) -> None:
         """Validate and normalise distribution parameters."""
-        if isinstance(self.mean, float) and not self.mean.is_integer():
-            raise ValueError(f"Mean must be an integer, got {self.mean}")
-        self.mean = int(self.mean)
+        self.mean = _require_real_integer(self.mean, "mean")
+        self.std_dev = _require_real_number(self.std_dev, "std_dev")
         if self.std_dev <= 0:
             raise ValueError("Standard deviation must be positive")
 
@@ -1286,8 +1287,8 @@ class DiscreteUniformDistribution(Distribution[int]):
 
     def __post_init__(self) -> None:
         """Validate and normalise integer bounds."""
-        self.lower = int(self.lower)
-        self.upper = int(self.upper)
+        self.lower = _require_real_integer(self.lower, "lower")
+        self.upper = _require_real_integer(self.upper, "upper")
         if self.lower >= self.upper:
             raise ValueError("Lower bound must be less than upper bound")
 
@@ -1380,6 +1381,13 @@ class DiscreteHistogramDistribution(Distribution[float]):
             raise ValueError("Values must not be empty")
         if len(self.values) != len(self.probabilities):
             raise ValueError("Values and probabilities must have the same length")
+        self.values = tuple(
+            _require_real_number(value, "values") for value in self.values
+        )
+        self.probabilities = tuple(
+            _require_real_number(probability, "probabilities")
+            for probability in self.probabilities
+        )
         if any(probability < 0 for probability in self.probabilities):
             raise ValueError("Probabilities must be non-negative")
         probability_sum = float(sum(self.probabilities))
@@ -2052,6 +2060,74 @@ def _empirical_cache_key(
     else:
         state_key = id(random_state)
     return (int(n_samples), state_key)
+
+
+def _require_real_number(value: Any, name: str) -> float:
+    """Validate a scalar constructor argument as a finite real number.
+
+    Parameters
+    ----------
+    value : Any
+        The constructor argument to validate.
+    name : str
+        Argument name used in the error messages.
+
+    Returns
+    -------
+    float
+        The value normalised to a Python ``float``.
+
+    Raises
+    ------
+    TypeError
+        If the value is not ``int``/``float`` or an equivalent NumPy scalar.
+        Booleans and strings (including numeric strings) are rejected,
+        matching the Stage 1 specification conventions.
+    ValueError
+        If the value is NaN or infinite.
+    """
+    if isinstance(value, (bool, np.bool_)) or not isinstance(
+        value, (int, float, np.integer, np.floating)
+    ):
+        raise TypeError(f"{name} must be a real number, got {type(value).__name__}")
+    number = float(value)
+    if not np.isfinite(number):
+        raise ValueError(f"{name} must be finite, got {number}")
+    return number
+
+
+def _require_real_integer(value: Any, name: str) -> int:
+    """Validate a scalar constructor argument as a finite integer value.
+
+    Parameters
+    ----------
+    value : Any
+        The constructor argument to validate.
+    name : str
+        Argument name used in the error messages.
+
+    Returns
+    -------
+    int
+        The value normalised to a Python ``int``.
+
+    Raises
+    ------
+    TypeError
+        If the value is not ``int``/``float`` or an equivalent NumPy scalar.
+        Booleans and strings are rejected.
+    ValueError
+        If the value is NaN, infinite, or a float without an integer value.
+    """
+    if isinstance(value, (bool, np.bool_)) or not isinstance(
+        value, (int, float, np.integer, np.floating)
+    ):
+        raise TypeError(f"{name} must be a real number, got {type(value).__name__}")
+    if not np.isfinite(float(value)):
+        raise ValueError(f"{name} must be finite, got {value}")
+    if isinstance(value, (float, np.floating)) and not float(value).is_integer():
+        raise ValueError(f"{name} must be an integer, got {value}")
+    return int(value)
 
 
 def _validate_unit_input(u: UnitInput) -> NDArray[np.float64]:
