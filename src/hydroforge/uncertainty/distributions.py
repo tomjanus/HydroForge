@@ -1371,8 +1371,12 @@ class DiscreteHistogramDistribution(Distribution[float]):
     probabilities : tuple of float, default=()
         Non-negative probability weights associated with ``values``.
         Weights are normalised to sum to one.
-    rtol : float, default=1e-4
-        Relative tolerance for probability normalization.
+
+    Notes
+    -----
+    ``rtol`` is a class-level relative tolerance for the probability
+    normalisation check (default ``1e-4``); it is a ``ClassVar``, not a
+    constructor argument.
     """
 
     values: tuple[float, ...] = field(default_factory=tuple)
@@ -1498,21 +1502,22 @@ class CategoricalNormalDistribution(
 ):
     """
     An ordered categorical distribution whose probability mass follows a
-    discretised Gaussian shape around the nominal category..
+    discretised Gaussian shape around the nominal category.
 
     Categories are ordered according to their position in ``categories``.
-    Gaussian weights are assigned to these integer positions.
+    Gaussian weights are assigned to these integer positions, centred on the
+    index of the nominal category.
 
     Parameters
     ----------
     categories : tuple of str, default=()
         Ordered category labels.
-    mean : int, default=0
-        Gaussian centre in category-index space.
     spread : float, default=1.0
-        Apread of the Gaussian-shaped probability mass in category-index space.
+        Spread of the Gaussian-shaped probability mass in category-index space.
     nominal_category : str or None, default=None
         Nominal (centre) category around which the distribution is centred.
+        Required when the number of categories is even; otherwise the central
+        category is used.
     """
 
     categories: tuple[str, ...] = field(default_factory=tuple)
@@ -1818,8 +1823,12 @@ class CategoricalHistogramDistribution(
     probabilities : tuple of float, default=()
         Non-negative probability weights corresponding to ``categories``.
         The weights are normalised to sum to one.
-    rtol : float, default=1e-4
-        Relative tolerance for checking if the sum of probabilities is close to 1.0.
+
+    Notes
+    -----
+    ``rtol`` is a class-level relative tolerance for the probability
+    normalisation check (default ``1e-4``); it is a ``ClassVar``, not a
+    constructor argument.
     """
 
     categories: tuple[str, ...] = field(default_factory=tuple)

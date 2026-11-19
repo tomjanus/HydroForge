@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 from typing import Any, Generic, Optional, Sequence, TypeAlias, TypeVar, cast
 from enum import Enum, auto
-from numbers import Integral
+from numbers import Integral, Real
 import threading
 import numpy as np
 from .uncertainties import Uncertainty, NoUncertainty
@@ -188,15 +188,16 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             ``BINARY`` for boolean nominal values or binary-flip uncertainty,
             ``CATEGORICAL`` for string nominal values or categorical
             replacement uncertainty, ``NUMERICAL`` for ``int``/``float``
-            values, ``DISCRETE`` for list/array values, and ``UNDEFINED``
-            otherwise.  ``bool`` is checked before ``int`` because
-            ``bool`` is a subclass of ``int`` in Python.
+            values (including NumPy scalar equivalents), ``DISCRETE`` for
+            list/array values, and ``UNDEFINED`` otherwise.  ``bool`` is
+            checked before the numeric classes because ``bool`` is a subclass
+            of ``int`` in Python.
         """
         if isinstance(self.nominal_value, (bool, np.bool_)) or isinstance(
             self.uncertainty, BinaryStateFlipUncertainty
         ):
             return ParameterType.BINARY
-        if isinstance(self.nominal_value, (int, float)):
+        if isinstance(self.nominal_value, (Integral, Real)):
             return ParameterType.NUMERICAL
         if isinstance(self.nominal_value, str) or isinstance(
             self.uncertainty,
@@ -536,8 +537,9 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             If the operation is not allowed for the parameter type.
             Categorical and binary parameters don't support any arithmetic
             (binary is treated as categorical for arithmetic purposes).
-            Discrete parameters don't support division.
-            Division and multiplication of discrete parameters require integer multipliers.
+            Discrete parameters don't support division, and multiplication of
+            discrete parameters requires an integer multiplier; these discrete
+            rules bind every ``Parameter`` operand, regardless of operand order.
         """
         # categorical and binary: no arithmetic ever
         # (binary states are labels; numeric arithmetic on them is meaningless
@@ -559,18 +561,39 @@ class Parameter(IUncertainParameter[T], Generic[T]):
                     "(binary parameters are treated as categorical)"
                 )
 
-        # discrete-specific rules
+        # discrete-specific rules, enforced on whichever operand is discrete so
+        # the policy is symmetric with respect to operand order
         if self.type == ParameterType.DISCRETE:
-            if op_name == "div":
-                raise TypeError("Division not allowed for discrete parameters")
+            Parameter._check_discrete_rules(self, other, op_name)
+        elif isinstance(other, Parameter) and other.type == ParameterType.DISCRETE:
+            Parameter._check_discrete_rules(other, self, op_name)
 
-            if op_name == "mul":
-                # allow only integer multipliers
-                other_val = other.sample() if isinstance(other, Parameter) else other
-                if not isinstance(other_val, Integral):
-                    raise TypeError(
-                        "Multiplication of discrete parameters requires integer multiplier"
-                    )
+    @staticmethod
+    def _check_discrete_rules(discrete_operand, other_operand, op_name: str) -> None:
+        """Apply the discrete-parameter arithmetic rules to a discrete operand.
+
+        ``discrete_operand`` is the ``Parameter`` typed ``DISCRETE``;
+        ``other_operand`` is its counterpart (a ``Parameter`` or a plain value).
+        Division is never allowed for a discrete parameter, and multiplication
+        requires the counterpart value to be an integer.
+
+        Raises
+        ------
+        TypeError
+            If a discrete rule is violated.
+        """
+        if op_name == "div":
+            raise TypeError("Division not allowed for discrete parameters")
+        if op_name == "mul":
+            other_val = (
+                other_operand.sample()
+                if isinstance(other_operand, Parameter)
+                else other_operand
+            )
+            if not isinstance(other_val, Integral):
+                raise TypeError(
+                    "Multiplication of discrete parameters requires integer multiplier"
+                )
 
     @staticmethod
     def _coerce_other(other: Any) -> Any:

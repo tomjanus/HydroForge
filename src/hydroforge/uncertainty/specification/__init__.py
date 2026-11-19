@@ -11,11 +11,12 @@ from .exceptions import (
     SpecificationValidationError,
 )
 from .io import load_specification, save_specification
-from .models import SensorDefinition, UncertaintySpecification
+from .models import ParameterDefinition, SensorDefinition, UncertaintySpecification
 from .registry import lookup_sensor_type, resolve_sensor_type, sensor_type_names
 
 __all__ = [
     "SensorDefinition",
+    "ParameterDefinition",
     "UncertaintySpecification",
     "SpecificationError",
     "SpecificationFormatError",

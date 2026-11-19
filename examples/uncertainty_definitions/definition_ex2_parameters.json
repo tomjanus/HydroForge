@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "parameters": {
+    "pipe_102_diameter": {
+      "nominal_value": 100.0,
+      "type": "NUMERICAL",
+      "metadata": {
+        "unit": "mm",
+        "source": "as-built survey"
+      },
+      "uncertainty": {
+        "type": "Additive",
+        "parameters": {
+          "distribution": {
+            "type": "Normal",
+            "parameters": {
+              "mean": 0.0,
+              "std_dev": 2.5
+            }
+          }
+        }
+      }
+    },
+    "valve_A_state": {
+      "nominal_value": "OPEN",
+      "type": "BINARY",
+      "uncertainty": {
+        "type": "BinaryStateFlip",
+        "parameters": {
+          "flip_prob": 0.05,
+          "states": ["OPEN", "CLOSED"],
+          "seed": 2026
+        }
+      }
+    },
+    "demand_multiplier": {
+      "nominal_value": 1.0,
+      "uncertainty": {
+        "type": "Multiplicative",
+        "parameters": {
+          "distribution": {
+            "type": "Uniform",
+            "parameters": {
+              "lower": -0.1,
+              "upper": 0.1
+            }
+          }
+        }
+      }
+    }
+  }
+}
