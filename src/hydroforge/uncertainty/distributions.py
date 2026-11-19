@@ -329,6 +329,15 @@ class Distribution(Generic[ValueT], ABC):
             If a theoretical CDF is unavailable and ``empirical=False``.
         ValueError
             If ``n_samples`` is not positive.
+
+        Notes
+        -----
+        Empirical draws are cached per ``(n_samples, random_state)`` and
+        reused by later calls.  The cache assumes constructor arguments are
+        not mutated after construction; mutating them can serve draws from
+        the previous parameters.  Under CPython the dict operations are
+        individually atomic, so concurrent empirical calls at worst
+        duplicate draw work rather than corrupt the cache.
         """
         if empirical:
             return self._empirical_cdf(

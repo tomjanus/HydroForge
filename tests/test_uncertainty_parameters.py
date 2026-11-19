@@ -192,3 +192,18 @@ def test_repeated_operand_uses_one_sample():
         type=ParameterType.NUMERICAL,
     )
     assert parameter + parameter == 2 * parameter.sample()
+
+
+def test_binary_parameter_rejects_infix_arithmetic_syntax():
+    """Reflected dunders must work through interpreter dispatch, not just direct calls."""
+    parameter = _binary_parameter()
+    for expression in (
+        lambda: 2 + parameter,
+        lambda: 2 - parameter,
+        lambda: 2 * parameter,
+        lambda: 2 / parameter,
+        lambda: parameter + 2,
+        lambda: parameter * 2,
+    ):
+        with pytest.raises(TypeError, match="[Bb]inary"):
+            expression()

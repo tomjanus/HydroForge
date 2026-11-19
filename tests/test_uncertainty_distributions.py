@@ -271,3 +271,45 @@ def test_categorical_histogram_rejects_non_finite_probabilities(bad_prob):
         CategoricalHistogramDistribution(
             categories=("A", "B"), probabilities=(0.5, bad_prob)
         )
+
+
+@pytest.mark.parametrize("bad_std_dev", [True, False, "1.0", None])
+def test_normal_distribution_rejects_non_numeric_std_dev(bad_std_dev):
+    with pytest.raises(TypeError):
+        NormalDistribution(mean=0.0, std_dev=bad_std_dev)
+
+
+@pytest.mark.parametrize("bad_bound", [True, False, "1", None])
+def test_uniform_distribution_rejects_non_numeric_bounds(bad_bound):
+    with pytest.raises(TypeError):
+        UniformDistribution(lower=bad_bound, upper=2.0)
+    with pytest.raises(TypeError):
+        UniformDistribution(lower=0.0, upper=bad_bound)
+
+
+@pytest.mark.parametrize("bad_mean", [float("inf"), float("nan"), np.inf, np.nan])
+def test_discrete_normal_rejects_non_finite_mean(bad_mean):
+    with pytest.raises(ValueError, match="finite"):
+        DiscreteNormalDistribution(mean=bad_mean, std_dev=1.0)
+
+
+@pytest.mark.parametrize("bad_bound", [float("nan"), float("inf")])
+def test_discrete_uniform_rejects_non_finite_lower_bound(bad_bound):
+    with pytest.raises(ValueError, match="finite"):
+        DiscreteUniformDistribution(lower=bad_bound, upper=5)
+
+
+@pytest.mark.parametrize("bad_bound", [True, "0"])
+def test_discrete_uniform_rejects_non_integer_type_bounds(bad_bound):
+    with pytest.raises(TypeError):
+        DiscreteUniformDistribution(lower=bad_bound, upper=5)
+    with pytest.raises(TypeError):
+        DiscreteUniformDistribution(lower=0, upper=bad_bound)
+
+
+@pytest.mark.parametrize("bad_probability", [True, "0.5"])
+def test_discrete_histogram_rejects_non_numeric_probabilities(bad_probability):
+    with pytest.raises(TypeError):
+        DiscreteHistogramDistribution(
+            values=(1.0, 2.0), probabilities=(0.5, bad_probability)
+        )
