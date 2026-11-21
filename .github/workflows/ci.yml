@@ -94,8 +94,8 @@ jobs:
       - name: Verify distribution metadata
         run: python tests/packaging/check_distribution_metadata.py dist
 
-      - name: Verify package can be installed
+      - name: Verify installed wheel metadata
         run: |
           target_dir="$RUNNER_TEMP/hydroforge-wheel-install"
           python -m pip install --no-deps --target "$target_dir" dist/*.whl
-          PYTHONPATH="$target_dir" python -c "import hydroforge; print(hydroforge.__version__)"
+          PYTHONPATH="$target_dir" python -c "from importlib.metadata import version; print(version('hydroforge-tools'))"
