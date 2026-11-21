@@ -99,32 +99,3 @@ jobs:
           target_dir="$RUNNER_TEMP/hydroforge-wheel-install"
           python -m pip install --no-deps --target "$target_dir" dist/*.whl
           PYTHONPATH="$target_dir" python -c "import hydroforge; print(hydroforge.__version__)"
-
-  publish:
-    name: Publish to PyPI
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-    needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install build tools
-        run: |
-          pip install build twine
-
-      - name: Build and publish
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          python -m build --sdist --wheel
-          twine upload dist/*

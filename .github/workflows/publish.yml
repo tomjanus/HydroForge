@@ -1,0 +1,38 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: build and upload to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/hydroforge-tools
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install the build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+      - name: Build the sdist and the wheel
+        run: python -m build
+      - name: Verify release tag matches built version
+        run: >-
+          python tests/packaging/check_distribution_metadata.py dist
+          --release-tag "$GITHUB_REF_NAME"
+      - name: Check the distribution metadata
+        run: twine check dist/*
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

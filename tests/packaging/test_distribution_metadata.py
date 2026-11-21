@@ -57,7 +57,7 @@ def test_artifact_checker_accepts_expected_distribution_and_import_names(tmp_pat
     distribution_dir = tmp_path / "dist"
     _write_distribution_artifacts(distribution_dir)
 
-    verify_distribution_artifacts(distribution_dir)
+    verify_distribution_artifacts(distribution_dir, release_tag="v1.0.0")
 
 
 @pytest.mark.parametrize(

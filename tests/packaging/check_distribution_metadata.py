@@ -62,7 +62,21 @@ def _metadata_from_sdist(sdist_path: Path) -> Message:
         return BytesParser().parsebytes(metadata_file.read())
 
 
-def verify_distribution_artifacts(distribution_dir: Path) -> None:
+def verify_release_tag(release_tag: str, version: str) -> None:
+    """Reject a GitHub release tag that does not match package metadata."""
+    expected_tag = f"v{version}"
+    if release_tag != expected_tag:
+        raise ValueError(
+            f"Release tag {release_tag!r} does not match built distribution "
+            f"version {version!r}; expected {expected_tag!r}."
+        )
+
+
+def verify_distribution_artifacts(
+    distribution_dir: Path,
+    *,
+    release_tag: str | None = None,
+) -> None:
     """Check distribution identity and preserved import/CLI names."""
     wheels = list(distribution_dir.glob("*.whl"))
     sdists = list(distribution_dir.glob("*.tar.gz"))
@@ -82,6 +96,9 @@ def verify_distribution_artifacts(distribution_dir: Path) -> None:
             f"Wheel version {wheel_version!r} does not match sdist version "
             f"{sdist_version!r}."
         )
+
+    if release_tag is not None:
+        verify_release_tag(release_tag, wheel_version)
 
     for artifact, metadata in (
         (wheels[0].name, wheel_metadata),
@@ -121,9 +138,16 @@ def main() -> None:
     """Run the distribution artifact check."""
     parser = argparse.ArgumentParser()
     parser.add_argument("distribution_dir", type=Path)
+    parser.add_argument(
+        "--release-tag",
+        help="GitHub Release tag to verify against the built package version.",
+    )
     args = parser.parse_args()
     try:
-        verify_distribution_artifacts(args.distribution_dir)
+        verify_distribution_artifacts(
+            args.distribution_dir,
+            release_tag=args.release_tag,
+        )
     except (AssertionError, ValueError) as exc:
         parser.error(str(exc))
 
