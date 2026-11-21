@@ -66,13 +66,26 @@ diameter = Parameter(
     type=ParameterType.NUMERICAL,
 )
 
-sampler = MonteCarloSampler([diameter])
+sampler = MonteCarloSampler([diameter], seed=42)
 
 for scenario in sampler.generate(n=100):
     run_simulation(scenario.values)
 ```
 
 All sampling strategies ultimately generate `Scenario` objects containing parameter values and strategy-specific metadata.
+
+### Reproducibility
+
+Direct stochastic samplers (`MonteCarloSampler`, `LatinHypercubeSampler`,
+`SobolSampler`, `GibbsSampler`, and stochastic `ScenarioTreeSampler` calls)
+accept an optional integer `seed`. They use local NumPy generators and do not
+change NumPy's legacy global RNG state. If `seed` is omitted, the sampler
+creates an entropy-derived seed and records it as
+`scenario.metadata["effective_seed"]`; pass that value to a new sampler with
+the same configuration to replay the run.
+
+Seeding does not change the `Scenario.id` contract. Use
+`DeterministicHashGenerator` when deterministic IDs are required.
 
 ## Current implementation limitations
 

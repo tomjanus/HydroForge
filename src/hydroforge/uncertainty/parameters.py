@@ -25,7 +25,7 @@ from enum import Enum, auto
 from numbers import Integral, Real
 import threading
 import numpy as np
-from .uncertainties import Uncertainty, NoUncertainty
+from .uncertainties import BiasUncertainty, Uncertainty, NoUncertainty
 from .uncertainties import (
     BinaryStateFlipUncertainty,
     CategoricalRandomReplacementUncertainty,
@@ -501,6 +501,47 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         Use sample() for locked sampling behavior.
         """
         return self.uncertainty.apply(self.nominal_value, u=u)
+
+    def sample_with_rng(
+        self,
+        rng: np.random.Generator,
+        *,
+        u: float | Sequence[float] | None = None,
+    ) -> T:
+        """Sample once using a caller-owned Generator.
+
+        ``u`` may supply a unit-space design value. If omitted, unit variates
+        are drawn from ``rng``. The sampled value is locked until
+        :meth:`reset`, matching :meth:`sample`.
+        """
+        with self._lock:
+            if self._locked:
+                return cast(T, self._sampled_value)
+
+            if isinstance(self.uncertainty, (NoUncertainty, BiasUncertainty)):
+                sampled_value = self.uncertainty.apply(self.nominal_value)
+            elif isinstance(self.uncertainty, CategoricalReplacementUncertainty):
+                sampled_value = self.uncertainty.apply(
+                    self.nominal_value,
+                    u=u,
+                    rng=rng,
+                )
+            else:
+                if u is None:
+                    nominal_array = np.asarray(self.nominal_value, dtype=object)
+                    unit_values = rng.random(
+                        () if nominal_array.ndim == 0 else nominal_array.shape
+                    )
+                    u = (
+                        float(unit_values)
+                        if nominal_array.ndim == 0
+                        else unit_values.tolist()
+                    )
+                sampled_value = self.sample_from_unit(u)
+
+            self._sampled_value = sampled_value
+            self._locked = True
+            return cast(T, sampled_value)
 
     # --------------------------------------------------
     # Helper wrappers for parameter type checks

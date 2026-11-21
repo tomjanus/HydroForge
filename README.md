@@ -137,7 +137,7 @@ variants, and `DistributionChecker`.
 ```python
 from hydroforge.sampling import MonteCarloSampler, LatinHypercubeSampler
 
-sampler = LatinHypercubeSampler([diameter])
+sampler = LatinHypercubeSampler([diameter], seed=42)
 for scenario in sampler.generate(100):
     print(scenario.id, scenario.values)
 ```

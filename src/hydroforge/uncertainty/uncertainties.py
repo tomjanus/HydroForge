@@ -441,7 +441,11 @@ class CategoricalReplacementUncertainty(Uncertainty[CatValue]):
     replacement_distribution: Distribution[CatScalar]
 
     def apply(
-        self, value: CatValue, u: float | Sequence[float] | None = None
+        self,
+        value: CatValue,
+        u: float | Sequence[float] | None = None,
+        *,
+        rng: np.random.Generator | None = None,
     ) -> np.ndarray:
         values = np.asarray(value, dtype=object)
         is_scalar = values.ndim == 0
@@ -449,8 +453,12 @@ class CategoricalReplacementUncertainty(Uncertainty[CatValue]):
         # Determine number of samples and generate u if not provided
         n_samples = 1 if is_scalar else values.size
         if u is None:
-            u_flip = np.random.rand(n_samples)
-            u_replace = np.random.rand(n_samples)
+            if rng is None:
+                u_flip = np.random.rand(n_samples)
+                u_replace = np.random.rand(n_samples)
+            else:
+                u_flip = rng.random(n_samples)
+                u_replace = rng.random(n_samples)
         else:
             # If u is provided, we need to split it for the two distributions
             u_arr = np.atleast_1d(u)
@@ -470,7 +478,12 @@ class CategoricalReplacementUncertainty(Uncertainty[CatValue]):
         flip_probs = np.asarray(flip_probs, dtype=float)
 
         # Bernoulli trial
-        flips = np.random.rand(*flip_probs.shape) < flip_probs
+        flip_draws = (
+            np.random.rand(*flip_probs.shape)
+            if rng is None
+            else rng.random(flip_probs.shape)
+        )
+        flips = flip_draws < flip_probs
 
         # Draw replacement categories
         replacements = self.replacement_distribution.sample_from_unit(u_replace)

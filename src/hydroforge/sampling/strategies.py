@@ -111,6 +111,9 @@ class Sampler(ABC):
     Attributes:
         parameters: List of Parameter objects to sample from
         id_generator: Strategy for generating scenario IDs (can be an instance or class)
+        seed: Optional non-negative integer for local stochastic sampling. If
+            omitted, stochastic samplers record an entropy-derived effective
+            seed in generated Scenario metadata.
 
     Raises:
         ValueError: If parameters list is empty in subclass methods
@@ -120,12 +123,24 @@ class Sampler(ABC):
         self,
         parameters: Parameter | Sequence[Parameter],
         id_generator: IDGenerator | type[IDGenerator] | None = None,
+        *,
+        seed: int | None = None,
     ):
         if isinstance(parameters, Parameter):
             self.parameters = [parameters]
         else:
             self.parameters = list(parameters)
         self.id_generator = id_generator or UUIDGenerator()
+        if seed is not None and (
+            isinstance(seed, bool) or not isinstance(seed, (int, np.integer))
+        ):
+            raise TypeError("seed must be an integer or None")
+        if seed is not None and seed < 0:
+            raise ValueError("seed must be non-negative")
+        self.seed = int(seed) if seed is not None else None
+        self._seed_sequence: np.random.SeedSequence | None = None
+        self._rng: np.random.Generator | None = None
+        self._effective_seed: int | None = None
 
         if not self.parameters:
             warnings.warn("Sampler initialized with empty parameter list", UserWarning)
@@ -145,6 +160,30 @@ class Sampler(ABC):
         """Reset all parameters to allow new sampling."""
         for p in self.parameters:
             p.reset()
+
+    def _get_seed_sequence(self) -> np.random.SeedSequence:
+        """Lazily create the sampler's reproducible root seed sequence."""
+        if self._seed_sequence is None:
+            self._seed_sequence = np.random.SeedSequence(self.seed)
+            self._effective_seed = int(cast(int, self._seed_sequence.entropy))
+        return self._seed_sequence
+
+    def _get_rng(self) -> np.random.Generator:
+        """Return a local generator for stochastic sampling."""
+        if self._rng is None:
+            self._rng = np.random.default_rng(self._get_seed_sequence())
+        return self._rng
+
+    def _scenario_metadata(
+        self,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        """Add the effective sampler seed to existing scenario metadata."""
+        if self._effective_seed is None:
+            return metadata
+        result = dict(metadata or {})
+        result["effective_seed"] = self._effective_seed
+        return result
 
     def _create_scenario_id(self, scenario_values: dict[str, Any]) -> str:
         """Create a scenario ID using the configured ID generator.
@@ -181,11 +220,16 @@ class MonteCarloSampler(Sampler):
         if n <= 0:
             raise ValueError(f"Number of samples must be positive, got {n}")
 
+        rng = self._get_rng()
         for _ in range(n):
             self._reset_parameters()
-            scenario_values = {p.name: p.sample() for p in self.parameters}
+            scenario_values = {p.name: p.sample_with_rng(rng) for p in self.parameters}
             scenario_id = self._create_scenario_id(scenario_values)
-            yield Scenario(values=scenario_values, id=scenario_id)
+            yield Scenario(
+                values=scenario_values,
+                id=scenario_id,
+                metadata=self._scenario_metadata(),
+            )
 
 
 # ================================================================
@@ -216,8 +260,9 @@ class LatinHypercubeSampler(Sampler):
             "bounds": [[0, 1]] * n_params,
         }
 
+        rng = self._get_rng()
         # SALib's latin.sample returns shape (n, n_params)
-        unit_samples = salib_latin.sample(problem, n)
+        unit_samples = salib_latin.sample(problem, n, seed=rng)
 
         # Convert unit samples to parameter values
         for i in range(n):
@@ -225,10 +270,14 @@ class LatinHypercubeSampler(Sampler):
             scenario_values: dict[str, Any] = {}
             for j, param in enumerate(self.parameters):
                 u = unit_samples[i, j]
-                scenario_values[param.name] = param.sample_from_unit(u)
+                scenario_values[param.name] = param.sample_with_rng(rng, u=u)
 
             scenario_id = self._create_scenario_id(scenario_values)
-            yield Scenario(values=scenario_values, id=scenario_id)
+            yield Scenario(
+                values=scenario_values,
+                id=scenario_id,
+                metadata=self._scenario_metadata(),
+            )
 
 
 # ================================================================
@@ -253,8 +302,10 @@ class SobolSampler(Sampler):
         id_generator: IDGenerator | type[IDGenerator] | None = None,
         calc_second_order: bool = False,
         skip_values: int = 0,
+        *,
+        seed: int | None = None,
     ):
-        super().__init__(parameters, id_generator)
+        super().__init__(parameters, id_generator, seed=seed)
         if not parameters:
             raise ValueError("SobolSampler requires at least one parameter")
         self.calc_second_order = calc_second_order
@@ -276,12 +327,14 @@ class SobolSampler(Sampler):
             "bounds": [[0, 1]] * n_params,
         }
 
+        rng = self._get_rng()
         # SALib's sobol.sample returns shape (n, n_params)
         unit_samples = salib_sobol.sample(
             problem,
             n,
             calc_second_order=self.calc_second_order,
             skip_values=self.skip_values,
+            seed=rng,
         )
 
         # Convert unit samples to parameter values
@@ -290,10 +343,14 @@ class SobolSampler(Sampler):
             scenario_values: dict[str, Any] = {}
             for j, param in enumerate(self.parameters):
                 u = unit_samples[i, j]
-                scenario_values[param.name] = param.sample_from_unit(u)
+                scenario_values[param.name] = param.sample_with_rng(rng, u=u)
 
             scenario_id = self._create_scenario_id(scenario_values)
-            yield Scenario(values=scenario_values, id=scenario_id)
+            yield Scenario(
+                values=scenario_values,
+                id=scenario_id,
+                metadata=self._scenario_metadata(),
+            )
 
 
 # ================================================================
@@ -1018,8 +1075,10 @@ class GibbsSampler(Sampler):
         n_burn_in: int = 100,
         n_thin: int = 1,
         initial_values: Optional[dict[str, Any]] = None,
+        *,
+        seed: int | None = None,
     ):
-        super().__init__(parameters, id_generator)
+        super().__init__(parameters, id_generator, seed=seed)
         if n_burn_in < 0:
             raise ValueError(f"n_burn_in must be non-negative, got {n_burn_in}")
         if n_thin <= 0:
@@ -1039,6 +1098,7 @@ class GibbsSampler(Sampler):
         if self.n_thin <= 0:
             raise ValueError(f"Thinning parameter must be positive, got {self.n_thin}")
 
+        rng = self._get_rng()
         # Initialize compatibility state; values do not condition later draws.
         current_values = {}
         for param in self.parameters:
@@ -1059,7 +1119,7 @@ class GibbsSampler(Sampler):
                 param.reset()
                 # In a full implementation, we'd pass current_values to inform
                 # the conditional distribution. For now, just sample.
-                current_values[param.name] = param.sample()
+                current_values[param.name] = param.sample_with_rng(rng)
 
             iteration += 1
 
@@ -1078,7 +1138,7 @@ class GibbsSampler(Sampler):
             yield Scenario(
                 values=current_values.copy(),
                 id=f"{scenario_id}-iter{iteration}",
-                metadata=metadata,
+                metadata=self._scenario_metadata(metadata),
             )
 
             samples_generated += 1
@@ -1148,8 +1208,10 @@ class ScenarioTreeSampler(Sampler):
         parameters: Sequence[Parameter],
         root: ScenarioTreeNode,
         id_generator: IDGenerator | type[IDGenerator] | None = None,
+        *,
+        seed: int | None = None,
     ):
-        super().__init__(parameters, id_generator)
+        super().__init__(parameters, id_generator, seed=seed)
         if root is None:
             raise ValueError("ScenarioTreeSampler requires a root node")
         self.root = root
@@ -1174,6 +1236,18 @@ class ScenarioTreeSampler(Sampler):
                 "Scenario tree has no paths (tree is empty or has no leaf nodes)"
             )
 
+        path_parameter_names = [
+            {name for node in path for name in node.parameter_values} for path in paths
+        ]
+        parameter_names = {parameter.name for parameter in self.parameters}
+        has_unspecified_parameters = any(
+            parameter_names - names for names in path_parameter_names
+        )
+        uses_randomness = (
+            n is not None and n < len(paths)
+        ) or has_unspecified_parameters
+        rng = self._get_rng() if uses_randomness else None
+
         # Optionally sample a subset of paths
         if n is not None and n < len(paths):
             # Sample paths based on their probabilities
@@ -1189,7 +1263,8 @@ class ScenarioTreeSampler(Sampler):
             path_probs = [p / total_prob for p in path_probs]
 
             # Sample paths
-            indices = np.random.choice(len(paths), size=n, replace=True, p=path_probs)
+            assert rng is not None
+            indices = rng.choice(len(paths), size=n, replace=True, p=path_probs)
             paths = [paths[i] for i in indices]
 
         # Generate scenario for each path
@@ -1209,7 +1284,8 @@ class ScenarioTreeSampler(Sampler):
             # Sample any parameters not specified in tree
             for param in self.parameters:
                 if param.name not in scenario_values:
-                    scenario_values[param.name] = param.sample()
+                    assert rng is not None
+                    scenario_values[param.name] = param.sample_with_rng(rng)
 
             scenario_id = self._create_scenario_id(scenario_values)
             path_str = "->".join(path_names)
@@ -1223,7 +1299,9 @@ class ScenarioTreeSampler(Sampler):
             yield Scenario(
                 values=scenario_values,
                 id=f"{scenario_id}-{path_str}",
-                metadata=metadata,
+                metadata=(
+                    self._scenario_metadata(metadata) if rng is not None else metadata
+                ),
             )
 
 

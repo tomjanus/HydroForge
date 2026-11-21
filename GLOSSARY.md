@@ -168,6 +168,12 @@ Raised when a CDF cannot be computed for a parameter because the underlying unce
 model doesn't support CDF transformation, or a categorical parameter has no explicit
 category order for empirical CDF evaluation.
 
+### Effective Sampler Seed
+The integer seed used by a sampler's local random generator. When a stochastic
+sampler is created without a seed, it records the generated effective seed in
+`Scenario.metadata` so the realization can be replayed with the same sampler
+configuration. The seed does not determine `Scenario.id`.
+
 ---
 
 ## Uncertainty Specification
