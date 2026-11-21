@@ -25,7 +25,14 @@ retired in favour of `hydroforge.wdn_modelling.backends` and
 
 ## Installation
 
-HydroForge requires Python 3.10 or newer. Install from a source checkout:
+HydroForge requires Python 3.10 or newer. After a release is available on
+PyPI, install the distribution with:
+
+```bash
+pip install hydroforge-tools
+```
+
+For an editable development installation, use a source checkout:
 
 ```bash
 git clone https://github.com/tomjanus/HydroForge.git
@@ -39,7 +46,7 @@ pip install -e ".[dev]"
 ```
 
 The core dependencies are declared in `pyproject.toml` and include NumPy, SciPy,
-pandas, NetworkX, Matplotlib, PyYAML, Rich, pygad, cloudpickle, and WNTR.
+pandas, NetworkX, Matplotlib, PyYAML, Rich, pygad, cloudpickle, SALib, and WNTR.
 
 Transient solver backends are optional extras. Install only the backend you
 need:
@@ -80,7 +87,7 @@ are not implemented and exit with a non-zero status.
 | Package | Purpose | Current state |
 | --- | --- | --- |
 | `hydroforge.uncertainty` | Distributions, uncertainty transforms, parameters, CDFs | Supported |
-| `hydroforge.sampling` | Monte Carlo, LHS, Sobol, Halton, stratified, conditional, nested, scenario-tree and mixed sampling | Supported once `SALib` is installed |
+| `hydroforge.sampling` | Monte Carlo, LHS, Sobol, Halton, stratified, conditional, nested, scenario-tree and mixed sampling | Supported (SALib is a core dependency) |
 | `hydroforge.measurements` | Imperfect-sensor models and window averaging (renamed from `sensors`) | Supported |
 | `hydroforge.auxiliary` | Configuration I/O, logging, exceptions, utility helpers | Supported |
 

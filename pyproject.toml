@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hydroforge"
+name = "hydroforge-tools"
 version = "1.0.0"
 description = "Toolkit for applying uncertainties to water network models"
 authors = [{name = "Tomasz Janus", email = "tomasz.k.janus@gmail.com"}]

@@ -407,7 +407,7 @@ Pull Request Opened
 │   ↓ pass         │
 │ BUILD PACKAGE    │  python -m build
 │   ↓ pass         │
-│ INSTALL CHECK    │  pip install --no-deps dist/hydroforge-*.whl
+│ INSTALL CHECK    │  pip install --no-deps --target "$RUNNER_TEMP/hydroforge-wheel-install" dist/*.whl
 └──────────────────┘
     ▼
   Ready for review
@@ -514,7 +514,7 @@ Installation
 
 .. code-block:: bash
 
-   pip install hydroforge
+   pip install hydroforge-tools
 
 Usage
 -----
