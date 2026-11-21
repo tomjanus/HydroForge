@@ -48,7 +48,18 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum, auto
-from typing import Any, ClassVar, Generic, Sequence, TypeAlias, TypeVar, overload
+import threading
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Sequence,
+    TypeAlias,
+    TypeVar,
+    cast,
+    overload,
+)
 
 import numpy as np
 from numpy.typing import NDArray
@@ -91,6 +102,7 @@ UnitInput: TypeAlias = float | Sequence[float] | NDArray[np.float64]
 
 
 logger = get_logger(__name__)
+_EMPIRICAL_CACHE_LOCK = threading.Lock()
 
 
 class DistributionDomain(Enum):
@@ -239,7 +251,7 @@ class Distribution(Generic[ValueT], ABC):
     """
 
     properties: ClassVar[DistributionProperties]
-    _empirical_cache: dict[tuple[int, Any], NDArray[Any]] = field(
+    _empirical_cache: dict[tuple[int, int | None], NDArray[Any]] = field(
         default_factory=dict,
         init=False,
         repr=False,
@@ -315,7 +327,8 @@ class Distribution(Generic[ValueT], ABC):
         n_samples : int, default=10_000
             Number of samples used for empirical estimation.
         random_state : int, numpy.random.Generator, or None, default=None
-            Seed or random generator used for empirical estimation.
+            Integer seed or ``None`` caches the empirical sample for this
+            distribution; a Generator is consumed directly and not cached.
 
         Returns
         -------
@@ -332,12 +345,18 @@ class Distribution(Generic[ValueT], ABC):
 
         Notes
         -----
-        Empirical draws are cached per ``(n_samples, random_state)`` and
-        reused by later calls.  The cache assumes constructor arguments are
-        not mutated after construction; mutating them can serve draws from
-        the previous parameters.  Under CPython the dict operations are
-        individually atomic, so concurrent empirical calls at worst
-        duplicate draw work rather than corrupt the cache.
+        Empirical draws made with an integer seed or ``None`` are cached per
+        ``(n_samples, random_state)`` on this distribution instance. Repeated
+        calls with ``None`` and the same sample count therefore reuse the first
+        estimate. A supplied :class:`numpy.random.Generator` is not cached;
+        each call consumes its current state.
+
+        Cache reads and writes are synchronized. For reproducible concurrent
+        CDF evaluations, use an independent Generator per worker. Calls sharing
+        one mutable Generator consume its stream in scheduler-dependent order.
+        The cache assumes constructor arguments are not mutated after
+        construction; mutating them can serve draws from the previous
+        parameters.
         """
         if empirical:
             return self._empirical_cdf(
@@ -373,17 +392,33 @@ class Distribution(Generic[ValueT], ABC):
         """
         if n_samples <= 0:
             raise ValueError("n_samples must be greater than zero")
+        if isinstance(random_state, np.random.Generator):
+            unit_samples = random_state.random(int(n_samples))
+            return np.sort(self.sample_from_unit(unit_samples))
+
         cache_key = _empirical_cache_key(n_samples, random_state)
-        if cache_key not in self._empirical_cache:
-            rng = (
-                random_state
-                if isinstance(random_state, np.random.Generator)
-                else np.random.default_rng(random_state)
-            )
+
+        def create_samples() -> NDArray[Any]:
+            rng = np.random.default_rng(random_state)
             unit_samples = rng.random(int(n_samples))
-            sampled = self.sample_from_unit(unit_samples)
-            self._empirical_cache[cache_key] = np.sort(sampled)
-        return self._empirical_cache[cache_key]
+            return np.sort(self.sample_from_unit(unit_samples))
+
+        return self._get_or_create_empirical_cache_value(cache_key, create_samples)
+
+    def _get_or_create_empirical_cache_value(
+        self,
+        cache_key: tuple[int, int | None],
+        create_value: Callable[[], NDArray[Any]],
+    ) -> NDArray[Any]:
+        """Read or populate the empirical cache under a shared lock."""
+        with _EMPIRICAL_CACHE_LOCK:
+            cached_samples = self._empirical_cache.get(cache_key)
+        if cached_samples is not None:
+            return cached_samples
+
+        generated_samples = create_value()
+        with _EMPIRICAL_CACHE_LOCK:
+            return self._empirical_cache.setdefault(cache_key, generated_samples)
 
     def _empirical_cdf(
         self,
@@ -700,21 +735,26 @@ class CategoricalConversionMixin:
         if n_samples <= 0:
             raise ValueError("n_samples must be greater than zero")
 
-        # The distribution's category map is the explicit order used by the CDF.
-        cache: dict[tuple[int, Any], NDArray[Any]] = getattr(self, "_empirical_cache")
-        cache_key = _empirical_cache_key(n_samples, random_state)
-        indices = cache.get(cache_key)
-        if indices is None:
-            rng = (
-                random_state
-                if isinstance(random_state, np.random.Generator)
-                else np.random.default_rng(random_state)
-            )
+        def draw_indices(rng: np.random.Generator) -> NDArray[Any]:
             unit_samples = rng.random(int(n_samples))
             cumulative = np.cumsum(probabilities, dtype=np.float64)
             drawn = np.searchsorted(cumulative, unit_samples, side="right")
-            indices = np.clip(drawn, 0, len(self._num_to_cat) - 1)
-            cache[cache_key] = indices
+            return np.clip(drawn, 0, len(self._num_to_cat) - 1)
+
+        if isinstance(random_state, np.random.Generator):
+            indices = draw_indices(random_state)
+        else:
+            cache_key = _empirical_cache_key(n_samples, random_state)
+
+            def create_indices() -> NDArray[Any]:
+                return draw_indices(np.random.default_rng(random_state))
+
+            indices = cast(
+                Distribution[Any], self
+            )._get_or_create_empirical_cache_value(
+                cache_key,
+                create_indices,
+            )
 
         x_array = np.asarray(x, dtype=object)
         string_values = np.asarray(
@@ -2047,30 +2087,24 @@ class DistributionChecker:
 
 def _empirical_cache_key(
     n_samples: int,
-    random_state: int | np.random.Generator | None,
+    random_state: int | np.integer[Any] | None,
 ) -> tuple[int, int | None]:
-    """Build the empirical-sample cache key for a draw configuration.
+    """Build the empirical-cache key for a seed-based draw configuration.
 
     Parameters
     ----------
     n_samples : int
         Number of samples in the draw.
-    random_state : int, numpy.random.Generator, or None
-        Seed or generator used for the draw.  ``Generator`` instances are
-        mutable, so their identity is used in the key; this makes repeated CDF
-        calls deterministic for a given generator object after the first call.
-        Integer seeds and ``None`` are immutable.
+    random_state : int, numpy.integer, or None
+        Immutable seed or the shared ``None`` cache key. Mutable Generators
+        bypass the cache.
 
     Returns
     -------
     tuple[int, int | None]
         Cache key ``(n_samples, state_key)``.
     """
-    state_key: int | None
-    if isinstance(random_state, (int, np.integer)) or random_state is None:
-        state_key = int(random_state) if random_state is not None else None
-    else:
-        state_key = id(random_state)
+    state_key = int(random_state) if random_state is not None else None
     return (int(n_samples), state_key)
 
 

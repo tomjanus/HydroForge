@@ -1,6 +1,7 @@
 """Tests for distribution behaviour: empirical CDFs, to_dict, validation."""
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pytest
@@ -96,6 +97,52 @@ def test_empirical_categorical_cdf_is_repeatable_for_same_random_state():
     np.testing.assert_array_equal(first, second)
 
 
+def test_empirical_categorical_cdf_none_reuses_first_draw_for_sample_count():
+    distribution = _make("histogram")
+    categories = list(distribution.categories)
+    first = distribution.cdf(categories, empirical=True, n_samples=128)
+    second = distribution.cdf(categories, empirical=True, n_samples=128)
+
+    np.testing.assert_array_equal(first, second)
+
+
+def test_empirical_categorical_cdf_uses_current_generator_state():
+    distribution = _make("histogram")
+    categories = list(distribution.categories)
+    n_samples = 64
+    rng = np.random.default_rng(23)
+
+    distribution.cdf(
+        categories,
+        empirical=True,
+        n_samples=n_samples,
+        random_state=rng,
+    )
+    rng.random(n_samples)
+    result = distribution.cdf(
+        categories,
+        empirical=True,
+        n_samples=n_samples,
+        random_state=rng,
+    )
+
+    reference_rng = np.random.default_rng(23)
+    reference_rng.random(n_samples)
+    reference_rng.random(n_samples)
+    samples = distribution.sample_from_unit(reference_rng.random(n_samples))
+    sample_indices = np.asarray([categories.index(sample) for sample in samples])
+    expected = np.asarray(
+        [
+            np.mean(sample_indices <= category_index)
+            for category_index in range(len(categories))
+        ],
+        dtype=np.float64,
+    )
+
+    np.testing.assert_array_equal(result, expected)
+    assert rng.bit_generator.state == reference_rng.bit_generator.state
+
+
 def test_empirical_categorical_cdf_unknown_category_is_zero():
     distribution = _make("histogram")
     result = distribution.cdf("nope", empirical=True, n_samples=100, random_state=5)
@@ -106,6 +153,109 @@ def test_empirical_numeric_cdf_still_works():
     distribution = NormalDistribution(mean=0.0, std_dev=1.0)
     result = distribution.cdf(0.0, empirical=True, n_samples=2000, random_state=3)
     assert abs(float(result) - 0.5) < 0.05
+
+
+def test_empirical_numeric_cdf_uses_current_generator_state():
+    distribution = UniformDistribution(lower=0.0, upper=1.0)
+    n_samples = 64
+    points = np.linspace(0.0, 1.0, 33)
+    rng = np.random.default_rng(17)
+
+    distribution.cdf(points, empirical=True, n_samples=n_samples, random_state=rng)
+    rng.random(n_samples)
+    result = distribution.cdf(
+        points,
+        empirical=True,
+        n_samples=n_samples,
+        random_state=rng,
+    )
+
+    reference_rng = np.random.default_rng(17)
+    reference_rng.random(n_samples)
+    reference_rng.random(n_samples)
+    expected_samples = np.sort(
+        distribution.sample_from_unit(reference_rng.random(n_samples))
+    )
+    expected = np.searchsorted(expected_samples, points, side="right") / n_samples
+
+    np.testing.assert_array_equal(result, expected)
+    assert rng.bit_generator.state == reference_rng.bit_generator.state
+
+
+def test_empirical_numeric_cdf_integer_seed_is_reproducible():
+    points = np.linspace(0.0, 1.0, 17)
+    first = UniformDistribution(0.0, 1.0).cdf(
+        points,
+        empirical=True,
+        n_samples=128,
+        random_state=41,
+    )
+    second = UniformDistribution(0.0, 1.0).cdf(
+        points,
+        empirical=True,
+        n_samples=128,
+        random_state=41,
+    )
+
+    np.testing.assert_array_equal(first, second)
+
+
+def test_empirical_numeric_cdf_none_reuses_first_draw_for_sample_count():
+    distribution = UniformDistribution(0.0, 1.0)
+    points = np.linspace(0.0, 1.0, 17)
+    first = distribution.cdf(points, empirical=True, n_samples=128)
+    second = distribution.cdf(points, empirical=True, n_samples=128)
+
+    np.testing.assert_array_equal(first, second)
+
+
+def test_empirical_numeric_cdf_concurrent_cache_reads_are_consistent():
+    distribution = UniformDistribution(0.0, 1.0)
+    points = np.linspace(0.0, 1.0, 17)
+
+    def evaluate(_: int) -> np.ndarray:
+        return distribution.cdf(
+            points,
+            empirical=True,
+            n_samples=128,
+            random_state=53,
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(evaluate, range(16)))
+
+    for result in results[1:]:
+        np.testing.assert_array_equal(result, results[0])
+
+
+def test_empirical_numeric_cdf_concurrent_calls_use_independent_generators():
+    distribution = UniformDistribution(0.0, 1.0)
+    points = np.linspace(0.0, 1.0, 17)
+    seeds = list(range(8))
+    generators = [np.random.default_rng(seed) for seed in seeds]
+
+    def evaluate(generator: np.random.Generator) -> np.ndarray:
+        return distribution.cdf(
+            points,
+            empirical=True,
+            n_samples=128,
+            random_state=generator,
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(evaluate, generators))
+
+    expected = [
+        UniformDistribution(0.0, 1.0).cdf(
+            points,
+            empirical=True,
+            n_samples=128,
+            random_state=seed,
+        )
+        for seed in seeds
+    ]
+    for result, expected_result in zip(results, expected):
+        np.testing.assert_array_equal(result, expected_result)
 
 
 # ---------------------------------------------------------------
