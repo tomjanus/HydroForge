@@ -510,7 +510,11 @@ class BinaryStateFlipUncertainty(Uncertainty[CatValue]):
         if len(self.states) != 2 or self.states[0] == self.states[1]:
             raise ValueError("states must be a tuple of two distinct values")
 
-    def apply(self, value: CatValue, u: float | Sequence[float] | None = None) -> Any:
+    def apply(
+        self,
+        value: CatValue,
+        u: float | Sequence[float] | np.ndarray | None = None,
+    ) -> Any:
         """
         Apply binary state flipping.
 
@@ -519,8 +523,9 @@ class BinaryStateFlipUncertainty(Uncertainty[CatValue]):
         value
             Scalar state or one-dimensional sequence of states.
         u
-            Optional unit-interval sample(s). If provided, these determine which
-            states are flipped.
+            Optional uniform variate(s) in ``[0, 1]``. A scalar variate
+            broadcasts to array values; otherwise its shape must match
+            ``value``. The strict flip rule is ``u < flip_prob``.
 
         Returns
         -------
@@ -531,9 +536,33 @@ class BinaryStateFlipUncertainty(Uncertainty[CatValue]):
         is_scalar = values.ndim == 0
         a, b = self.states
 
-        # Use provided u for flips if available, otherwise generate randomly
         if u is not None:
-            flips = np.asarray(u) < self.flip_prob
+            try:
+                unit_values = np.asarray(u, dtype=np.float64)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("u must contain numeric values in [0, 1]") from exc
+            if not np.all(np.isfinite(unit_values)) or np.any(
+                (unit_values < 0.0) | (unit_values > 1.0)
+            ):
+                raise ValueError("All values in u must be in the range [0, 1]")
+
+            if is_scalar:
+                if unit_values.ndim != 0:
+                    raise ValueError("u must be a scalar when value is scalar")
+                flips: bool | np.ndarray = bool(unit_values < self.flip_prob)
+            elif unit_values.ndim == 0:
+                flips = np.full(
+                    values.shape,
+                    bool(unit_values < self.flip_prob),
+                    dtype=bool,
+                )
+            elif unit_values.shape == values.shape:
+                flips = unit_values < self.flip_prob
+            else:
+                raise ValueError(
+                    f"u shape {unit_values.shape} must match value shape "
+                    f"{values.shape} or be a scalar."
+                )
         else:
             flips = (
                 self.rng.random(values.shape if not is_scalar else ()) < self.flip_prob
