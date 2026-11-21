@@ -174,6 +174,11 @@ sampler is created without a seed, it records the generated effective seed in
 `Scenario.metadata` so the realization can be replayed with the same sampler
 configuration. The seed does not determine `Scenario.id`.
 
+### WNTR Parameter Binding
+A WDN-specific mapping from a WNTR component and supported property to a named
+key in a caller-provided mapping of already-realized parameter values. A binding
+does not sample values or define a generic scenario.
+
 ---
 
 ## Uncertainty Specification

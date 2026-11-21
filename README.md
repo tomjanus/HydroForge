@@ -100,6 +100,7 @@ are not implemented and exit with a non-zero status.
 | `hydroforge.wdn_modelling.graphs` | EPANET network graph analysis and visualization | Supported |
 | `hydroforge.wdn_modelling.networks` | Model/graph selectors and `JunctionLeaks` | Supported |
 | `hydroforge.wdn_modelling.modifiers` | WNTR model and graph modifiers | Supported |
+| `hydroforge.wdn_modelling.uncertainty` | Apply realized parameters and generic sensors to WNTR models/results | Supported |
 | `hydroforge.wdn_modelling.measurement_placement` | Sensor placement and sensor-network graph (depends on `graphs`) | Supported |
 
 ## API overview
@@ -175,6 +176,29 @@ Placement strategies are available through `hydroforge.wdn_modelling.measurement
 `CentralityBasedSensorPlacement`, `CoverageBasedSensorPlacement`,
 `DominatingSetBasedSensorPlacement`, and `FixedLocationSensorPlacement`, all
 orchestrated by `SensorPlacer`.
+
+### Applying realized parameters to a WNTR model
+
+WDN parameter bindings connect a component property to a named value in a
+caller-owned mapping. The adapter does not sample or run the simulator; it
+preflights the complete binding set, updates the supplied model in place, and
+returns an ordered audit report.
+
+Supported properties are `diameter`, `diameter_multiplier`, and `roughness` on
+pipes and `base_demand` on a junction with exactly one demand timeseries.
+Multiple junction demand entries are rejected rather than partially updated.
+
+```python
+from hydroforge.wdn_modelling.uncertainty import (
+    WNTRParameterAdapter,
+    WNTRParameterBinding,
+)
+
+adapter = WNTRParameterAdapter(
+    [WNTRParameterBinding("P1", "diameter", "pipe_diameter")]
+)
+audit = adapter.apply(model, {"pipe_diameter": 0.25})
+```
 
 ### Simulation backends
 

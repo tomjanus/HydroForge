@@ -22,6 +22,8 @@ networks
     ``JunctionLeaks`` and WNTR component selectors.
 measurement_placement
     Sensor placement and the sensor-network graph (depends on :mod:`graphs`).
+uncertainty
+    WNTR-specific application of realized parameter and sensor values.
 """
 
 from .backends import Backend, BackendName, get_backend
