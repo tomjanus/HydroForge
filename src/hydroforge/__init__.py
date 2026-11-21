@@ -8,7 +8,7 @@ This package provides tools for:
 - Hydraulic analysis tools
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __author__ = "IUT-IBK and Tomasz Janus"
 
 from .auxiliary.logging_utils import configure_logging, LoggingConfig

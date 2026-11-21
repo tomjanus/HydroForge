@@ -13,6 +13,7 @@ from zipfile import ZipFile
 
 EXPECTED_DISTRIBUTION_NAME = "hydroforge-tools"
 EXPECTED_CLI_ENTRY_POINT = "hydroforge.cli:main"
+EXPECTED_DESCRIPTION_CONTENT_TYPE = "text/markdown"
 _DIRECT_URL_REQUIREMENT = re.compile(
     r"\s@\s*(?:git\+|hg\+|svn\+|bzr\+|file:|https?://)",
     re.IGNORECASE,
@@ -82,6 +83,19 @@ def _verify_no_direct_url_requirements(metadata: Message, artifact: str) -> None
         )
 
 
+def _verify_markdown_description(metadata: Message, artifact: str) -> None:
+    """Ensure PyPI receives a rendered project description."""
+    content_type = metadata.get("Description-Content-Type", "")
+    if content_type.lower() != EXPECTED_DESCRIPTION_CONTENT_TYPE:
+        raise AssertionError(
+            f"{artifact} must declare a {EXPECTED_DESCRIPTION_CONTENT_TYPE} "
+            "description for PyPI."
+        )
+    payload = metadata.get_payload()
+    if not isinstance(payload, str) or not payload.strip():
+        raise AssertionError(f"{artifact} has an empty PyPI description.")
+
+
 def verify_release_tag(release_tag: str, version: str) -> None:
     """Reject a GitHub release tag that does not match package metadata."""
     expected_tag = f"v{version}"
@@ -130,6 +144,7 @@ def verify_distribution_artifacts(
                 f"{metadata['Name']!r}, expected {EXPECTED_DISTRIBUTION_NAME!r}."
             )
         _verify_no_direct_url_requirements(metadata, artifact)
+        _verify_markdown_description(metadata, artifact)
 
     if "hydroforge/__init__.py" not in wheel_members:
         raise AssertionError(

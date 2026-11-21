@@ -4,8 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydroforge-tools"
-version = "1.0.0"
+version = "1.0.1"
 description = "Toolkit for applying uncertainties to water network models"
+readme = {file = "README.md", content-type = "text/markdown"}
 authors = [{name = "Tomasz Janus", email = "tomasz.k.janus@gmail.com"}]
 requires-python = ">=3.10"
 license = "GPL-3.0"

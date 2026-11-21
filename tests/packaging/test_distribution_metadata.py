@@ -22,9 +22,16 @@ def _write_distribution_artifacts(
     include_package: bool = True,
     cli_entry_point: str = "hydroforge.cli:main",
     requires_dist: list[str] | None = None,
+    description_content_type: str | None = "text/markdown",
+    description: str = "# HydroForge\n\nA water network toolkit.\n",
 ) -> None:
     requirement_headers = "".join(
         f"Requires-Dist: {requirement}\n" for requirement in requires_dist or []
+    )
+    content_type_header = (
+        f"Description-Content-Type: {description_content_type}\n"
+        if description_content_type is not None
+        else ""
     )
     distribution_dir.mkdir()
     wheel_path = distribution_dir / "hydroforge_tools-1.0.0-py3-none-any.whl"
@@ -33,7 +40,10 @@ def _write_distribution_artifacts(
             wheel.writestr(
                 "hydroforge_tools-1.0.0.dist-info/METADATA",
                 f"Metadata-Version: 2.1\nName: {wheel_name}\nVersion: {wheel_version}\n"
-                + requirement_headers,
+                + requirement_headers
+                + content_type_header
+                + "\n"
+                + description,
             )
             wheel.writestr(
                 "hydroforge_tools-1.0.0.dist-info/entry_points.txt",
@@ -47,7 +57,11 @@ def _write_distribution_artifacts(
         if include_sdist_metadata:
             metadata = (
                 f"Metadata-Version: 2.1\nName: {sdist_name}\n"
-                f"Version: {sdist_version}\n" + requirement_headers
+                f"Version: {sdist_version}\n"
+                + requirement_headers
+                + content_type_header
+                + "\n"
+                + description
             ).encode()
             for member_name in (
                 "hydroforge_tools-1.0.0/PKG-INFO",
@@ -73,6 +87,25 @@ def test_artifact_checker_rejects_direct_url_requirements(tmp_path):
     )
 
     with pytest.raises(AssertionError, match="direct URL requirements"):
+        verify_distribution_artifacts(distribution_dir)
+
+
+def test_artifact_checker_rejects_an_empty_description(tmp_path):
+    distribution_dir = tmp_path / "dist"
+    _write_distribution_artifacts(distribution_dir, description="")
+
+    with pytest.raises(AssertionError, match="empty PyPI description"):
+        verify_distribution_artifacts(distribution_dir)
+
+
+def test_artifact_checker_rejects_a_non_markdown_description(tmp_path):
+    distribution_dir = tmp_path / "dist"
+    _write_distribution_artifacts(
+        distribution_dir,
+        description_content_type="text/plain",
+    )
+
+    with pytest.raises(AssertionError, match="text/markdown"):
         verify_distribution_artifacts(distribution_dir)
 
 
