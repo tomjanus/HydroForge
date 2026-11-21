@@ -154,6 +154,10 @@ which point the next `sample()` draws a new value. There is no context-manager s
 ### CDF (Cumulative Distribution Function)
 A function that gives the probability that a random variable is less than or equal to
 a given value. Used for stratified and advanced sampling methods.
+An empirical CDF for a categorical or binary `Parameter` is an estimate and is
+available only when its uncertainty declares an explicit category order (such as
+an ordered categorical distribution or binary state tuple). Category labels are
+never ordered lexically.
 
 ### TheoreticalCDFAbsent
 Raised when a theoretical CDF is not available for a parameter or uncertainty model,

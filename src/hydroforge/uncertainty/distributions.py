@@ -54,7 +54,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.stats import norm, randint, uniform
 
-from .common import TheoreticalCDFAbsent
+from .common import TheoreticalCDFAbsent, _empirical_categorical_cdf_from_indices
 from ..auxiliary import get_logger
 
 __all__ = [
@@ -700,10 +700,7 @@ class CategoricalConversionMixin:
         if n_samples <= 0:
             raise ValueError("n_samples must be greater than zero")
 
-        # The CDF result depends on ``x``, so the cache stores the drawn
-        # category indices (which depend only on ``n_samples`` and
-        # ``random_state``) under the same key scheme as the numeric path.
-        # ``_empirical_cache`` is declared on the Distribution base class.
+        # The distribution's category map is the explicit order used by the CDF.
         cache: dict[tuple[int, Any], NDArray[Any]] = getattr(self, "_empirical_cache")
         cache_key = _empirical_cache_key(n_samples, random_state)
         indices = cache.get(cache_key)
@@ -720,18 +717,15 @@ class CategoricalConversionMixin:
             cache[cache_key] = indices
 
         x_array = np.asarray(x, dtype=object)
-        flat_x = x_array.reshape(-1)
-        result = np.empty(flat_x.shape, dtype=np.float64)
-
-        for index, value in enumerate(flat_x):
-            category_index = self._cat_to_num.get(str(value))
-            result[index] = (
-                0.0
-                if category_index is None
-                else float(np.mean(indices <= category_index))
-            )
-
-        return result.reshape(x_array.shape)
+        string_values = np.asarray(
+            [str(value) for value in x_array.reshape(-1)],
+            dtype=object,
+        ).reshape(x_array.shape)
+        return _empirical_categorical_cdf_from_indices(
+            string_values,
+            self._cat_to_num,
+            indices,
+        )
 
 
 @dataclass

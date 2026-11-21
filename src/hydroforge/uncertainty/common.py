@@ -39,6 +39,25 @@ S = TypeVar("S", bound=NumValue)
 C = TypeVar("C", bound=CatValue)
 
 
+def _empirical_categorical_cdf_from_indices(
+    x: Any,
+    category_indices: collections.abc.Mapping[Any, int],
+    sample_indices: npt.NDArray[np.int_],
+) -> npt.NDArray[np.float64]:
+    """Evaluate empirical categorical cumulative proportions in declared order."""
+    x_array = np.asarray(x, dtype=object)
+    flat_x = x_array.reshape(-1)
+    result = np.empty(flat_x.shape, dtype=np.float64)
+    for index, category in enumerate(flat_x):
+        category_index = category_indices.get(category)
+        result[index] = (
+            0.0
+            if category_index is None
+            else float(np.mean(sample_indices <= category_index))
+        )
+    return result.reshape(x_array.shape)
+
+
 def is_array_like(x: Any) -> bool:
     """
     Determine whether an object is array-like.
@@ -94,7 +113,8 @@ class CDFNotAvailable(NotImplementedError):
 
     This exception indicates that a CDF cannot be computed for a parameter because:
     - The underlying uncertainty model doesn't support CDF transformation, or
-    - The parameter type (e.g., categorical) doesn't have a well-defined CDF
+    - A categorical parameter has no explicit category order for empirical CDF
+      evaluation.
 
     This typically occurs when using stratified or advanced sampling methods that
     require CDF evaluation.

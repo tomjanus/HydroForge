@@ -31,7 +31,7 @@ from .uncertainties import (
     CategoricalRandomReplacementUncertainty,
     CategoricalReplacementUncertainty,
 )
-from .common import CDFNotAvailable
+from .common import CDFNotAvailable, _empirical_categorical_cdf_from_indices
 from ..auxiliary import get_logger
 
 logger = get_logger(__name__)
@@ -40,7 +40,7 @@ ScalarValue: TypeAlias = str | int | float | np.integer | np.floating | Enum
 
 T = TypeVar("T", bound=ScalarValue)
 
-CDFInput = float | Sequence[float] | np.ndarray
+CDFInput = float | str | Sequence[float] | Sequence[str] | np.ndarray
 CDFResult = float | np.ndarray
 
 
@@ -223,74 +223,58 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         n_samples: int = 10_000,
         random_state: int | np.random.Generator | None = None,
     ) -> CDFResult:
-        """Evaluate the CDF of the realised parameter value.
-
-        Computes F_Y(x) where Y = uncertainty.apply(nominal_value, u).
-
-        The CDF depends on both the nominal value and the uncertainty model.
-        For example, with additive uncertainty Y = x + ε, the CDF is F_Y(y) = F_ε(y - x).
+        """Evaluate the CDF of the parameter's realised value.
 
         Parameters
         ----------
-        x : float or array-like
+        x : CDFInput
             Value(s) at which to evaluate the CDF.
         empirical : bool, default=False
-            If False, use theoretical CDF transformation if available.
-            If True, estimate CDF empirically from samples.
+            Estimate from samples instead of using a theoretical transform.
+            Categorical and binary parameters require an explicit order.
         n_samples : int, default=10_000
-            Number of samples for empirical CDF estimation.
+            Number of samples used for empirical estimation.
         random_state : int, numpy.random.Generator, or None, default=None
-            Random seed or generator for empirical estimation.
+            Seed or generator used for empirical estimation.
 
         Returns
         -------
         CDFResult
-            CDF values F_Y(x) as a float64 array matching the shape of x.
+            Float64 CDF values matching the shape of ``x``.
 
         Raises
         ------
         CDFNotAvailable
-            If the parameter type (e.g., categorical) or uncertainty model does not
-            support CDF evaluation and empirical=False.
+            If theoretical CDF evaluation is unavailable, or an empirical
+            categorical CDF has no explicit order.
         ValueError
             If empirical CDF estimation fails.
-
-        Examples
-        --------
-        >>> from hydroforge.uncertainty import (
-        ...     Parameter, ParameterType, AdditiveUncertainty, NormalDistribution
-        ... )
-        >>> p = Parameter(
-        ...     name="diameter",
-        ...     nominal_value=100.0,
-        ...     uncertainty=AdditiveUncertainty(NormalDistribution(0, 5)),
-        ...     type=ParameterType.NUMERICAL
-        ... )
-        >>> # CDF at value 105.0
-        >>> cdf_at_105 = p.cdf(105.0)
-        >>> print(f"P(Diameter <= 105) = {cdf_at_105:.4f}")
-        P(Diameter <= 105) = 0.8413
-
-        >>> # Multiple values
-        >>> cdf_values = p.cdf([90.0, 100.0, 110.0])
-        >>> print(cdf_values)
-        [0.0228 0.5    0.9772]
 
         Notes
         -----
         Theoretical CDF is preferred for efficiency. It is available for:
-        - Distribution-based uncertainties (Additive, Multiplicative)
-        - NoUncertainty (deterministic)
-
-        For other uncertainty types or when empirical=True, samples are generated
-        and an empirical CDF is computed.
+        distribution-based uncertainties (Additive, Multiplicative) and
+        `NoUncertainty`. Empirical categorical CDFs follow the uncertainty's
+        declared order; labels are never ordered lexically.
         """
-        # Check if parameter is categorical
+        # Theoretical categorical CDFs remain unavailable. Empirical CDFs are
+        # supported only when the uncertainty provides an explicit category order.
         if self.is_categorical():
-            raise CDFNotAvailable(
-                f"CDF is not defined for categorical parameters like '{self.name}'. "
-                f"Stratified sampling and advanced sampling methods requiring CDF evaluation "
-                f"are not supported for categorical parameters."
+            if not empirical:
+                raise CDFNotAvailable(
+                    f"CDF is not defined for categorical parameters like '{self.name}'. "
+                    "Theoretical CDF evaluation requires a numerical parameter."
+                )
+            return self._empirical_categorical_cdf(
+                x,
+                n_samples=n_samples,
+                random_state=random_state,
+            )
+        if empirical and self.is_binary():
+            return self._empirical_categorical_cdf(
+                x,
+                n_samples=n_samples,
+                random_state=random_state,
             )
 
         # Try theoretical CDF first (unless empirical is explicitly requested)
@@ -306,6 +290,101 @@ class Parameter(IUncertainParameter[T], Generic[T]):
 
         # Compute empirical CDF if theoretical failed or was requested
         return self._empirical_cdf(x, n_samples=n_samples, random_state=random_state)
+
+    def _empirical_categorical_cdf(
+        self,
+        x: CDFInput,
+        *,
+        n_samples: int,
+        random_state: int | np.random.Generator | None,
+    ) -> CDFResult:
+        """Estimate a categorical CDF using the uncertainty's declared order."""
+        if n_samples <= 0:
+            raise ValueError("n_samples must be greater than zero")
+
+        rng = (
+            random_state
+            if isinstance(random_state, np.random.Generator)
+            else np.random.default_rng(random_state)
+        )
+        ordered_samples = self._sample_categorical_values_with_order(n_samples, rng)
+        if ordered_samples is None:
+            raise CDFNotAvailable(
+                f"Empirical CDF for categorical parameter {self.name!r} requires "
+                "an uncertainty with an explicit category order."
+            )
+        categories, samples = ordered_samples
+
+        category_indices = {
+            category: index for index, category in enumerate(categories)
+        }
+        try:
+            sample_indices = np.asarray(
+                [category_indices[sample] for sample in samples],
+                dtype=np.int64,
+            )
+        except KeyError as exc:
+            raise CDFNotAvailable(
+                f"Uncertainty for parameter {self.name!r} produced category "
+                f"{exc.args[0]!r} outside its declared order."
+            ) from exc
+
+        return _empirical_categorical_cdf_from_indices(
+            x,
+            category_indices,
+            sample_indices,
+        )
+
+    def _sample_categorical_values_with_order(
+        self,
+        n_samples: int,
+        rng: np.random.Generator,
+    ) -> tuple[tuple[Any, ...], np.ndarray] | None:
+        """Return sampled categories with an order declared by the uncertainty."""
+        values = np.full(n_samples, self.nominal_value, dtype=object)
+        uncertainty = self.uncertainty
+
+        if isinstance(uncertainty, BinaryStateFlipUncertainty):
+            state_order = uncertainty.states
+            if self.nominal_value not in state_order:
+                return None
+            samples = uncertainty.apply(values, u=rng.random(n_samples).tolist())
+            return state_order, np.asarray(samples, dtype=object)
+
+        if isinstance(uncertainty, CategoricalRandomReplacementUncertainty):
+            distribution_order = getattr(
+                uncertainty.distribution,
+                "categories",
+                None,
+            )
+            if not distribution_order:
+                return None
+            samples = uncertainty.apply(values, u=rng.random(n_samples).tolist())
+            return tuple(distribution_order), np.asarray(samples, dtype=object)
+
+        if isinstance(uncertainty, CategoricalReplacementUncertainty):
+            replacement_order = getattr(
+                uncertainty.replacement_distribution,
+                "categories",
+                None,
+            )
+            if not replacement_order or self.nominal_value not in replacement_order:
+                return None
+            flip_probabilities = np.asarray(
+                uncertainty.flip_distribution.sample_from_unit(rng.random(n_samples)),
+                dtype=np.float64,
+            )
+            replacements = np.asarray(
+                uncertainty.replacement_distribution.sample_from_unit(
+                    rng.random(n_samples)
+                ),
+                dtype=object,
+            )
+            flips = rng.random(n_samples) < flip_probabilities
+            values[flips] = replacements[flips]
+            return tuple(replacement_order), values
+
+        return None
 
     def _empirical_cdf(
         self,
