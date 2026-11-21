@@ -200,6 +200,24 @@ adapter = WNTRParameterAdapter(
 audit = adapter.apply(model, {"pipe_diameter": 0.25})
 ```
 
+After running WNTR, bind generic sensor definitions to selected points and
+variables. Only the bound result columns are measured; the raw results are left
+unchanged. The example assumes `specification`, `model`, and `results` have
+already been created by the caller.
+
+```python
+from hydroforge.wdn_modelling.uncertainty import (
+    WNTRSensorAdapter,
+    WNTRSensorBinding,
+)
+
+sensor_adapter = WNTRSensorAdapter(
+    [WNTRSensorBinding("J1", "pressure_sensor", "pressure")],
+    specification.sensors,
+)
+measured = sensor_adapter.apply(model, results)
+```
+
 ### Simulation backends
 
 ```python

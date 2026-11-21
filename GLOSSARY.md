@@ -179,6 +179,11 @@ A WDN-specific mapping from a WNTR component and supported property to a named
 key in a caller-provided mapping of already-realized parameter values. A binding
 does not sample values or define a generic scenario.
 
+### WNTR Sensor Binding
+A WDN-specific mapping from a node or link ID and explicit WNTR result variable
+to a named generic sensor definition. The sensor adapter measures only the
+selected result column and leaves the raw simulation result unchanged.
+
 ---
 
 ## Uncertainty Specification
