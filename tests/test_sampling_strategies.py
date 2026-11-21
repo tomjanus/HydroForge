@@ -4,13 +4,22 @@ import numpy as np
 import pytest
 
 from hydroforge.sampling import (
+    ConditionalLayer,
+    ConditionalMonteCarloSampler,
     DeterministicHashGenerator,
     GibbsSampler,
     LatinHypercubeSampler,
     MonteCarloSampler,
+    MixedStrategySampler,
+    NestedMonteCarloSampler,
+    NestedSamplingSpec,
+    ParameterGroup,
     ScenarioTreeNode,
     ScenarioTreeSampler,
+    SamplingStrategy,
     SobolSampler,
+    StratifiedSampler,
+    Stratum,
 )
 from hydroforge.uncertainty import (
     AdditiveUncertainty,
@@ -308,3 +317,125 @@ def test_direct_samplers_keep_categorical_replacement_off_global_rng(strategy):
         np.random.set_state(global_state)
 
     assert _same_legacy_rng_state(global_state, state_after_sampling)
+
+
+@pytest.mark.parametrize(
+    "strategy",
+    ["conditional", "nested", "mixed", "stratified"],
+)
+def test_composite_sampler_seed_repeats_complete_scenarios(strategy):
+    n_samples = _composite_sample_count(strategy)
+    first = list(_make_composite_sampler(strategy, 41).generate(n_samples))
+    second = list(_make_composite_sampler(strategy, 41).generate(n_samples))
+
+    assert first == second
+    assert all(
+        scenario.metadata is not None and scenario.metadata["effective_seed"] == 41
+        for scenario in first
+    )
+
+
+@pytest.mark.parametrize(
+    "strategy",
+    ["conditional", "nested", "mixed", "stratified"],
+)
+def test_composite_sampler_different_seeds_change_stochastic_draws(strategy):
+    n_samples = _composite_sample_count(strategy)
+    first = list(_make_composite_sampler(strategy, 41).generate(n_samples))
+    second = list(_make_composite_sampler(strategy, 42).generate(n_samples))
+
+    assert [scenario.values for scenario in first] != [
+        scenario.values for scenario in second
+    ]
+
+
+@pytest.mark.parametrize(
+    "strategy",
+    ["conditional", "nested", "mixed", "stratified"],
+)
+def test_composite_sampler_omitted_seed_metadata_replays_run(strategy):
+    n_samples = _composite_sample_count(strategy)
+    scenarios = list(_make_composite_sampler(strategy, None).generate(n_samples))
+
+    metadata = scenarios[0].metadata
+    assert metadata is not None
+    effective_seed = metadata["effective_seed"]
+    replay = list(_make_composite_sampler(strategy, effective_seed).generate(n_samples))
+
+    assert replay == scenarios
+
+
+@pytest.mark.parametrize(
+    "strategy",
+    ["conditional", "nested", "mixed", "stratified"],
+)
+def test_composite_sampler_preserves_global_numpy_rng_state(strategy):
+    global_state = np.random.get_state()
+    try:
+        list(
+            _make_composite_sampler(strategy, 43).generate(
+                _composite_sample_count(strategy)
+            )
+        )
+        state_after_sampling = np.random.get_state()
+    finally:
+        np.random.set_state(global_state)
+
+    assert _same_legacy_rng_state(global_state, state_after_sampling)
+
+
+def test_nested_and_mixed_samplers_derive_distinct_child_seed_streams():
+    nested = list(_make_composite_sampler("nested", 47).generate(3))
+    nested_seeds = {
+        scenario.metadata["inner_sampler_seed"]
+        for scenario in nested
+        if scenario.metadata is not None
+    }
+    assert len(nested_seeds) == 3
+
+    mixed = list(_make_composite_sampler("mixed", 47).generate(2))
+    mixed_metadata = mixed[0].metadata
+    assert mixed_metadata is not None
+    child_seeds = mixed_metadata["child_seeds"]
+    assert len(child_seeds) == 2
+    assert len(set(child_seeds)) == 2
+
+
+def test_stratified_sampler_derives_distinct_child_seed_streams_per_stratum():
+    scenarios = list(_make_composite_sampler("stratified", 53).generate(8))
+    seed_pairs = {
+        (
+            scenario.metadata["base_sampler_seed"],
+            scenario.metadata["unit_rng_seed"],
+        )
+        for scenario in scenarios
+        if scenario.metadata is not None
+    }
+
+    assert len(seed_pairs) == 2
+    assert len({base_seed for base_seed, _ in seed_pairs}) == 2
+    assert len({unit_seed for _, unit_seed in seed_pairs}) == 2
+
+
+def test_composite_samplers_reject_child_seed_overrides():
+    with pytest.raises(ValueError, match="inner_sampler_kwargs"):
+        NestedMonteCarloSampler(
+            NestedSamplingSpec(
+                outer_parameters=[_make_parameter("outer")],
+                inner_parameters=[_make_parameter("inner")],
+                inner_sampler_kwargs={"seed": 99},
+            ),
+            seed=59,
+        )
+
+    with pytest.raises(ValueError, match="sampler_kwargs"):
+        MixedStrategySampler(
+            [
+                ParameterGroup(
+                    [_make_parameter()],
+                    SamplingStrategy.MONTE_CARLO,
+                    sampler_kwargs={"seed": 99},
+                )
+            ],
+            seed=59,
+        )

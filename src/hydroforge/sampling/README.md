@@ -78,11 +78,14 @@ All sampling strategies ultimately generate `Scenario` objects containing parame
 
 Direct stochastic samplers (`MonteCarloSampler`, `LatinHypercubeSampler`,
 `SobolSampler`, `GibbsSampler`, and stochastic `ScenarioTreeSampler` calls)
-accept an optional integer `seed`. They use local NumPy generators and do not
-change NumPy's legacy global RNG state. If `seed` is omitted, the sampler
-creates an entropy-derived seed and records it as
-`scenario.metadata["effective_seed"]`; pass that value to a new sampler with
-the same configuration to replay the run.
+accept an optional integer `seed`. Composite samplers
+(`ConditionalMonteCarloSampler`, `NestedMonteCarloSampler`,
+`MixedStrategySampler`, and `StratifiedSampler`) also accept a root seed.
+Nested, mixed, and stratified strategies derive deterministic child seeds for
+their stochastic samplers. All use local NumPy generators and do not change
+NumPy's legacy global RNG state. If `seed` is omitted, the root sampler creates
+an entropy-derived seed and records it as `scenario.metadata["effective_seed"]`;
+pass that value to a new sampler with the same configuration to replay the run.
 
 Seeding does not change the `Scenario.id` contract. Use
 `DeterministicHashGenerator` when deterministic IDs are required.
@@ -97,7 +100,8 @@ Seeding does not change the `Scenario.id` contract. Use
 - `GibbsSampler` is a legacy name: it independently samples each parameter from
   its marginal distribution. It does not use conditional distributions or
   implement an MCMC chain; `n_burn_in` and `n_thin` only discard draws.
-- Sampling behavior is not covered by the current test suite.
+- Nested, mixed, and stratified samplers also record their derived child seeds
+  in scenario metadata, making the root-to-child stream assignment auditable.
 
 These limitations are also tracked in
 [`spec/0002-code-review-remediation.md`](../../../spec/0002-code-review-remediation.md).

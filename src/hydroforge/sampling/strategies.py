@@ -174,6 +174,12 @@ class Sampler(ABC):
             self._rng = np.random.default_rng(self._get_seed_sequence())
         return self._rng
 
+    def _spawn_child_seed(self) -> int:
+        """Derive a deterministic, distinct integer seed for a child sampler."""
+        child_sequence = self._get_seed_sequence().spawn(1)[0]
+        state = child_sequence.generate_state(4)
+        return sum(int(word) << (32 * index) for index, word in enumerate(state))
+
     def _scenario_metadata(
         self,
         metadata: dict[str, Any] | None = None,
@@ -375,8 +381,12 @@ class HaltonSampler(Sampler):
         id_generator: IDGenerator | type[IDGenerator] | None = None,
         skip_values: int = 0,
         primes: Optional[Sequence[int]] = None,
+        *,
+        seed: int | None = None,
     ):
-        super().__init__(parameters, id_generator)
+        # Halton is deterministic; accepting seed keeps it composable with
+        # strategies that uniformly pass child seeds to their base sampler.
+        super().__init__(parameters, id_generator, seed=seed)
         if not parameters:
             raise ValueError("HaltonSampler requires at least one parameter")
         self.skip_values = skip_values
@@ -457,6 +467,8 @@ class ConditionalMonteCarloSampler(Sampler):
         self,
         layers: Sequence[ConditionalLayer],
         id_generator: IDGenerator | type[IDGenerator] | None = None,
+        *,
+        seed: int | None = None,
     ):
         # Collect all parameters from all layers
         all_parameters: list[Parameter] = []
@@ -468,7 +480,7 @@ class ConditionalMonteCarloSampler(Sampler):
                 "ConditionalMonteCarloSampler requires at least one parameter across all layers"
             )
 
-        super().__init__(all_parameters, id_generator)
+        super().__init__(all_parameters, id_generator, seed=seed)
         self.layers = list(layers)
 
     def generate(self, n: int) -> Generator[Scenario, None, None]:
@@ -476,6 +488,7 @@ class ConditionalMonteCarloSampler(Sampler):
         if n <= 0:
             raise ValueError(f"Number of samples must be positive, got {n}")
 
+        rng = self._get_rng()
         for _ in range(n):
             self._reset_parameters()
             scenario_values: dict[str, Any] = {}
@@ -495,10 +508,14 @@ class ConditionalMonteCarloSampler(Sampler):
                 # Sample parameters in this layer
                 for param in layer.parameters:
                     if param.name not in scenario_values:
-                        scenario_values[param.name] = param.sample()
+                        scenario_values[param.name] = param.sample_with_rng(rng)
 
             scenario_id = self._create_scenario_id(scenario_values)
-            yield Scenario(values=scenario_values, id=scenario_id)
+            yield Scenario(
+                values=scenario_values,
+                id=scenario_id,
+                metadata=self._scenario_metadata(),
+            )
 
 
 # ================================================================
@@ -542,10 +559,17 @@ class NestedMonteCarloSampler(Sampler):
         self,
         spec: NestedSamplingSpec,
         id_generator: IDGenerator | type[IDGenerator] | None = None,
+        *,
+        seed: int | None = None,
     ):
         all_parameters = list(spec.outer_parameters) + list(spec.inner_parameters)
-        super().__init__(all_parameters, id_generator)
+        super().__init__(all_parameters, id_generator, seed=seed)
         self.spec = spec
+        if "seed" in spec.inner_sampler_kwargs:
+            raise ValueError(
+                "inner_sampler_kwargs must not set 'seed'; nested child seeds "
+                "are derived from the root seed"
+            )
 
         # Set default inner sampler
         if spec.inner_sampler_class is None:
@@ -567,18 +591,21 @@ class NestedMonteCarloSampler(Sampler):
         if n <= 0:
             raise ValueError(f"Number of outer samples must be positive, got {n}")
 
+        rng = self._get_rng()
         for outer_idx in range(n):
             # Sample outer parameters
             self._reset_parameters()
             outer_values = {}
             for param in self.spec.outer_parameters:
                 param.reset()
-                outer_values[param.name] = param.sample()
+                outer_values[param.name] = param.sample_with_rng(rng)
 
             # Create inner sampler
+            inner_seed = self._spawn_child_seed()
             inner_sampler = cast(type[Sampler], self.spec.inner_sampler_class)(
                 self.spec.inner_parameters,
                 id_generator=None,
+                seed=inner_seed,
                 **self.spec.inner_sampler_kwargs,
             )
 
@@ -596,12 +623,13 @@ class NestedMonteCarloSampler(Sampler):
                     "inner_index": inner_idx,
                     "outer_values": outer_values,
                     "inner_values": inner_scenario.values,
+                    "inner_sampler_seed": inner_seed,
                 }
 
                 yield Scenario(
                     values=combined_values,
                     id=f"{scenario_id}-o{outer_idx}-i{inner_idx}",
-                    metadata=metadata,
+                    metadata=self._scenario_metadata(metadata),
                 )
 
 
@@ -739,8 +767,10 @@ class StratifiedSampler(Sampler):
         strata: Sequence[Stratum],
         base_sampler_class: type[Sampler] | None = None,
         id_generator: IDGenerator | type[IDGenerator] | None = None,
+        *,
+        seed: int | None = None,
     ) -> None:
-        super().__init__(parameters, id_generator)
+        super().__init__(parameters, id_generator, seed=seed)
         if not strata:
             raise ValueError("StratifiedSampler requires at least one stratum.")
         self.strata = list(strata)
@@ -933,7 +963,12 @@ class StratifiedSampler(Sampler):
         return lower_cdf + u * (upper_cdf - lower_cdf)
 
     def _sample_stratum(
-        self, stratum: Stratum, n: int
+        self,
+        stratum: Stratum,
+        n: int,
+        *,
+        base_sampler_seed: int,
+        unit_rng: np.random.Generator,
     ) -> Generator[dict[str, object], None, None]:
         """Generate parameter values for one stratum.
 
@@ -969,6 +1004,7 @@ class StratifiedSampler(Sampler):
         base_sampler = self.base_sampler_class(
             self.parameters,
             id_generator=None,
+            seed=base_sampler_seed,
         )
         parameter_by_name = {parameter.name: parameter for parameter in self.parameters}
 
@@ -994,7 +1030,7 @@ class StratifiedSampler(Sampler):
                     # the conditional-distribution interpretation, although
                     # it means that the base sampler's design is not used
                     # for bounded parameters.
-                    u = float(np.random.random())
+                    u = float(unit_rng.random())
 
                 try:
                     conditional_u = self._conditional_unit_interval(
@@ -1038,14 +1074,24 @@ class StratifiedSampler(Sampler):
             n_stratum = allocation[stratum.name]
             if n_stratum <= 0:
                 continue
-            for values in self._sample_stratum(stratum, n_stratum):
+            base_sampler_seed = self._spawn_child_seed()
+            unit_rng_seed = self._spawn_child_seed()
+            for values in self._sample_stratum(
+                stratum,
+                n_stratum,
+                base_sampler_seed=base_sampler_seed,
+                unit_rng=np.random.default_rng(unit_rng_seed),
+            ):
                 scenario_id = self._create_scenario_id(values)
+                metadata = {
+                    "stratum": stratum.name,
+                    "base_sampler_seed": base_sampler_seed,
+                    "unit_rng_seed": unit_rng_seed,
+                }
                 yield Scenario(
                     values=values,
                     id=f"{scenario_id}-{stratum.name}",
-                    metadata={
-                        "stratum": stratum.name,
-                    },
+                    metadata=self._scenario_metadata(metadata),
                 )
 
 
@@ -1341,6 +1387,8 @@ class MixedStrategySampler(Sampler):
         self,
         groups: Sequence[ParameterGroup],
         id_generator: IDGenerator | type[IDGenerator] | None = None,
+        *,
+        seed: int | None = None,
     ):
         # Collect all parameters from all groups
         all_parameters: list[Parameter] = []
@@ -1352,19 +1400,29 @@ class MixedStrategySampler(Sampler):
                 "MixedStrategySampler requires at least one parameter across all groups"
             )
 
-        super().__init__(all_parameters, id_generator)
+        super().__init__(all_parameters, id_generator, seed=seed)
         self.groups = list(groups)
+        if any("seed" in group.sampler_kwargs for group in self.groups):
+            raise ValueError(
+                "sampler_kwargs must not set 'seed'; mixed child seeds are "
+                "derived from the root seed"
+            )
 
         # Create sub-samplers for each group
         self.sub_samplers = []
+        child_seeds = []
         for group in self.groups:
             sampler_class = self._get_sampler_class(group.strategy)
+            child_seed = self._spawn_child_seed()
+            child_seeds.append(child_seed)
             sub_sampler = sampler_class(
                 group.parameters,
                 id_generator=None,  # Don't generate IDs for sub-samplers
+                seed=child_seed,
                 **group.sampler_kwargs,
             )
             self.sub_samplers.append(sub_sampler)
+        self.child_seeds = tuple(child_seeds)
 
     def _get_sampler_class(self, strategy: SamplingStrategy) -> type[Sampler]:
         """Get the sampler class for a given strategy."""
@@ -1388,10 +1446,20 @@ class MixedStrategySampler(Sampler):
         for _ in range(n):
             self._reset_parameters()
             scenario_values: dict[str, Any] = {}
+            child_metadata = []
 
             for sub_gen in sub_generators:
                 sub_scenario = next(sub_gen)
                 scenario_values.update(sub_scenario.values)
+                child_metadata.append(sub_scenario.metadata)
 
             scenario_id = self._create_scenario_id(scenario_values)
-            yield Scenario(values=scenario_values, id=scenario_id)
+            metadata = {
+                "child_seeds": self.child_seeds,
+                "group_metadata": tuple(child_metadata),
+            }
+            yield Scenario(
+                values=scenario_values,
+                id=scenario_id,
+                metadata=self._scenario_metadata(metadata),
+            )
