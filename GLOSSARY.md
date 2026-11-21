@@ -160,14 +160,13 @@ an ordered categorical distribution or binary state tuple). Category labels are
 never ordered lexically.
 
 ### TheoreticalCDFAbsent
-Raised when a theoretical CDF is not available for a parameter or uncertainty model,
-typically for categorical parameters or advanced sampling methods requiring CDF
-evaluation.
+Raised when a distribution does not provide a theoretical CDF. Parameter-level
+or uncertainty-level CDF unavailability is reported as `CDFNotAvailable`.
 
 ### CDFNotAvailable
 Raised when a CDF cannot be computed for a parameter because the underlying uncertainty
-model doesn't support CDF transformation, or the parameter type (e.g., categorical) doesn't
-have a well-defined CDF.
+model doesn't support CDF transformation, or a categorical parameter has no explicit
+category order for empirical CDF evaluation.
 
 ---
 
