@@ -64,3 +64,12 @@ def test_tsnet_config_uses_canonical_name_only():
 
     assert hasattr(config, "TSNetConfig")
     assert not hasattr(config, "TSNetSimulatorConfig")
+
+
+def test_backend_name_is_a_string_enum():
+    """Backend names retain StrEnum-compatible string behavior."""
+    from hydroforge.wdn_modelling.backends import BackendName
+
+    assert isinstance(BackendName.WNTR, str)
+    assert BackendName.WNTR == "wntr"
+    assert str(BackendName.WNTR) == "wntr"

@@ -20,7 +20,18 @@ canonical names used by HydroForge when selecting a demand model or
 simulation backend.
 """
 
-from enum import Enum, StrEnum
+import sys
+from enum import Enum
+
+if sys.version_info >= (3, 11):
+    from enum import StrEnum as _StrEnumBase
+else:  # Python 3.10
+
+    class _StrEnumBase(str, Enum):
+        """String enum compatibility for Python versions before 3.11."""
+
+        def __str__(self) -> str:
+            return str(self.value)
 
 
 class DemandModel(Enum):
@@ -38,7 +49,7 @@ class DemandModel(Enum):
     PDD = "PDD"  # Pressure-Driven
 
 
-class BackendName(StrEnum):
+class BackendName(_StrEnumBase):
     """Enumeration of supported HydroForge simulation backends."""
 
     WNTR = "wntr"

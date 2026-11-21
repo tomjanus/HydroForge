@@ -8,7 +8,8 @@ and the ADR-0002 round-trip guarantees hold for every registry entry.
 from __future__ import annotations
 
 import json
-from enum import Enum, IntEnum, StrEnum
+import sys
+from enum import Enum, IntEnum
 
 import numpy as np
 import pytest
@@ -24,6 +25,17 @@ from hydroforge.uncertainty.specification import (
 from hydroforge.uncertainty.specification.exceptions import (
     SpecificationValidationError,
 )
+
+if sys.version_info >= (3, 11):
+    from enum import StrEnum as _CompatStrEnum
+else:  # Python 3.10
+
+    class _CompatStrEnum(str, Enum):
+        """Minimal StrEnum-compatible base for Python 3.10 tests."""
+
+        def __str__(self) -> str:
+            return str(self.value)
+
 
 PARAMETERS_ONLY = {
     "schema_version": "1.0",
@@ -103,7 +115,7 @@ def test_enum_nominal_value_is_not_documentable():
 
 @pytest.mark.parametrize(
     ("enum_class", "member_value"),
-    [(Enum, 1), (IntEnum, 1), (StrEnum, "high")],
+    [(Enum, 1), (IntEnum, 1), (_CompatStrEnum, "high")],
 )
 def test_enum_subclasses_are_not_documentable_nominal_values(enum_class, member_value):
     class Mode(enum_class):
