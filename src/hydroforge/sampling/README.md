@@ -76,9 +76,6 @@ All sampling strategies ultimately generate `Scenario` objects containing parame
 
 ## Current implementation limitations
 
-- `SALib` is imported by the package but is not declared in
-  `pyproject.toml` or `requirements.txt`; install it separately before importing
-  `hydroforge.sampling`.
 - `Stratum.__post_init__` is not defined on the class, so its intended
   per-instance validation does not run. `StratifiedSampler` performs some
   separate checks, but invalid stratum fields may still be accepted.
