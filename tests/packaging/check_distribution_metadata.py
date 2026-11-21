@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import configparser
+import re
 import tarfile
 from email.message import Message
 from email.parser import BytesParser
@@ -12,6 +13,10 @@ from zipfile import ZipFile
 
 EXPECTED_DISTRIBUTION_NAME = "hydroforge-tools"
 EXPECTED_CLI_ENTRY_POINT = "hydroforge.cli:main"
+_DIRECT_URL_REQUIREMENT = re.compile(
+    r"\s@\s*(?:git\+|hg\+|svn\+|bzr\+|file:|https?://)",
+    re.IGNORECASE,
+)
 
 
 def _require_one_path(paths: list[str], description: str) -> str:
@@ -62,6 +67,21 @@ def _metadata_from_sdist(sdist_path: Path) -> Message:
         return BytesParser().parsebytes(metadata_file.read())
 
 
+def _verify_no_direct_url_requirements(metadata: Message, artifact: str) -> None:
+    """Reject direct URL requirements that PyPI refuses at upload time."""
+    requirements = metadata.get_all("Requires-Dist", [])
+    direct_urls = [
+        requirement
+        for requirement in requirements
+        if _DIRECT_URL_REQUIREMENT.search(requirement)
+    ]
+    if direct_urls:
+        raise AssertionError(
+            f"{artifact} contains direct URL requirements rejected by PyPI: "
+            + ", ".join(direct_urls)
+        )
+
+
 def verify_release_tag(release_tag: str, version: str) -> None:
     """Reject a GitHub release tag that does not match package metadata."""
     expected_tag = f"v{version}"
@@ -109,6 +129,7 @@ def verify_distribution_artifacts(
                 f"{artifact} identifies the distribution as "
                 f"{metadata['Name']!r}, expected {EXPECTED_DISTRIBUTION_NAME!r}."
             )
+        _verify_no_direct_url_requirements(metadata, artifact)
 
     if "hydroforge/__init__.py" not in wheel_members:
         raise AssertionError(

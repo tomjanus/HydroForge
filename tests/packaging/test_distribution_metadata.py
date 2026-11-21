@@ -21,14 +21,19 @@ def _write_distribution_artifacts(
     include_sdist_metadata: bool = True,
     include_package: bool = True,
     cli_entry_point: str = "hydroforge.cli:main",
+    requires_dist: list[str] | None = None,
 ) -> None:
+    requirement_headers = "".join(
+        f"Requires-Dist: {requirement}\n" for requirement in requires_dist or []
+    )
     distribution_dir.mkdir()
     wheel_path = distribution_dir / "hydroforge_tools-1.0.0-py3-none-any.whl"
     with ZipFile(wheel_path, mode="w") as wheel:
         if include_wheel_metadata:
             wheel.writestr(
                 "hydroforge_tools-1.0.0.dist-info/METADATA",
-                f"Metadata-Version: 2.1\nName: {wheel_name}\nVersion: {wheel_version}\n",
+                f"Metadata-Version: 2.1\nName: {wheel_name}\nVersion: {wheel_version}\n"
+                + requirement_headers,
             )
             wheel.writestr(
                 "hydroforge_tools-1.0.0.dist-info/entry_points.txt",
@@ -42,7 +47,7 @@ def _write_distribution_artifacts(
         if include_sdist_metadata:
             metadata = (
                 f"Metadata-Version: 2.1\nName: {sdist_name}\n"
-                f"Version: {sdist_version}\n"
+                f"Version: {sdist_version}\n" + requirement_headers
             ).encode()
             for member_name in (
                 "hydroforge_tools-1.0.0/PKG-INFO",
@@ -58,6 +63,17 @@ def test_artifact_checker_accepts_expected_distribution_and_import_names(tmp_pat
     _write_distribution_artifacts(distribution_dir)
 
     verify_distribution_artifacts(distribution_dir, release_tag="v1.0.0")
+
+
+def test_artifact_checker_rejects_direct_url_requirements(tmp_path):
+    distribution_dir = tmp_path / "dist"
+    _write_distribution_artifacts(
+        distribution_dir,
+        requires_dist=["TSNet @ git+https://github.com/glorialulu/TSNet.git"],
+    )
+
+    with pytest.raises(AssertionError, match="direct URL requirements"):
+        verify_distribution_artifacts(distribution_dir)
 
 
 @pytest.mark.parametrize(

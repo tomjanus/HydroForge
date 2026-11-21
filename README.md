@@ -54,15 +54,16 @@ need:
 | Backend | Solver package |
 | --- | --- |
 | `wntr` | WNTR (core dependency) |
-| `tsnet` | `pip install -e ".[tsnet]"` |
-| `tsnetplus` | `pip install -e ".[tsnetplus]"` |
-| `ptsnet` | `pip install -e ".[ptsnet]"` |
+| `tsnet` | `pip install "git+https://github.com/glorialulu/TSNet.git"` |
+| `tsnetplus` | `pip install "git+https://github.com/tomjanus/TSNetPlus.git"` |
+| `ptsnet` | `pip install "hydroforge-tools[ptsnet]"` |
 
-The `tsnet` and `tsnetplus` extras install their respective GitHub packages;
-`ptsnet` installs the package from PyPI. If code requests a transient backend
-whose package is missing, HydroForge explains which package is required and
-asks whether to install it. Installation happens only after an explicit `y`
-or `yes`; pressing Enter (or answering `n`) leaves the environment unchanged.
+TSNet and TSNetPlus are installed directly from GitHub because PyPI does not
+allow direct URL requirements in published package metadata. `ptsnet` installs
+the package from PyPI. If code requests a transient backend whose package is
+missing, HydroForge explains which package is required and asks whether to
+install it. Installation happens only after an explicit `y` or `yes`; pressing
+Enter (or answering `n`) leaves the environment unchanged.
 
 ## Quick start
 

@@ -59,8 +59,7 @@ def _ensure_optional_dependency(name: str) -> None:
     if response.strip().lower() not in {"y", "yes"}:
         raise ImportError(
             f"Cannot use the {name} backend because '{package_name}' is not "
-            f"installed. Install it before execution with `{install_command}` "
-            f"or `pip install -e '.[{name}]'`."
+            f"installed. Install it before execution with `{install_command}`."
         )
 
     try:

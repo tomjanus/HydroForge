@@ -47,14 +47,13 @@ dependencies = [
     "setuptools>=60.0.0",
     "six>=1.16.0",
     "wntr",
+    "rich",
     "SALib"
 ]
 [project.scripts]
 hydroforge = "hydroforge.cli:main"
 
 [project.optional-dependencies]
-tsnet = ["TSNet @ git+https://github.com/glorialulu/TSNet.git"]
-tsnetplus = ["TSNetPlus @ git+https://github.com/tomjanus/TSNetPlus.git"]
 ptsnet = ["ptsnet"]
 
 # Dev tooling is pinned to exact versions so that the local quality gate and
