@@ -8,17 +8,21 @@ from numbers import Real
 from typing import Literal, Mapping, Sequence, TypeAlias, cast
 
 import wntr
-from wntr.network.elements import Junction, Pipe
+from wntr.network.base import LinkStatus
+from wntr.network.elements import Junction, Pipe, Valve
 
 WNTRParameterProperty: TypeAlias = Literal[
     "diameter",
     "diameter_multiplier",
     "roughness",
     "base_demand",
+    "valve_setting",
 ]
 
 _PIPE_PROPERTIES = frozenset({"diameter", "diameter_multiplier", "roughness"})
-_SUPPORTED_PROPERTIES = _PIPE_PROPERTIES | {"base_demand"}
+_SUPPORTED_PROPERTIES = _PIPE_PROPERTIES | {"base_demand", "valve_setting"}
+_CONTINUOUS_VALVE_TYPES = frozenset({"PRV", "PSV", "FCV", "TCV"})
+_SUPPORTED_VALVE_TYPES = _CONTINUOUS_VALVE_TYPES | {"GPV", "PBV"}
 
 
 class ParameterApplicationError(ValueError):
@@ -66,7 +70,7 @@ class ParameterApplicationReport:
 @dataclass(frozen=True, slots=True)
 class _PreparedOperation:
     binding: WNTRParameterBinding
-    target: Pipe | Junction
+    target: Pipe | Junction | Valve
     old_value: object
     realized_value: object
     new_value: object
@@ -180,16 +184,24 @@ class WNTRParameterAdapter:
                 self._read_value(target, binding.property),
             )
             value_path = f"realized_values[{binding.parameter_key!r}]"
-            realized_value = self._coerce_realized_value(
-                realized_values[binding.parameter_key],
-                value_path,
-            )
-            new_value = self._calculate_new_value(
-                binding.property,
-                cast(float, old_value),
-                realized_value,
-                value_path,
-            )
+            if binding.property == "valve_setting":
+                realized_value, new_value = self._validate_valve_setting(
+                    model,
+                    cast(Valve, target),
+                    realized_values[binding.parameter_key],
+                    value_path,
+                )
+            else:
+                realized_value = self._coerce_realized_value(
+                    realized_values[binding.parameter_key],
+                    value_path,
+                )
+                new_value = self._calculate_new_value(
+                    binding.property,
+                    cast(float, old_value),
+                    realized_value,
+                    value_path,
+                )
             current_values[storage_key] = new_value
             prepared.append(
                 _PreparedOperation(
@@ -222,8 +234,28 @@ class WNTRParameterAdapter:
         model: wntr.network.WaterNetworkModel,
         binding: WNTRParameterBinding,
         path: str,
-    ) -> Pipe | Junction:
+    ) -> Pipe | Junction | Valve:
         component_id = binding.component_id
+        if binding.property == "valve_setting":
+            if component_id in model.valve_name_list:
+                return model.get_link(component_id)
+            if component_id in model.link_name_list:
+                component = model.get_link(component_id)
+                raise ParameterApplicationError(
+                    f"{path}.component_id",
+                    f"{component_id!r} is a {type(component).__name__}, expected Valve",
+                )
+            if component_id in model.node_name_list:
+                component = model.get_node(component_id)
+                raise ParameterApplicationError(
+                    f"{path}.component_id",
+                    f"{component_id!r} is a {type(component).__name__}, expected Valve",
+                )
+            raise ParameterApplicationError(
+                f"{path}.component_id",
+                f"unknown WNTR component {component_id!r}",
+            )
+
         if binding.property in _PIPE_PROPERTIES:
             if component_id in model.pipe_name_list:
                 return model.get_link(component_id)
@@ -277,15 +309,85 @@ class WNTRParameterAdapter:
 
     @staticmethod
     def _read_value(
-        target: Pipe | Junction,
+        target: Pipe | Junction | Valve,
         property_name: WNTRParameterProperty,
     ) -> object:
         if property_name in {"diameter", "diameter_multiplier"}:
             return float(target.diameter)
         if property_name == "roughness":
             return float(target.roughness)
+        if property_name == "valve_setting":
+            assert isinstance(target, Valve)
+            return WNTRParameterAdapter._read_valve_setting(target)
         assert isinstance(target, Junction)
         return float(target.demand_timeseries_list[0].base_value)
+
+    @staticmethod
+    def _read_valve_setting(valve: Valve) -> object:
+        valve_type = valve.valve_type.upper()
+        if valve_type in _CONTINUOUS_VALVE_TYPES:
+            return float(valve.initial_setting)
+        if valve_type == "GPV":
+            return valve.headloss_curve_name
+        if valve_type == "PBV":
+            status = valve.initial_status.name.upper()
+            return "OPEN" if status in {"OPEN", "OPENED"} else status
+        return valve.initial_setting
+
+    @staticmethod
+    def _validate_valve_setting(
+        model: wntr.network.WaterNetworkModel,
+        valve: Valve,
+        value: object,
+        path: str,
+    ) -> tuple[object, object]:
+        valve_type = valve.valve_type.upper()
+        if valve_type not in _SUPPORTED_VALVE_TYPES:
+            raise ParameterApplicationError(
+                path,
+                f"unsupported WNTR valve type {valve_type!r}",
+            )
+
+        if valve_type in _CONTINUOUS_VALVE_TYPES:
+            setting = WNTRParameterAdapter._coerce_realized_value(value, path)
+            is_invalid = setting < 0.0 if valve_type == "TCV" else setting <= 0.0
+            if is_invalid:
+                comparator = "non-negative" if valve_type == "TCV" else "positive"
+                raise ParameterApplicationError(
+                    path,
+                    f"{valve_type} setting must be {comparator}",
+                )
+            return setting, setting
+
+        if valve_type == "GPV":
+            if not isinstance(value, str) or not value:
+                raise ParameterApplicationError(
+                    path, "GPV setting must be a non-empty headloss curve ID"
+                )
+            if value not in model.curve_name_list:
+                raise ParameterApplicationError(
+                    path, f"unknown GPV headloss curve {value!r}"
+                )
+            curve_type = model.get_curve(value).curve_type
+            if curve_type is not None and curve_type.upper() != "HEADLOSS":
+                raise ParameterApplicationError(
+                    path,
+                    f"curve {value!r} has type {curve_type!r}; GPV requires a "
+                    "HEADLOSS curve",
+                )
+            return value, value
+
+        if not isinstance(value, str):
+            raise ParameterApplicationError(
+                path, "PBV setting must be 'OPEN' or 'CLOSED'"
+            )
+        status = value.strip().upper()
+        if status not in {"OPEN", "CLOSED"}:
+            raise ParameterApplicationError(
+                path,
+                f"invalid PBV status {value!r}; expected 'OPEN' or 'CLOSED'",
+            )
+        return status, status
 
     @staticmethod
     def _calculate_new_value(
@@ -316,7 +418,25 @@ class WNTRParameterAdapter:
     def _write_value(operation: _PreparedOperation, value: object) -> None:
         property_name = operation.binding.property
         target = operation.target
-        if property_name in {"diameter", "diameter_multiplier"}:
+        if property_name == "valve_setting":
+            assert isinstance(target, Valve)
+            valve_type = target.valve_type.upper()
+            if valve_type in _CONTINUOUS_VALVE_TYPES:
+                target.initial_setting = value
+            elif valve_type == "GPV":
+                target.headloss_curve_name = value
+            elif valve_type == "PBV":
+                status_values = {
+                    "OPEN": LinkStatus.Opened,
+                    "CLOSED": LinkStatus.Closed,
+                    "ACTIVE": LinkStatus.Active,
+                }
+                if not isinstance(value, str):
+                    raise TypeError("preflighted PBV status must be a string")
+                target.initial_status = status_values[value]
+            else:
+                raise ValueError(f"Unsupported WNTR valve type {valve_type!r}")
+        elif property_name in {"diameter", "diameter_multiplier"}:
             assert isinstance(target, Pipe)
             target.diameter = value
         elif property_name == "roughness":

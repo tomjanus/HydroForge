@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 import wntr
+from wntr.network.base import LinkStatus
 
 from hydroforge.wdn_modelling.uncertainty import (
     ParameterApplicationError,
@@ -35,6 +36,39 @@ def _make_model() -> wntr.network.WaterNetworkModel:
         diameter=0.3,
         roughness=110.0,
     )
+    return model
+
+
+def _make_valve_model() -> wntr.network.WaterNetworkModel:
+    model = wntr.network.WaterNetworkModel()
+    model.add_reservoir("R1", base_head=30.0)
+    model.add_junction("J1", base_demand=2.0, elevation=10.0)
+    model.add_junction("J2", base_demand=4.0, elevation=10.0)
+    model.add_pipe(
+        "P1",
+        "R1",
+        "J1",
+        length=100.0,
+        diameter=0.2,
+        roughness=100.0,
+    )
+    model.add_curve("headloss", "HEADLOSS", [(0.0, 0.0), (1.0, 1.0)])
+    model.add_curve("pump-curve", "HEAD", [(0.0, 10.0), (1.0, 20.0)])
+    for valve_type, initial_setting in [
+        ("PRV", 5.0),
+        ("PSV", 6.0),
+        ("PBV", "OPEN"),
+        ("FCV", 7.0),
+        ("TCV", 0.0),
+        ("GPV", "headloss"),
+    ]:
+        model.add_valve(
+            f"V_{valve_type}",
+            "J1",
+            "J2",
+            valve_type=valve_type,
+            initial_setting=initial_setting,
+        )
     return model
 
 
@@ -240,3 +274,119 @@ def test_applies_values_to_a_loaded_wntr_network_fixture():
     assert model.get_node(junction_id).demand_timeseries_list[0].base_value == 0.75
     assert report.operations[0].old_value == old_diameter
     assert report.operations[1].old_value == old_demand
+
+
+def test_applies_supported_valve_settings_and_audits_in_binding_order():
+    model = _make_valve_model()
+    bindings = [
+        _binding("V_PRV", "valve_setting", "prv"),
+        _binding("V_PSV", "valve_setting", "psv"),
+        _binding("V_PBV", "valve_setting", "pbv"),
+        _binding("V_FCV", "valve_setting", "fcv"),
+        _binding("V_TCV", "valve_setting", "tcv"),
+        _binding("V_GPV", "valve_setting", "gpv"),
+    ]
+
+    report = WNTRParameterAdapter(bindings).apply(
+        model,
+        {
+            "prv": 11.0,
+            "psv": 12.0,
+            "pbv": "CLOSED",
+            "fcv": 13.0,
+            "tcv": 0.0,
+            "gpv": "headloss",
+        },
+    )
+
+    assert model.get_link("V_PRV").initial_setting == 11.0
+    assert model.get_link("V_PSV").initial_setting == 12.0
+    assert model.get_link("V_PBV").initial_status == LinkStatus.Closed
+    assert model.get_link("V_FCV").initial_setting == 13.0
+    assert model.get_link("V_TCV").initial_setting == 0.0
+    assert model.get_link("V_GPV").headloss_curve_name == "headloss"
+    assert [operation.operation_index for operation in report.operations] == list(
+        range(6)
+    )
+    assert [operation.component_id for operation in report.operations] == [
+        "V_PRV",
+        "V_PSV",
+        "V_PBV",
+        "V_FCV",
+        "V_TCV",
+        "V_GPV",
+    ]
+    assert [operation.parameter_key for operation in report.operations] == [
+        "prv",
+        "psv",
+        "pbv",
+        "fcv",
+        "tcv",
+        "gpv",
+    ]
+    assert [operation.old_value for operation in report.operations] == [
+        5.0,
+        6.0,
+        "ACTIVE",
+        7.0,
+        0.0,
+        "headloss",
+    ]
+    assert report.operations[2].old_value == "ACTIVE"
+    assert report.operations[2].realized_value == "CLOSED"
+    assert report.operations[2].new_value == "CLOSED"
+    assert report.operations[5].old_value == "headloss"
+    assert report.operations[5].new_value == "headloss"
+
+
+@pytest.mark.parametrize(
+    ("component_id", "value", "path"),
+    [
+        ("P1", 10.0, "bindings[1].component_id"),
+        ("V_PRV", -1.0, "realized_values['setting']"),
+        ("V_TCV", -1.0, "realized_values['setting']"),
+        ("V_GPV", "missing-curve", "realized_values['setting']"),
+        ("V_GPV", "pump-curve", "realized_values['setting']"),
+        ("V_PBV", "ACTIVE", "realized_values['setting']"),
+        ("V_PBV", True, "realized_values['setting']"),
+    ],
+)
+def test_invalid_valve_setting_is_rejected_before_any_mutation(
+    component_id: str,
+    value: object,
+    path: str,
+):
+    model = _make_valve_model()
+    original_prv_setting = model.get_link("V_PRV").initial_setting
+    original_psv_setting = model.get_link("V_PSV").initial_setting
+    original_gpv_curve = model.get_link("V_GPV").headloss_curve_name
+
+    _assert_error_path(
+        model,
+        [
+            _binding("V_PSV", "valve_setting", "valid"),
+            _binding(component_id, "valve_setting", "setting"),
+        ],
+        {"valid": 15.0, "setting": value},
+        path,
+    )
+
+    assert model.get_link("V_PRV").initial_setting == original_prv_setting
+    assert model.get_link("V_PSV").initial_setting == original_psv_setting
+    assert model.get_link("V_GPV").headloss_curve_name == original_gpv_curve
+
+
+def test_unsupported_valve_kind_is_rejected_before_mutation(monkeypatch):
+    model = _make_valve_model()
+    valve = model.get_link("V_PRV")
+    old_setting = valve.initial_setting
+    monkeypatch.setattr(type(valve), "valve_type", property(lambda self: "XV"))
+
+    _assert_error_path(
+        model,
+        [_binding("V_PRV", "valve_setting", "setting")],
+        {"setting": 12.0},
+        "realized_values['setting']",
+    )
+
+    assert valve.initial_setting == old_setting

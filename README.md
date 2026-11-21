@@ -185,8 +185,11 @@ preflights the complete binding set, updates the supplied model in place, and
 returns an ordered audit report.
 
 Supported properties are `diameter`, `diameter_multiplier`, and `roughness` on
-pipes and `base_demand` on a junction with exactly one demand timeseries.
-Multiple junction demand entries are rejected rather than partially updated.
+pipes; `base_demand` on a junction with exactly one demand timeseries; and
+`valve_setting`. PRV/PSV/FCV settings must be positive numbers, TCV settings
+must be non-negative, GPV settings reference an existing `HEADLOSS` curve, and
+PBV settings are `OPEN` or `CLOSED`. Multiple junction demand entries are
+rejected rather than partially updated.
 
 ```python
 from hydroforge.wdn_modelling.uncertainty import (
