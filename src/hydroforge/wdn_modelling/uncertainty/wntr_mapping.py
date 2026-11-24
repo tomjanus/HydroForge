@@ -119,6 +119,8 @@ class WNTRModelMapper(GenericModelMapper[WNTRModel, WNTRSimulationResults]):
             run_model=run,
             measure_sensors=measure,
             sensor_seeds=sensor_seeds,
+            parameter_bindings=self.parameter_bindings,
+            sensor_bindings=self.sensor_bindings,
             sensor_definitions=self._sensor_definitions,
         )
 
