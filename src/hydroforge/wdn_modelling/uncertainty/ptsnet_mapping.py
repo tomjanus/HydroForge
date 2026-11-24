@@ -6,6 +6,8 @@ import copy
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
+import numpy as np
+
 try:
     from hydroforge.wdn_modelling.backends.ptsnet import (
         PTSNetSimulator,
@@ -55,6 +57,27 @@ class PTSNetSensorBinding:
     variable: str = "head"
 
 
+@dataclass
+class PTSNetInteriorSensorBinding:
+    pipe_id: str
+    sensor_key: str
+    quantity: str = "head"
+    name: str | None = None
+    fraction: float | None = None
+    index: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.quantity not in {"head", "flowrate"}:
+            raise ValueError(
+                "PTSNet interior quantity must be 'head' or 'flowrate', "
+                f"got {self.quantity!r}"
+            )
+        if self.fraction is None and self.index is None:
+            raise ValueError("an interior sensor needs a fraction or mesh index")
+        if self.fraction is not None and self.index is not None:
+            raise ValueError("use either a fraction or a mesh index, not both")
+
+
 class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]):
     """Map one sampled scenario to a fresh PTSNet model."""
 
@@ -63,6 +86,7 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
         wave_speed_bindings: Sequence[PTSNetWaveSpeedBinding] = (),
         surge_protection_bindings: Sequence[PTSNetSurgeProtectionBinding] = (),
         sensor_bindings: Sequence[PTSNetSensorBinding] = (),
+        interior_sensor_bindings: Sequence[PTSNetInteriorSensorBinding] = (),
         sensor_definitions: Mapping[str, SensorDefinition] | None = None,
         simulator_config: Any | None = None,
         simulator: Any | None = None,
@@ -72,6 +96,7 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
         self.wave_speed_bindings = tuple(wave_speed_bindings)
         self.surge_protection_bindings = tuple(surge_protection_bindings)
         self.sensor_bindings = tuple(sensor_bindings)
+        self.interior_sensor_bindings = tuple(interior_sensor_bindings)
         self._sensor_definitions = dict(sensor_definitions or {})
         self._simulator = simulator
         self._simulator_config = simulator_config
@@ -125,6 +150,26 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
                             raise ValueError(
                                 f"invalid PTSNet surge-protection value {values[key]!r}"
                             ) from exc
+
+            # Register configured interior capture locations before simulation.
+            for binding in self.interior_sensor_bindings:
+                if not hasattr(model, "add_pipe_output"):
+                    raise RuntimeError(
+                        "PTSNet interior capture requires add_pipe_output; "
+                        "install a PTSNet version that supports it"
+                    )
+                output_name = binding.name or binding.sensor_key
+                position = (
+                    binding.fraction if binding.fraction is not None else binding.index
+                )
+                position_type = "fraction" if binding.fraction is not None else "index"
+                model.add_pipe_output(
+                    output_name,
+                    binding.pipe_id,
+                    position,
+                    position_type,
+                    variables=(binding.quantity,),
+                )
 
             # Apply wave speeds.
             for wave_binding in self.wave_speed_bindings:
@@ -203,7 +248,7 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
             specification: UncertaintySpecification | None,
             definitions: Mapping[str, SensorDefinition],
         ) -> dict[str, Any]:
-            if not self.sensor_bindings:
+            if not self.sensor_bindings and not self.interior_sensor_bindings:
                 return {}
             values = getattr(scenario, "values", scenario)
             if not isinstance(values, Mapping):
@@ -235,6 +280,50 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
                 measured.setdefault(binding.variable, {})[
                     binding.node_id
                 ] = measured_series
+
+            interior_results = getattr(raw_results, "interior_results", None)
+            if interior_results is None:
+                interior_results = getattr(
+                    getattr(raw_results, "model", None), "interior_results", {}
+                )
+            for interior_binding in self.interior_sensor_bindings:
+                if interior_binding.sensor_key not in resolved_definitions:
+                    raise ValueError(
+                        f"missing PTSNet sensor definition {interior_binding.sensor_key!r}"
+                    )
+                definition = resolved_definitions[interior_binding.sensor_key]
+                sensor = definition.create_sensor()
+                output_name = interior_binding.name or interior_binding.sensor_key
+                if (
+                    not isinstance(interior_results, Mapping)
+                    or output_name not in interior_results
+                ):
+                    raise ValueError(
+                        f"PTSNet results contain no interior output for {output_name!r}"
+                    )
+                quantity_results = interior_results[output_name]
+                if interior_binding.quantity not in quantity_results:
+                    raise ValueError(
+                        f"PTSNet interior output {output_name!r} has no {interior_binding.quantity!r}"
+                    )
+                values = quantity_results[interior_binding.quantity]
+                timestamps = getattr(
+                    getattr(raw_results, "model", None), "simulation_timestamps", None
+                )
+                if timestamps is None:
+                    timestamps = range(len(np.asarray(values)))
+                import pandas as pd
+
+                series = pd.Series(
+                    np.asarray(values, dtype=float),
+                    index=pd.Index(timestamps, name="time"),
+                    name=output_name,
+                )
+                measured_series = sensor.measure(series.copy())
+                measured.setdefault(interior_binding.quantity, {})[
+                    output_name
+                ] = measured_series
+
             result: dict[str, Any] = {}
             for variable, columns in measured.items():
                 if isinstance(columns, dict):

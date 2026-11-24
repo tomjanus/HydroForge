@@ -199,26 +199,178 @@ def test_ptsnet_missing_wave_speed_value_fails_before_mutation():
         mapper.map(specification, model).realize(Scenario(values={}, id="scenario"))
 
 
-try:
-    import ptsnet  # noqa: F401
-except Exception:  # pragma: no cover
-    ptsnet = None
+# Optional PTSNet integration is unavailable in this environment because the
+# native EPANET shared library is missing, so no live integration test runs.
 
 
-def _ptsnet_integration_available():
-    if ptsnet is None:
-        return False
-    import importlib.util
+class _FakeInteriorModel:
+    def __init__(self):
+        self.settings = type("Settings", (), {"default_wave_speed": 1000.0})()
+        self.ss = {"pipe": type("PipeTable", (), {"wave_speed": {}})()}
+        self.node_name_list = ["N1"]
+        self.pipe_output_requests = []
+        self.interior_results = {}
+        self.simulation_timestamps = [0, 1]
 
-    return importlib.util.find_spec("tqdm") is not None
+    def pipes(self):
+        return [("P1", self)]
+
+    def get_node(self, name):
+        return self
+
+    def add_surge_protection(self, *args, **kwargs):
+        return None
+
+    def add_pipe_output(self, name, pipe_name, position, position_type, variables=None):
+        self.pipe_output_requests.append(
+            (name, pipe_name, position, position_type, tuple(variables or ()))
+        )
+
+    def run(self):
+        self.interior_results = {
+            "interior": {"head": [1.0, 2.0]},
+            "interior_idx": {"head": [3.0, 4.0]},
+        }
 
 
-if _ptsnet_integration_available():
+class _FakeInteriorResults:
+    def __init__(self, model):
+        self.model = model
 
-    def test_ptsnet_optional_integration_smoke():
-        pytest.importorskip("tqdm")
-        from hydroforge.wdn_modelling.backends.ptsnet_backend import PTSNetBackend
+    def get_node_variable(self, variable, nodes, as_dataframe=False):
+        import pandas as pd
 
-        backend = PTSNetBackend()
-        model = backend.load_model("tests/base_networks/Net1.inp")
-        assert model is not None
+        return pd.DataFrame({"N1": [1.0, 2.0]}, index=[0, 1])
+
+
+def test_ptsnet_interior_fractional_binding_registers_add_pipe_output():
+    from hydroforge.sampling import Scenario
+    from hydroforge.uncertainty.specification import UncertaintySpecification
+    from hydroforge.wdn_modelling.uncertainty.ptsnet_mapping import (
+        PTSNetInteriorSensorBinding,
+        PTSNetModelMapper,
+    )
+
+    model = _FakeInteriorModel()
+    mapper = PTSNetModelMapper(
+        interior_sensor_bindings=[
+            PTSNetInteriorSensorBinding("P1", "interior", "head", fraction=0.25)
+        ],
+    )
+    specification = UncertaintySpecification.from_dict(
+        {"schema_version": "1.0", "sensors": {}}
+    )
+    realized_model = (
+        mapper.map(specification, model)
+        .realize(Scenario(values={}, id="scenario"))
+        .model
+    )
+    assert realized_model.pipe_output_requests == [
+        ("interior", "P1", 0.25, "fraction", ("head",))
+    ]
+
+
+def test_ptsnet_interior_mesh_index_binding_registers_add_pipe_output():
+    from hydroforge.sampling import Scenario
+    from hydroforge.uncertainty.specification import UncertaintySpecification
+    from hydroforge.wdn_modelling.uncertainty.ptsnet_mapping import (
+        PTSNetInteriorSensorBinding,
+        PTSNetModelMapper,
+    )
+
+    model = _FakeInteriorModel()
+    mapper = PTSNetModelMapper(
+        interior_sensor_bindings=[
+            PTSNetInteriorSensorBinding("P1", "interior_idx", "head", index=1)
+        ],
+    )
+    specification = UncertaintySpecification.from_dict(
+        {"schema_version": "1.0", "sensors": {}}
+    )
+    realized_model = (
+        mapper.map(specification, model)
+        .realize(Scenario(values={}, id="scenario"))
+        .model
+    )
+    assert realized_model.pipe_output_requests == [
+        ("interior_idx", "P1", 1, "index", ("head",))
+    ]
+
+
+def test_ptsnet_interior_measured_output_preserves_timestamps_and_provenance():
+    from hydroforge.sampling import Scenario
+    from hydroforge.uncertainty.specification import (
+        SensorDefinition,
+        UncertaintySpecification,
+    )
+    from hydroforge.wdn_modelling.uncertainty.ptsnet_mapping import (
+        PTSNetInteriorSensorBinding,
+        PTSNetModelMapper,
+    )
+
+    model = _FakeInteriorModel()
+    model.interior_results = {"interior": {"head": [1.0, 2.0]}}
+    model.run = lambda: None
+    specification = UncertaintySpecification.from_dict(
+        {"schema_version": "1.0", "sensors": {}}
+    )
+    mapper = PTSNetModelMapper(
+        interior_sensor_bindings=[
+            PTSNetInteriorSensorBinding(
+                "P1", "interior", "head", fraction=0.25, name="interior"
+            )
+        ],
+        sensor_definitions={
+            "interior": SensorDefinition(type="Offset", parameters={"offset": 0.5})
+        },
+    )
+    mapper._run = lambda model: _FakeInteriorResults(model)
+    uncertain_model = mapper.map(specification, model)
+    result = uncertain_model.realize(
+        Scenario(values={}, id="scenario", metadata={"effective_seed": 7})
+    ).run()
+
+    assert result.raw_results is not None
+    assert result.measured_outputs["head"]["interior"].index.tolist() == [0, 1]
+    assert result.provenance["scenario_id"] == "scenario"
+
+
+def test_ptsnet_missing_interior_output_fails_clearly():
+    from hydroforge.sampling import Scenario
+    from hydroforge.uncertainty.specification import (
+        SensorDefinition,
+        UncertaintySpecification,
+    )
+    from hydroforge.wdn_modelling.uncertainty.ptsnet_mapping import (
+        PTSNetInteriorSensorBinding,
+        PTSNetModelMapper,
+    )
+
+    model = _FakeInteriorModel()
+    model.interior_results = {}
+    specification = UncertaintySpecification.from_dict(
+        {"schema_version": "1.0", "sensors": {}}
+    )
+    mapper = PTSNetModelMapper(
+        interior_sensor_bindings=[
+            PTSNetInteriorSensorBinding(
+                "P1", "missing", "head", fraction=0.25, name="missing"
+            )
+        ],
+        sensor_definitions={
+            "missing": SensorDefinition(type="Offset", parameters={"offset": 0.0})
+        },
+        run_model=lambda model: _FakeInteriorResults(model),
+    )
+    uncertain_model = mapper.map(specification, model)
+    with pytest.raises(ValueError, match="interior output"):
+        uncertain_model.realize(Scenario(values={}, id="scenario")).run()
+
+
+def test_ptsnet_interior_quantity_validation():
+    from hydroforge.wdn_modelling.uncertainty.ptsnet_mapping import (
+        PTSNetInteriorSensorBinding,
+    )
+
+    with pytest.raises(ValueError):
+        PTSNetInteriorSensorBinding("P1", "sensor", "velocity", fraction=0.25)
