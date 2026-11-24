@@ -66,6 +66,7 @@ class TSNetPlusModelMapper(
         wave_speed_bindings: Sequence[TSNetPlusWaveSpeedBinding] = (),
         surge_tank_bindings: Sequence[TSNetPlusSurgeTankBinding] = (),
         sensor_bindings: Sequence[TSNetPlusSensorBinding] = (),
+        interior_sensor_bindings: Sequence[Any] = (),
         sensor_definitions: Mapping[str, SensorDefinition] | None = None,
         simulator_config: Any | None = None,
         simulator: Any | None = None,
@@ -75,6 +76,7 @@ class TSNetPlusModelMapper(
         self.wave_speed_bindings = tuple(wave_speed_bindings)
         self.surge_tank_bindings = tuple(surge_tank_bindings)
         self.sensor_bindings = tuple(sensor_bindings)
+        self.interior_sensor_bindings = tuple(interior_sensor_bindings)
         self._sensor_definitions = dict(sensor_definitions or {})
         self._simulator = simulator
         self._simulator_config = simulator_config
@@ -261,6 +263,10 @@ class TSNetPlusModelMapper(
             run_model=run,
             measure_sensors=measure,
             sensor_seeds=sensor_seeds,
+            wave_speed_bindings=self.wave_speed_bindings,
+            surge_bindings=self.surge_tank_bindings,
+            interior_bindings=self.interior_sensor_bindings,
+            sensor_bindings=self.sensor_bindings,
             sensor_definitions=self._sensor_definitions,
         )
 

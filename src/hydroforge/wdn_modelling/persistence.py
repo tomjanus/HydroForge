@@ -25,6 +25,7 @@ from hydroforge.wdn_modelling.mapping import resolve_sensor_parameter_references
 
 _REQUIRED_MANIFEST_KEYS = {
     "manifest_version",
+    "backend",
     "specification",
     "scenario",
     "sampled_values",
@@ -61,6 +62,45 @@ def _binding_to_dict(binding: Any) -> dict[str, Any]:
     }
 
 
+def _backend_name(instance: Any, model: Any) -> str:
+    explicit = getattr(instance, "backend", None)
+    if isinstance(explicit, str) and explicit:
+        return explicit
+    explicit = getattr(model, "backend", None)
+    if isinstance(explicit, str) and explicit:
+        return explicit
+    module = type(model).__module__.lower()
+    class_name = type(model).__name__.lower()
+    if "tsnetplus" in module or "tsnetplus" in class_name:
+        return "tsnetplus"
+    if "ptsnet" in module or "ptsnet" in class_name:
+        return "ptsnet"
+    return "wntr"
+
+
+def _save_model_artifact(model: Any, model_path: Path) -> None:
+    for attribute in ("inpfile", "_inpfile"):
+        source = getattr(model, attribute, None)
+        if isinstance(source, (str, Path)):
+            source_path = Path(source)
+            if source_path.is_file():
+                import shutil
+
+                shutil.copyfile(source_path, model_path)
+                return
+    writer = getattr(model, "write_inpfile", None)
+    if callable(writer):
+        writer(str(model_path))
+        return
+    try:
+        import wntr
+
+        wntr.network.io.write_inpfile(model, str(model_path))
+        return
+    except Exception as exc:
+        raise ValueError(f"could not save a native model artifact: {exc}") from exc
+
+
 def save_realization(
     instance: Any,
     directory: Any = None,
@@ -85,10 +125,11 @@ def save_realization(
     model = getattr(instance, "model", None)
     if model is None:
         raise TypeError("instance must carry a model")
+    backend = _backend_name(instance, model)
 
     model_artifact = "model.inp"
     model_path = directory / model_artifact
-    wntr.network.io.write_inpfile(model, str(model_path))
+    _save_model_artifact(model, model_path)
 
     parameter_bindings = getattr(instance, "parameter_bindings", None)
     if parameter_bindings is None:
@@ -96,6 +137,19 @@ def save_realization(
     sensor_bindings = getattr(instance, "sensor_bindings", None)
     if sensor_bindings is None:
         sensor_bindings = kwargs.get("sensor_bindings", [])
+    wave_speed_bindings = getattr(instance, "wave_speed_bindings", None)
+    if wave_speed_bindings is None:
+        wave_speed_bindings = kwargs.get("wave_speed_bindings", [])
+    surge_bindings = getattr(instance, "surge_bindings", None)
+    if surge_bindings is None:
+        surge_bindings = getattr(instance, "surge_protection_bindings", None)
+    if surge_bindings is None:
+        surge_bindings = getattr(instance, "surge_tank_bindings", None)
+    if surge_bindings is None:
+        surge_bindings = kwargs.get("surge_bindings", [])
+    interior_bindings = getattr(instance, "interior_bindings", None)
+    if interior_bindings is None:
+        interior_bindings = kwargs.get("interior_bindings", [])
 
     sensor_definitions = getattr(instance, "sensor_definitions", {}) or {}
     resolved_sensor_definitions = {}
@@ -106,6 +160,7 @@ def save_realization(
 
     manifest = {
         "manifest_version": "1.0",
+        "backend": backend,
         "schema_version": specification.schema_version,
         "specification": specification.to_dict(),
         "scenario": {
@@ -126,6 +181,15 @@ def save_realization(
             "sensor_bindings": [
                 _binding_to_dict(binding) for binding in (sensor_bindings or [])
             ],
+            "wave_speed_bindings": [
+                _binding_to_dict(binding) for binding in (wave_speed_bindings or [])
+            ],
+            "surge_bindings": [
+                _binding_to_dict(binding) for binding in (surge_bindings or [])
+            ],
+            "interior_bindings": [
+                _binding_to_dict(binding) for binding in (interior_bindings or [])
+            ],
         },
         "backend_settings": kwargs.get("backend_settings", {}),
         "sensor_setup": {
@@ -143,6 +207,125 @@ def save_realization(
     manifest_path = directory / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return directory
+
+
+def _apply_dynamic_configuration(backend, model, manifest):
+    if backend not in {"tsnetplus", "ptsnet"}:
+        return
+    values = manifest.get("sampled_values", {})
+    if not isinstance(values, Mapping):
+        values = {}
+    mapping = manifest.get("mapping", {})
+    if not isinstance(mapping, Mapping):
+        mapping = {}
+
+    if backend == "tsnetplus":
+        for binding in mapping.get("wave_speed_bindings", []) or []:
+            if not isinstance(binding, Mapping):
+                continue
+            key = binding.get("parameter_key")
+            if key in values:
+                pipes = binding.get("pipes")
+                if hasattr(model, "set_wavespeed"):
+                    if pipes is None:
+                        model.set_wavespeed(values[key])
+                    else:
+                        model.set_wavespeed(values[key], pipes=list(pipes))
+                settings = getattr(model, "settings", None)
+                if settings is not None and pipes is None:
+                    try:
+                        settings.default_wave_speed = float(values[key])
+                    except (TypeError, ValueError):
+                        pass
+        for binding in mapping.get("surge_bindings", []) or []:
+            if not isinstance(binding, Mapping):
+                continue
+            node_id = binding.get("node_id")
+            tank_type = binding.get("tank_type", "open")
+            shape = list(binding.get("shape", (1.0,)))
+            if binding.get("area_key") in values:
+                if shape:
+                    shape[0] = values[binding["area_key"]]
+            if tank_type == "closed":
+                if binding.get("height_key") in values and len(shape) > 1:
+                    shape[1] = values[binding["height_key"]]
+                if binding.get("level_key") in values and len(shape) >= 3:
+                    shape[2] = values[binding["level_key"]]
+            if hasattr(model, "add_surge_tank"):
+                model.add_surge_tank(node_id, tuple(shape), tank_type)
+        for binding in mapping.get("interior_bindings", []) or []:
+            if not isinstance(binding, Mapping):
+                continue
+            if not hasattr(model, "add_pipe_output"):
+                continue
+            output_name = binding.get("name") or binding.get("sensor_key")
+            position = (
+                binding.get("fraction")
+                if binding.get("fraction") is not None
+                else binding.get("index")
+            )
+            position_type = (
+                "fraction" if binding.get("fraction") is not None else "index"
+            )
+            quantity = binding.get("quantity", "head")
+            model.add_pipe_output(
+                output_name,
+                binding.get("pipe_id"),
+                position,
+                position_type,
+                variables=(quantity,),
+            )
+
+    if backend == "ptsnet":
+        for binding in mapping.get("wave_speed_bindings", []) or []:
+            if not isinstance(binding, Mapping):
+                continue
+            key = binding.get("parameter_key")
+            if key in values:
+                ss = getattr(model, "ss", None)
+                if isinstance(ss, Mapping) and "pipe" in ss:
+                    wave_speed = getattr(ss["pipe"], "wave_speed", None)
+                    pipes = binding.get("pipes")
+                    if wave_speed is not None:
+                        if pipes is None:
+                            try:
+                                wave_speed[:] = float(values[key])
+                            except Exception:
+                                pass
+                        else:
+                            for pipe in pipes:
+                                wave_speed[pipe] = float(values[key])
+                settings = getattr(model, "settings", None)
+                if settings is not None and binding.get("pipes") is None:
+                    try:
+                        settings.default_wave_speed = float(values[key])
+                    except Exception:
+                        pass
+        for binding in mapping.get("surge_bindings", []) or []:
+            if not isinstance(binding, Mapping):
+                continue
+            node_id = binding.get("node_id")
+            protection_type = binding.get("protection_type", "open")
+            area = binding.get("tank_area", 1.0)
+            if binding.get("area_key") in values:
+                area = values[binding["area_key"]]
+            height = binding.get("tank_height")
+            if binding.get("height_key") in values:
+                height = values[binding["height_key"]]
+            level = binding.get("water_level")
+            if binding.get("level_key") in values:
+                level = values[binding["level_key"]]
+            if hasattr(model, "add_surge_protection"):
+                if protection_type == "closed":
+                    model.add_surge_protection(
+                        node_id,
+                        protection_type,
+                        area,
+                        tank_height=height,
+                        water_level=level,
+                    )
+                else:
+                    model.add_surge_protection(node_id, protection_type, area)
 
 
 def load_realization(directory: Any) -> SimulationInstance:
@@ -165,6 +348,14 @@ def load_realization(directory: Any) -> SimulationInstance:
         raise ValueError(
             f"unsupported manifest version: {manifest.get('manifest_version')!r}"
         )
+
+    backend = manifest.get("backend")
+    if backend not in {"wntr", "tsnetplus", "ptsnet"}:
+        raise ValueError(f"unsupported or missing backend: {backend!r}")
+
+    manifest_mapping = manifest.get("mapping", {})
+    if not isinstance(manifest_mapping, Mapping):
+        raise ValueError("manifest mapping must be a mapping")
 
     spec_document = manifest.get("specification")
     if not isinstance(spec_document, dict):
@@ -189,7 +380,24 @@ def load_realization(directory: Any) -> SimulationInstance:
         )
     if not resolved_model.is_file():
         raise FileNotFoundError(f"missing model artifact: {model_path}")
-    model = wntr.network.io.read_inpfile(str(model_path))
+    if backend == "wntr":
+        model = wntr.network.io.read_inpfile(str(model_path))
+    elif backend == "tsnetplus":
+        try:
+            from hydroforge.wdn_modelling.backends.tsnetplus_backend import (
+                TSNetPlusBackend,
+            )
+        except Exception as exc:
+            raise RuntimeError("TSNetPlus is not installed") from exc
+        model = TSNetPlusBackend().load_model(model_path)
+    elif backend == "ptsnet":
+        try:
+            from hydroforge.wdn_modelling.backends.ptsnet_backend import PTSNetBackend
+        except Exception as exc:
+            raise RuntimeError("PTSNet is not installed") from exc
+        model = PTSNetBackend().load_model(model_path)
+    else:
+        raise ValueError(f"unsupported backend: {backend!r}")
 
     sampled_values = manifest.get("sampled_values")
     if sampled_values is None:
@@ -246,7 +454,7 @@ def load_realization(directory: Any) -> SimulationInstance:
         )
 
     parameter_bindings = []
-    for raw_binding in manifest.get("mapping", {}).get("parameter_bindings", []) or []:
+    for raw_binding in manifest_mapping.get("parameter_bindings", []) or []:
         if not isinstance(raw_binding, Mapping):
             raise ValueError("parameter binding must be a mapping")
         component_id = raw_binding.get("component_id")
@@ -277,8 +485,28 @@ def load_realization(directory: Any) -> SimulationInstance:
             )
         )
 
-    def run(loaded_model: Any) -> WNTRSimulationResults:
-        return WNTRSimulator().run(loaded_model)
+    _apply_dynamic_configuration(backend, model, manifest)
+
+    def run(loaded_model: Any) -> Any:
+        if backend == "wntr":
+            return WNTRSimulator().run(loaded_model)
+        if backend == "tsnetplus":
+            from hydroforge.wdn_modelling.backends.tsnetplus import TSNetSPlusSimulator
+            from hydroforge.wdn_modelling.backends.tsnetplus.config import (
+                TSNetPlusConfig,
+            )
+
+            simulator = TSNetSPlusSimulator(
+                config=TSNetPlusConfig(duration=0.0), inplace=True
+            )
+            return simulator.run(loaded_model)
+        if backend == "ptsnet":
+            from hydroforge.wdn_modelling.backends.ptsnet import PTSNetSimulator
+            from hydroforge.wdn_modelling.backends.ptsnet.config import PTSNetConfig
+
+            simulator = PTSNetSimulator(config=PTSNetConfig())
+            return simulator.run(loaded_model)
+        raise RuntimeError(f"unsupported backend: {backend}")
 
     def measure(
         loaded_model: Any,

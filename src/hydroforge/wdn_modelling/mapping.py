@@ -184,6 +184,9 @@ class SimulationInstance(Generic[ModelT, ResultT]):
         ) = None,
         parameter_bindings: Any = None,
         sensor_bindings: Any = None,
+        wave_speed_bindings: Any = None,
+        surge_bindings: Any = None,
+        interior_bindings: Any = None,
         **kwargs: Any,
     ) -> None:
         self.model = model
@@ -194,6 +197,9 @@ class SimulationInstance(Generic[ModelT, ResultT]):
         self._sensor_seeds = sensor_seeds
         self.parameter_bindings = parameter_bindings
         self.sensor_bindings = sensor_bindings
+        self.wave_speed_bindings = wave_speed_bindings
+        self.surge_bindings = surge_bindings
+        self.interior_bindings = interior_bindings
         self.sensor_definitions = dict(
             resolved_sensor_definitions or sensor_definitions or {}
         )
@@ -310,6 +316,9 @@ class UncertainModel(Generic[ModelT, ResultT]):
         ) = None,
         parameter_bindings: Any = None,
         sensor_bindings: Any = None,
+        wave_speed_bindings: Any = None,
+        surge_bindings: Any = None,
+        interior_bindings: Any = None,
         sensor_definitions: Mapping[str, SensorDefinition] | None = None,
         **kwargs: Any,
     ) -> None:
@@ -328,6 +337,9 @@ class UncertainModel(Generic[ModelT, ResultT]):
         self._sensor_seeds = sensor_seeds
         self.parameter_bindings = parameter_bindings
         self.sensor_bindings = sensor_bindings
+        self.wave_speed_bindings = wave_speed_bindings
+        self.surge_bindings = surge_bindings
+        self.interior_bindings = interior_bindings
         self.sensor_definitions = dict(sensor_definitions or {})
         self.extra = kwargs
 
@@ -355,6 +367,9 @@ class UncertainModel(Generic[ModelT, ResultT]):
             sensor_seeds=self._sensor_seeds,
             parameter_bindings=self.parameter_bindings,
             sensor_bindings=self.sensor_bindings,
+            wave_speed_bindings=self.wave_speed_bindings,
+            surge_bindings=self.surge_bindings,
+            interior_bindings=self.interior_bindings,
             sensor_definitions=resolved_definitions,
         )
 
@@ -415,6 +430,9 @@ class GenericModelMapper(ModelMapper[ModelT], Generic[ModelT, ResultT]):
         ) = None,
         parameter_bindings: Any = None,
         sensor_bindings: Any = None,
+        wave_speed_bindings: Any = None,
+        surge_bindings: Any = None,
+        interior_bindings: Any = None,
         validate: Callable[[UncertaintySpecification, ModelT], None] | None = None,
     ) -> None:
         self._clone = clone or clone_model or copy.deepcopy
@@ -424,6 +442,9 @@ class GenericModelMapper(ModelMapper[ModelT], Generic[ModelT, ResultT]):
         self._sensor_seeds = sensor_seeds
         self._parameter_bindings = parameter_bindings
         self._sensor_bindings = sensor_bindings
+        self._wave_speed_bindings = wave_speed_bindings
+        self._surge_bindings = surge_bindings
+        self._interior_bindings = interior_bindings
         self._sensor_definitions = dict(sensor_definitions or {})
         self._validate = validate
 
@@ -444,6 +465,9 @@ class GenericModelMapper(ModelMapper[ModelT], Generic[ModelT, ResultT]):
             sensor_seeds=self._sensor_seeds,
             parameter_bindings=self._parameter_bindings,
             sensor_bindings=self._sensor_bindings,
+            wave_speed_bindings=self._wave_speed_bindings,
+            surge_bindings=self._surge_bindings,
+            interior_bindings=self._interior_bindings,
             sensor_definitions=self._sensor_definitions,
         )
 

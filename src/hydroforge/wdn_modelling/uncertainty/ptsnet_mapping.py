@@ -365,6 +365,10 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
             run_model=run,
             measure_sensors=measure,
             sensor_seeds=sensor_seeds,
+            wave_speed_bindings=self.wave_speed_bindings,
+            surge_bindings=self.surge_protection_bindings,
+            interior_bindings=self.interior_sensor_bindings,
+            sensor_bindings=self.sensor_bindings,
             sensor_definitions=self._sensor_definitions,
         )
 
