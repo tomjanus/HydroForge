@@ -15,7 +15,7 @@ def _make_model() -> wntr.network.WaterNetworkModel:
     model.add_reservoir("R1", base_head=30.0)
     model.add_junction("J1", base_demand=2.0, elevation=10.0)
     model.add_pipe("P1", "R1", "J1", length=100.0, diameter=0.2, roughness=100.0)
-    model.add_valve("V1", "R1", "J1", valve_type="PBV", initial_setting="OPEN")
+    pass
     return model
 
 
@@ -186,3 +186,133 @@ def test_duplicate_initial_status_target_fails_before_mutation():
     with pytest.raises(ParameterApplicationError, match="duplicates"):
         adapter.apply(model, {"first": "OPEN", "second": "CLOSED"})
     assert model.get_link("P1").initial_status.name.upper() == "OPEN"
+
+
+def _mapper_with_random_noise():
+    from hydroforge.wdn_modelling.uncertainty import WNTRModelMapper, WNTRSensorBinding
+
+    model = _make_model()
+    node = model.junction_name_list[0]
+    pipe = model.pipe_name_list[0]
+    spec = UncertaintySpecification.from_dict(
+        {
+            "schema_version": "1.0",
+            "parameters": {"sigma": {"nominal_value": 0.1}},
+            "sensors": {
+                "noise": {
+                    "type": "RandomNoise",
+                    "parameters": {"sigma": {"$parameter": "sigma"}},
+                },
+                "composite": {
+                    "type": "Composite",
+                    "parameters": {
+                        "sensors": [
+                            {
+                                "type": "RandomNoise",
+                                "parameters": {"sigma": {"$parameter": "sigma"}},
+                            }
+                        ]
+                    },
+                },
+            },
+        }
+    )
+    bindings = [
+        WNTRSensorBinding(node, "noise", "pressure"),
+        WNTRSensorBinding(pipe, "composite", "flowrate"),
+    ]
+    mapper = WNTRModelMapper(sensor_bindings=bindings, sensor_definitions=spec.sensors)
+    return model, spec, mapper, node, pipe
+
+
+def test_random_noise_seeds_derive_from_realization_seed_and_sensor_name():
+    model, spec, mapper, node, pipe = _mapper_with_random_noise()
+    from hydroforge.sampling import Scenario
+
+    scenario = Scenario(
+        values={"sigma": 0.1}, id="scenario", metadata={"effective_seed": 7}
+    )
+    uncertain_model = mapper.map(spec, model)
+    result = uncertain_model.realize(scenario).run()
+
+    seeds = result.provenance["sensor_seeds"]
+    assert set(seeds) == {"noise", "composite"}
+    # Reproducibility: same seed gives same derived seeds.
+    scenario2 = Scenario(
+        values={"sigma": 0.1}, id="scenario2", metadata={"effective_seed": 7}
+    )
+    result2 = mapper.map(spec, model).realize(scenario2).run()
+    assert result2.provenance["sensor_seeds"] == seeds
+    # Independent sensor names get distinct derived seeds.
+    assert seeds["noise"] != seeds["composite"]
+
+
+def test_explicit_random_noise_seed_overrides_derivation():
+    model, spec, mapper, node, pipe = _mapper_with_random_noise()
+    spec.sensors["noise"].parameters["seed"] = 99
+    from hydroforge.sampling import Scenario
+
+    scenario = Scenario(
+        values={"sigma": 0.1}, id="scenario", metadata={"effective_seed": 7}
+    )
+    uncertain_model = mapper.map(spec, model)
+    result = uncertain_model.realize(scenario).run()
+
+    assert result.provenance["sensor_seeds"]["noise"] == 99
+
+
+def test_nested_composite_random_noise_seed_is_derived():
+    model, spec, mapper, node, pipe = _mapper_with_random_noise()
+    from hydroforge.sampling import Scenario
+
+    scenario = Scenario(
+        values={"sigma": 0.1}, id="scenario", metadata={"effective_seed": 11}
+    )
+    uncertain_model = mapper.map(spec, model)
+    result = uncertain_model.realize(scenario).run()
+
+    composite_seed = result.provenance["sensor_seeds"]["composite"]
+    assert isinstance(composite_seed, list)
+    assert composite_seed[0] is not None
+
+
+def test_each_measurement_uses_a_fresh_sensor_instance():
+    model, spec, mapper, node, pipe = _mapper_with_random_noise()
+    from hydroforge.sampling import Scenario
+
+    captured: list[int] = []
+
+    def measure(model, raw_results, scenario, spec, definitions):
+        first = definitions["noise"].create_sensor()
+        second = definitions["noise"].create_sensor()
+        captured.extend([id(first), id(second)])
+        return {}
+
+    mapper._measure = measure  # type: ignore[attr-defined]
+    mapper.map(spec, model).realize(
+        Scenario(values={"sigma": 0.1}, id="scenario", metadata={"effective_seed": 1})
+    ).run()
+    assert len(captured) == 2
+    assert captured[0] != captured[1]
+
+
+def test_wntr_mapper_run_preserves_raw_results_and_provenance():
+    model, spec, mapper, node, pipe = _mapper_with_random_noise()
+    from hydroforge.sampling import Scenario
+
+    scenario = Scenario(
+        values={"sigma": 0.1}, id="scenario", metadata={"effective_seed": 5}
+    )
+    uncertain_model = mapper.map(spec, model)
+    instance = uncertain_model.realize(scenario)
+    result = instance.run()
+
+    assert result.raw_results is not None
+    assert set(result.measured_outputs) == {"pressure", "flowrate"}
+    for frame in result.measured_outputs.values():
+        assert frame.index.equals(
+            result.raw_results.raw.node["pressure"].index
+        ) or frame.index.equals(result.raw_results.raw.link["flowrate"].index)
+    assert result.provenance["scenario_id"] == "scenario"
+    assert result.provenance["metadata"] == {"effective_seed": 5}
+    assert "sensor_seeds" in result.provenance

@@ -193,3 +193,24 @@ def test_tuple_valued_parameter_reference_is_detected():
 
     with pytest.raises(SpecificationError):
         definition.create_sensor()
+
+
+def test_drift_sensor_initial_offset_round_trips():
+    spec = UncertaintySpecification.from_dict(
+        {
+            "schema_version": "1.0",
+            "sensors": {
+                "drift": {
+                    "type": "Drift",
+                    "parameters": {"offset_rate": 0.1, "initial_offset": 0.25},
+                }
+            },
+        }
+    )
+
+    sensor = spec.create_sensor("drift")
+
+    assert sensor.initial_offset == 0.25
+    assert spec.to_dict()["sensors"]["drift"]["parameters"]["initial_offset"] == 0.25
+    reloaded = UncertaintySpecification.from_dict(spec.to_dict())
+    assert reloaded.create_sensor("drift").initial_offset == 0.25

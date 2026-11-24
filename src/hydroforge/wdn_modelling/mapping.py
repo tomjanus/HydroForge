@@ -153,6 +153,19 @@ class SimulationInstance(Generic[ModelT, ResultT]):
         ) = None,
         sensor_definitions: Mapping[str, SensorDefinition] | None = None,
         resolved_sensor_definitions: Mapping[str, SensorDefinition] | None = None,
+        sensor_seeds: (
+            Callable[
+                [
+                    ModelT,
+                    ResultT,
+                    Any,
+                    UncertaintySpecification | None,
+                    Mapping[str, SensorDefinition],
+                ],
+                Any,
+            ]
+            | None
+        ) = None,
         **kwargs: Any,
     ) -> None:
         self.model = model
@@ -160,6 +173,7 @@ class SimulationInstance(Generic[ModelT, ResultT]):
         self.specification = specification
         self._run = run or run_model or runner
         self._measure = measure or measure_sensors
+        self._sensor_seeds = sensor_seeds
         self.sensor_definitions = dict(
             resolved_sensor_definitions or sensor_definitions or {}
         )
@@ -188,11 +202,23 @@ class SimulationInstance(Generic[ModelT, ResultT]):
                 measured_outputs = dict(measured)
             else:
                 measured_outputs = {"measured_outputs": measured}
+        sensor_seed_values: dict[str, Any] = {}
+        if callable(self._sensor_seeds):
+            seeds = self._sensor_seeds(
+                self.model,
+                raw_results,
+                self.scenario,
+                self.specification,
+                resolved_definitions,
+            )
+            if isinstance(seeds, Mapping):
+                sensor_seed_values = dict(seeds)
         provenance = {
             "scenario": self.scenario,
             "scenario_id": getattr(self.scenario, "id", None),
             "values": getattr(self.scenario, "values", None),
             "metadata": getattr(self.scenario, "metadata", None),
+            "sensor_seeds": sensor_seed_values,
         }
         return SimulationResult(
             raw_results=raw_results,
@@ -249,6 +275,19 @@ class UncertainModel(Generic[ModelT, ResultT]):
             ]
             | None
         ) = None,
+        sensor_seeds: (
+            Callable[
+                [
+                    ModelT,
+                    ResultT,
+                    Any,
+                    UncertaintySpecification | None,
+                    Mapping[str, SensorDefinition],
+                ],
+                Any,
+            ]
+            | None
+        ) = None,
         sensor_definitions: Mapping[str, SensorDefinition] | None = None,
         **kwargs: Any,
     ) -> None:
@@ -264,6 +303,7 @@ class UncertainModel(Generic[ModelT, ResultT]):
         self._apply = apply or apply_parameters or apply_values
         self._run = run or run_model or runner
         self._measure = measure or measure_sensors
+        self._sensor_seeds = sensor_seeds
         self.sensor_definitions = dict(sensor_definitions or {})
         self.extra = kwargs
 
@@ -288,6 +328,7 @@ class UncertainModel(Generic[ModelT, ResultT]):
             specification=self.specification,
             run=self._run,
             measure=self._measure,
+            sensor_seeds=self._sensor_seeds,
             sensor_definitions=resolved_definitions,
         )
 
@@ -333,12 +374,26 @@ class GenericModelMapper(ModelMapper[ModelT], Generic[ModelT, ResultT]):
             | None
         ) = None,
         sensor_definitions: Mapping[str, SensorDefinition] | None = None,
+        sensor_seeds: (
+            Callable[
+                [
+                    ModelT,
+                    ResultT,
+                    Any,
+                    UncertaintySpecification | None,
+                    Mapping[str, SensorDefinition],
+                ],
+                Any,
+            ]
+            | None
+        ) = None,
         validate: Callable[[UncertaintySpecification, ModelT], None] | None = None,
     ) -> None:
         self._clone = clone or clone_model or copy.deepcopy
         self._apply = apply or apply_parameters
         self._run = run or run_model
         self._measure = measure or measure_sensors
+        self._sensor_seeds = sensor_seeds
         self._sensor_definitions = dict(sensor_definitions or {})
         self._validate = validate
 
@@ -356,6 +411,7 @@ class GenericModelMapper(ModelMapper[ModelT], Generic[ModelT, ResultT]):
             apply=self._apply,
             run=self._run,
             measure=self._measure,
+            sensor_seeds=self._sensor_seeds,
             sensor_definitions=self._sensor_definitions,
         )
 
