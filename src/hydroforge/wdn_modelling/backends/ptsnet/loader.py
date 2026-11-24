@@ -1,7 +1,10 @@
 """ """
 
 import pathlib
-from ptsnet.simulation.sim import PTSNETSimulation
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ptsnet.simulation.sim import PTSNETSimulation
 
 
 def load_ptsnet_model(
@@ -32,6 +35,8 @@ def load_ptsnet_model(
     model = pathlib.Path(model)
     if not model.is_file():
         raise FileNotFoundError(f"PTSNet model file not found: {model}")
+    from ptsnet.simulation.sim import PTSNETSimulation
+
     return PTSNETSimulation(
         workspace_name=model.stem,
         inpfile=str(model),
