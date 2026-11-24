@@ -269,19 +269,21 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
                     )
                 definition = resolved_definitions[binding.sensor_key]
                 sensor = definition.create_sensor()
-                series = raw_results.get_node_variable(
-                    binding.variable, [binding.node_id], as_dataframe=True
+                series = _ptsnet_node_series(
+                    raw_results, binding.variable, binding.node_id
                 )
-                if binding.node_id not in getattr(series, "columns", []):
+                if series is None:
                     raise ValueError(
                         f"PTSNet results contain no column for {binding.node_id!r}"
                     )
-                measured_series = sensor.measure(series[binding.node_id].copy())
+                measured_series = sensor.measure(series.copy())
                 measured.setdefault(binding.variable, {})[
                     binding.node_id
                 ] = measured_series
 
             interior_results = getattr(raw_results, "interior_results", None)
+            if interior_results is None and isinstance(raw_results, Mapping):
+                interior_results = raw_results.get("interior_results")
             if interior_results is None:
                 interior_results = getattr(
                     getattr(raw_results, "model", None), "interior_results", {}
@@ -449,6 +451,55 @@ def _derive_sensor_seeds(
         return SensorDefinition(type=definition.type, parameters=parameters)
 
     return definition
+
+
+def _ptsnet_node_series(raw_results: Any, variable: str, node_id: str) -> Any:
+    """Return a node result series from a wrapper, raw model, or raw table dict."""
+    model = getattr(raw_results, "model", None)
+    results = None
+    if isinstance(raw_results, Mapping):
+        if "node" in raw_results:
+            results = raw_results
+        elif isinstance(raw_results.get("results"), Mapping):
+            results = raw_results["results"]
+            model = raw_results.get("model", model)
+    if results is None:
+        if model is None:
+            model = raw_results
+        results = getattr(model, "results", None)
+
+    if isinstance(results, Mapping) and "node" in results:
+        table = results["node"]
+        try:
+            values = np.asarray(getattr(table, variable))
+            labels = list(getattr(table, "labels", []))
+            if node_id not in labels:
+                return None
+            timestamps = _ptsnet_timestamps(raw_results)
+            if timestamps is None:
+                timestamps = range(values.shape[1] if values.ndim == 2 else len(values))
+            import pandas as pd
+
+            frame = pd.DataFrame(
+                values.T if values.ndim == 2 else values.reshape(-1, 1),
+                index=pd.Index(timestamps, name="time"),
+                columns=labels,
+            )
+            if node_id in frame.columns:
+                return frame[node_id]
+        except Exception:
+            return None
+    return None
+
+
+def _ptsnet_timestamps(raw_results: Any) -> Any:
+    model = getattr(raw_results, "model", raw_results)
+    timestamps = getattr(model, "simulation_timestamps", None)
+    if timestamps is not None:
+        return timestamps
+    if isinstance(raw_results, Mapping):
+        timestamps = raw_results.get("simulation_timestamps")
+    return timestamps
 
 
 __all__ = [

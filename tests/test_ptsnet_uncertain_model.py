@@ -29,9 +29,13 @@ class _FakeModel:
         self.ss = {"pipe": _FakePipeTable()}
         self.node_name_list = ["N1"]
         self.surge_calls = []
+        self.pipe_output_requests = []
 
     def pipes(self):
         return [("P1", self)]
+
+    def add_pipe_output(self, *args, **kwargs):
+        self.pipe_output_requests.append((args, kwargs))
 
     def get_node(self, name):
         return self
@@ -45,6 +49,12 @@ class _FakeModel:
 
 
 class _FakeResults:
+    def __init__(self):
+        self.results = {
+            "node": type("NodeTable", (), {"head": [[1.0, 2.0]], "labels": ["N1"]})()
+        }
+        self.simulation_timestamps = [0, 1]
+
     def get_node_variable(self, variable, nodes, as_dataframe=False):
         return pd.DataFrame({"N1": [1.0, 2.0]}, index=[0, 1])
 
@@ -374,3 +384,153 @@ def test_ptsnet_interior_quantity_validation():
 
     with pytest.raises(ValueError):
         PTSNetInteriorSensorBinding("P1", "sensor", "velocity", fraction=0.25)
+
+
+class _FakeRawResults:
+    def __init__(self, node_values, interior_values, timestamps):
+        self.model = type(
+            "Model",
+            (),
+            {
+                "results": {
+                    "node": type(
+                        "NodeTable",
+                        (),
+                        {"head": node_values, "labels": ["N1"]},
+                    )()
+                },
+                "simulation_timestamps": timestamps,
+                "interior_results": interior_values,
+            },
+        )()
+
+
+def test_ptsnet_fake_raw_node_and_interior_measurement_output():
+    from hydroforge.sampling import Scenario
+    from hydroforge.uncertainty.specification import (
+        SensorDefinition,
+        UncertaintySpecification,
+    )
+    from hydroforge.wdn_modelling.uncertainty.ptsnet_mapping import (
+        PTSNetInteriorSensorBinding,
+        PTSNetModelMapper,
+        PTSNetSensorBinding,
+    )
+
+    model = _FakeModel()
+    specification = UncertaintySpecification.from_dict(
+        {"schema_version": "1.0", "sensors": {}}
+    )
+    mapper = PTSNetModelMapper(
+        sensor_bindings=[PTSNetSensorBinding("N1", "node_sensor", "head")],
+        interior_sensor_bindings=[
+            PTSNetInteriorSensorBinding(
+                "P1", "interior_sensor", "head", fraction=0.5, name="interior"
+            )
+        ],
+        sensor_definitions={
+            "node_sensor": SensorDefinition(type="Offset", parameters={"offset": 0.5}),
+            "interior_sensor": SensorDefinition(
+                type="Offset", parameters={"offset": 0.5}
+            ),
+        },
+    )
+    mapper._run = lambda model: _FakeRawResults(
+        [[1.0, 2.0]], {"interior": {"head": [3.0, 4.0]}}, [0, 1]
+    )
+    uncertain_model = mapper.map(specification, model)
+    result = uncertain_model.realize(Scenario(values={}, id="scenario")).run()
+
+    assert result.raw_results is not None
+    assert result.measured_outputs["head"]["N1"].index.tolist() == [0, 1]
+    assert result.measured_outputs["head"]["interior"].index.tolist() == [0, 1]
+
+
+def test_ptsnet_fake_raw_missing_interior_output_fails():
+    from hydroforge.sampling import Scenario
+    from hydroforge.uncertainty.specification import (
+        SensorDefinition,
+        UncertaintySpecification,
+    )
+    from hydroforge.wdn_modelling.uncertainty.ptsnet_mapping import (
+        PTSNetInteriorSensorBinding,
+        PTSNetModelMapper,
+    )
+
+    model = _FakeModel()
+    specification = UncertaintySpecification.from_dict(
+        {"schema_version": "1.0", "sensors": {}}
+    )
+    mapper = PTSNetModelMapper(
+        interior_sensor_bindings=[
+            PTSNetInteriorSensorBinding(
+                "P1", "missing", "head", fraction=0.5, name="missing"
+            )
+        ],
+        sensor_definitions={
+            "missing": SensorDefinition(type="Offset", parameters={"offset": 0.0})
+        },
+    )
+    mapper._run = lambda model: _FakeRawResults([[1.0, 2.0]], {}, [0, 1])
+    uncertain_model = mapper.map(specification, model)
+    with pytest.raises(ValueError, match="interior output"):
+        uncertain_model.realize(Scenario(values={}, id="scenario")).run()
+
+
+class _FakeTable:
+    def __init__(self, values, labels):
+        self.values = values
+        self.labels = labels
+
+    @property
+    def head(self):
+        return self.values
+
+    @property
+    def start_node_flowrate(self):
+        return self.values
+
+
+def test_ptsnet_raw_dict_of_tables_measurement_output():
+    from hydroforge.sampling import Scenario
+    from hydroforge.uncertainty.specification import (
+        SensorDefinition,
+        UncertaintySpecification,
+    )
+    from hydroforge.wdn_modelling.uncertainty.ptsnet_mapping import (
+        PTSNetInteriorSensorBinding,
+        PTSNetModelMapper,
+        PTSNetSensorBinding,
+    )
+
+    model = _FakeModel()
+    specification = UncertaintySpecification.from_dict(
+        {"schema_version": "1.0", "sensors": {}}
+    )
+    mapper = PTSNetModelMapper(
+        sensor_bindings=[PTSNetSensorBinding("N1", "node_sensor", "head")],
+        interior_sensor_bindings=[
+            PTSNetInteriorSensorBinding(
+                "P1", "interior_sensor", "flowrate", fraction=0.5, name="interior"
+            )
+        ],
+        sensor_definitions={
+            "node_sensor": SensorDefinition(type="Offset", parameters={"offset": 0.5}),
+            "interior_sensor": SensorDefinition(
+                type="Offset", parameters={"offset": 0.5}
+            ),
+        },
+    )
+    raw_results = {
+        "node": _FakeTable([[1.0, 2.0]], ["N1"]),
+        "pipe.start": _FakeTable([[3.0, 4.0]], ["P1"]),
+        "interior_results": {"interior": {"flowrate": [5.0, 6.0]}},
+        "simulation_timestamps": [0, 1],
+    }
+    mapper._run = lambda model: raw_results
+    uncertain_model = mapper.map(specification, model)
+    result = uncertain_model.realize(Scenario(values={}, id="scenario")).run()
+
+    assert result.raw_results is raw_results
+    assert result.measured_outputs["head"]["N1"].index.tolist() == [0, 1]
+    assert result.measured_outputs["flowrate"]["interior"].index.tolist() == [0, 1]
