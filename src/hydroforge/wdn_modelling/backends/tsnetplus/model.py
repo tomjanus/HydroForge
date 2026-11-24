@@ -1,6 +1,15 @@
 """TSNetPlus model type alias."""
 
-from typing import TypeAlias
-import tsnetplus
+from typing import TYPE_CHECKING, TypeAlias
 
-TSNetPlusModel: TypeAlias = tsnetplus.network.TransientModel
+if TYPE_CHECKING:
+    import tsnetplus
+
+    TSNetPlusModel: TypeAlias = tsnetplus.network.TransientModel
+else:
+    try:
+        import tsnetplus
+
+        TSNetPlusModel: TypeAlias = tsnetplus.network.TransientModel
+    except Exception:  # pragma: no cover - optional dependency
+        TSNetPlusModel = object  # type: ignore[misc, assignment]
