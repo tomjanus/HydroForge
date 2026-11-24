@@ -1,5 +1,9 @@
 """Tests for optional simulation backend dependency handling."""
 
+import builtins
+import importlib
+import sys
+
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -97,3 +101,33 @@ def test_resolving_backend_checks_dependency_before_import(monkeypatch):
         ("install", "ptsnet"),
         ("import", "hydroforge.wdn_modelling.backends.ptsnet_backend"),
     ]
+
+
+def test_generic_uncertainty_package_does_not_require_optional_backends(monkeypatch):
+    for module_name in list(sys.modules):
+        if module_name == "tsnetplus" or module_name.startswith("tsnetplus."):
+            del sys.modules[module_name]
+        if module_name == "ptsnet" or module_name.startswith("ptsnet."):
+            del sys.modules[module_name]
+
+    original_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "tsnetplus" or name.startswith("tsnetplus."):
+            raise ImportError("blocked tsnetplus")
+        if name == "ptsnet" or name.startswith("ptsnet."):
+            raise ImportError("blocked ptsnet")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    for module_name in list(sys.modules):
+        if (
+            module_name == "hydroforge.wdn_modelling.uncertainty"
+            or module_name.startswith("hydroforge.wdn_modelling.uncertainty.")
+        ):
+            del sys.modules[module_name]
+
+    module = importlib.import_module("hydroforge.wdn_modelling.uncertainty")
+
+    assert "TSNetPlusModelMapper" not in dir(module)

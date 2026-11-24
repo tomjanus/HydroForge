@@ -10,6 +10,7 @@ WNTR, TSNetPlus, or PTSNET implementation.
 from __future__ import annotations
 
 import copy
+import hashlib
 from dataclasses import dataclass, field
 from typing import (
     Any,
@@ -22,6 +23,8 @@ from typing import (
     runtime_checkable,
 )
 
+import numpy as np
+
 from hydroforge.uncertainty.specification import (
     SensorDefinition,
     UncertaintySpecification,
@@ -29,6 +32,19 @@ from hydroforge.uncertainty.specification import (
 
 ModelT = TypeVar("ModelT")
 ResultT = TypeVar("ResultT")
+
+
+def derive_deterministic_seed(realization_seed: int | None, name: str) -> int | None:
+    """Derive a deterministic integer seed from a realization seed and name."""
+    if realization_seed is None:
+        return None
+    state = np.random.SeedSequence(
+        [
+            int(realization_seed),
+            int(hashlib.sha256(name.encode("utf-8")).hexdigest(), 16),
+        ]
+    ).generate_state(1)
+    return int(state[0])
 
 
 def _scenario_values(scenario: Any) -> Mapping[str, Any]:
@@ -422,5 +438,6 @@ __all__ = [
     "SimulationInstance",
     "SimulationResult",
     "UncertainModel",
+    "derive_deterministic_seed",
     "resolve_sensor_parameter_references",
 ]

@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import copy
-import hashlib
 from typing import Any, Callable, Mapping, Sequence, cast
 
-import numpy as np
 from wntr.network import WaterNetworkModel as WNTRModel
 
 from hydroforge.wdn_modelling.backends.wntr import WNTRSimulator
@@ -14,6 +12,7 @@ from hydroforge.wdn_modelling.backends.wntr.results import WNTRSimulationResults
 from hydroforge.wdn_modelling.mapping import (
     GenericModelMapper,
     UncertainModel,
+    derive_deterministic_seed,
     resolve_sensor_parameter_references,
 )
 from hydroforge.uncertainty.specification import (
@@ -149,19 +148,6 @@ def _realization_seed(scenario: Any) -> int | None:
     return None
 
 
-def _derive_seed(realization_seed: int | None, sensor_name: str) -> int | None:
-    if realization_seed is None:
-        return None
-    state = np.random.SeedSequence(
-        [int(realization_seed), _stable_hash(sensor_name)]
-    ).generate_state(1)
-    return int(state[0])
-
-
-def _stable_hash(value: str) -> int:
-    return int(hashlib.sha256(value.encode("utf-8")).hexdigest(), 16)
-
-
 def _derive_sensor_seeds(
     definition: SensorDefinition,
     realization_seed: int | None,
@@ -170,7 +156,7 @@ def _derive_sensor_seeds(
     if definition.type == "RandomNoise":
         parameters = dict(definition.parameters)
         if parameters.get("seed") is None:
-            derived = _derive_seed(realization_seed, sensor_name)
+            derived = derive_deterministic_seed(realization_seed, sensor_name)
             if derived is not None:
                 parameters["seed"] = derived
         return SensorDefinition(type=definition.type, parameters=parameters)
