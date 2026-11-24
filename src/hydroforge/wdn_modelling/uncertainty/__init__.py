@@ -6,6 +6,7 @@ from .parameters import (
     ParameterApplicationReport,
     WNTRParameterAdapter,
     WNTRParameterBinding,
+    WNTRParameterBindingProtocol,
     WNTRParameterProperty,
 )
 from .sensors import (
@@ -14,6 +15,7 @@ from .sensors import (
     WNTRSensorBinding,
     WNTRSensorVariable,
 )
+from .wntr_mapping import WNTRModel, WNTRModelMapper
 
 __all__ = [
     "ParameterApplicationError",
@@ -21,9 +23,12 @@ __all__ = [
     "ParameterApplicationReport",
     "WNTRParameterAdapter",
     "WNTRParameterBinding",
+    "WNTRParameterBindingProtocol",
     "WNTRParameterProperty",
     "SensorApplicationError",
     "WNTRSensorAdapter",
     "WNTRSensorBinding",
     "WNTRSensorVariable",
+    "WNTRModel",
+    "WNTRModelMapper",
 ]
