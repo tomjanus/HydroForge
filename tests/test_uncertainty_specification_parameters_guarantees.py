@@ -285,7 +285,7 @@ def test_model_section_shape_checked_as_dict():
 
 def test_problems_across_sections_are_collected_together():
     document = {
-        "schema_version": "2.0",
+        "schema_version": "3.0",
         "sensors": {"s1": {"type": "Nope", "parameters": {}}},
         "parameters": {"p1": {"nominal_value": [1]}},
         "bogus": 1,

@@ -8,7 +8,10 @@ import pandas as pd
 import pytest
 import wntr
 
-from hydroforge.uncertainty.specification import SensorDefinition
+from hydroforge.uncertainty.specification import (
+    SensorDefinition,
+    SpecificationValidationError,
+)
 from hydroforge.wdn_modelling.backends.wntr.results import WNTRSimulationResults
 from hydroforge.wdn_modelling.backends.wntr.simulator import WNTRSimulator
 from hydroforge.wdn_modelling.uncertainty import (
@@ -161,25 +164,12 @@ def test_seeded_definition_starts_each_point_with_a_fresh_rng(simulated_network)
     pd.testing.assert_series_equal(first_noise, second_noise, check_names=False)
 
 
-def test_sensor_definition_location_must_match_external_binding(simulated_network):
-    model, results = simulated_network
-    point_id = model.junction_name_list[0]
-
-    _assert_application_error(
-        model,
-        results,
-        _binding(point_id, "located", "pressure"),
-        _definitions(
-            located=SensorDefinition(
-                type="Perfect",
-                location=model.junction_name_list[1],
-            )
-        ),
-        "sensor_definitions['located'].location",
-    )
+def test_sensor_definition_location_is_rejected(simulated_network):
+    with pytest.raises(SpecificationValidationError):
+        SensorDefinition(type="Perfect", location="J1")
 
 
-def test_matching_sensor_definition_location_is_accepted(simulated_network):
+def test_sensor_definition_without_location_is_accepted(simulated_network):
     model, results = simulated_network
     point_id = model.junction_name_list[0]
 
@@ -188,7 +178,7 @@ def test_matching_sensor_definition_location_is_accepted(simulated_network):
         results,
         [_binding(point_id, "located", "pressure")],
         _definitions(
-            located=SensorDefinition(type="Perfect", location=point_id),
+            located=SensorDefinition(type="Perfect"),
         ),
     )
 
