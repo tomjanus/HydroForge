@@ -29,8 +29,16 @@ from pydantic import (
 
 from hydroforge.measurements import CompositeSensor, Sensor
 from hydroforge.uncertainty.distributions import Distribution
-from hydroforge.uncertainty.parameters import Parameter, ParameterType
-from hydroforge.uncertainty.uncertainties import NoUncertainty, Uncertainty
+from hydroforge.uncertainty.parameters import (
+    Parameter,
+    ParameterType,
+    parameter_type_from_domain,
+)
+from hydroforge.uncertainty.uncertainties import (
+    BiasUncertainty,
+    NoUncertainty,
+    Uncertainty,
+)
 
 from .exceptions import (
     SpecificationError,
@@ -692,6 +700,58 @@ def _validate_uncertainty_mapping(raw: Any, path: str) -> list[SpecificationIssu
     return issues
 
 
+def _infer_parameter_type_from_uncertainty(
+    raw_uncertainty: Any,
+) -> ParameterType | None:
+    """Infer a ``ParameterType`` from an informative uncertainty domain.
+
+    Returns ``None`` when the uncertainty carries no informative domain (or
+    cannot be resolved), so callers fall back to nominal-value inference.
+    """
+    if not isinstance(raw_uncertainty, dict):
+        return None
+    type_name = raw_uncertainty.get("type")
+    if not isinstance(type_name, str):
+        return None
+    uncertainty_cls = lookup_uncertainty_type(type_name)
+    if uncertainty_cls is None:
+        return None
+
+    from hydroforge.uncertainty.uncertainties import (
+        BinaryStateFlipUncertainty,
+        CategoricalReplacementUncertainty,
+    )
+
+    if uncertainty_cls is BinaryStateFlipUncertainty:
+        return ParameterType.BINARY
+
+    # Uncertainties without a distribution carry no informative domain.
+    if uncertainty_cls in (NoUncertainty, BiasUncertainty):
+        return None
+
+    parameters = raw_uncertainty.get("parameters")
+    if not isinstance(parameters, dict):
+        return None
+
+    if uncertainty_cls is CategoricalReplacementUncertainty:
+        distribution_raw = parameters.get("replacement_distribution")
+    else:
+        distribution_raw = parameters.get("distribution")
+
+    if not isinstance(distribution_raw, dict):
+        return None
+    distribution_type_name = distribution_raw.get("type")
+    if not isinstance(distribution_type_name, str):
+        return None
+    distribution_cls = lookup_distribution_type(distribution_type_name)
+    if distribution_cls is None:
+        return None
+
+    domain = getattr(distribution_cls, "properties", None)
+    domain = getattr(domain, "domain", None) if domain is not None else None
+    return parameter_type_from_domain(domain)
+
+
 def _validate_parameter_mapping(raw: Any, path: str) -> list[SpecificationIssue]:
     """Validate a raw parameter-definition mapping located at ``path``."""
     if isinstance(raw, ParameterDefinition):
@@ -774,6 +834,25 @@ def _validate_parameter_mapping(raw: Any, path: str) -> list[SpecificationIssue]
         issues.extend(
             _validate_uncertainty_mapping(uncertainty, _join(path, "uncertainty"))
         )
+
+    type_name = raw.get("type")
+    if (
+        isinstance(type_name, str)
+        and type_name in _PARAMETER_TYPE_NAMES
+        and type_name != "UNDEFINED"
+        and raw.get("uncertainty") is not None
+    ):
+        inferred = _infer_parameter_type_from_uncertainty(raw.get("uncertainty"))
+        if inferred is not None and ParameterType[type_name] != inferred:
+            issues.append(
+                SpecificationIssue(
+                    path=_join(path, "type"),
+                    message=(
+                        f"explicit type {type_name!r} conflicts with type "
+                        f"{inferred.name!r} inferred from the uncertainty domain"
+                    ),
+                )
+            )
     return issues
 
 

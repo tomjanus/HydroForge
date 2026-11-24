@@ -207,13 +207,23 @@ def test_nominal_value_types_and_inference(nominal_value, expected_type):
     assert spec.create_parameter("p1").type is expected_type
 
 
-def test_explicit_type_is_honoured_on_the_live_object():
+def test_explicit_conflicting_type_is_rejected():
     document = _parameter_document()
     document["parameters"]["p1"]["type"] = "DISCRETE"
 
+    with pytest.raises(SpecificationValidationError) as exc:
+        UncertaintySpecification.from_dict(document)
+
+    assert exc.value.errors[0].path == "parameters.p1.type"
+
+
+def test_explicit_undefined_type_infers_from_domain():
+    document = _parameter_document()
+    document["parameters"]["p1"]["type"] = "UNDEFINED"
+
     spec = UncertaintySpecification.from_dict(document)
 
-    assert spec.create_parameter("p1").type is ParameterType.DISCRETE
+    assert spec.create_parameter("p1").type is ParameterType.NUMERICAL
 
 
 def test_create_unknown_parameter_name_raises():

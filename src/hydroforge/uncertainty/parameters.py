@@ -32,6 +32,7 @@ from .uncertainties import (
     CategoricalReplacementUncertainty,
 )
 from .common import CDFNotAvailable, _empirical_categorical_cdf_from_indices
+from .distributions import Distribution, DistributionDomain
 from ..auxiliary import get_logger
 
 logger = get_logger(__name__)
@@ -70,6 +71,27 @@ class ParameterType(Enum):
     CATEGORICAL = auto()
     BINARY = auto()
     UNDEFINED = auto()
+
+
+def parameter_type_from_domain(
+    domain: DistributionDomain | None,
+) -> ParameterType | None:
+    """Map an informative distribution domain to a ``ParameterType``.
+
+    This is the single source of truth for the domain-to-parameter-type rule
+    shared by runtime ``Parameter`` inference and specification validation.
+    Returns ``None`` for non-informative domains so callers can fall back to
+    nominal-value inference.
+    """
+    if domain is DistributionDomain.CONTINUOUS:
+        return ParameterType.NUMERICAL
+    if domain is DistributionDomain.DISCRETE:
+        return ParameterType.DISCRETE
+    if domain is DistributionDomain.CATEGORICAL:
+        return ParameterType.CATEGORICAL
+    if domain is DistributionDomain.BINARY:
+        return ParameterType.BINARY
+    return None
 
 
 # ================================================================
@@ -171,6 +193,15 @@ class Parameter(IUncertainParameter[T], Generic[T]):
         """
         if not isinstance(self.uncertainty, Uncertainty):
             raise TypeError("uncertainty must be an instance of Uncertainty")
+        if self.type != ParameterType.UNDEFINED:
+            conflicting_type = self._type_from_uncertainty_domain()
+            if conflicting_type is not None and conflicting_type != self.type:
+                raise ValueError(
+                    f"Parameter {self.name!r}: explicit type "
+                    f"{self.type.name} conflicts with type "
+                    f"{conflicting_type.name} inferred from the "
+                    "uncertainty domain"
+                )
         if self.type == ParameterType.UNDEFINED and self.infer_type_from_data:
             inferred_type = self._infer_parameter_type()
             logger.info(
@@ -179,33 +210,55 @@ class Parameter(IUncertainParameter[T], Generic[T]):
             )
             self.type = inferred_type
 
+    def _type_from_uncertainty_domain(self) -> ParameterType | None:
+        """Return a parameter type inferred from an informative uncertainty domain.
+
+        Returns ``None`` when the uncertainty carries no informative domain,
+        so callers can fall back to nominal-value inference.
+        """
+        uncertainty = self.uncertainty
+        domain: DistributionDomain | None = None
+        if isinstance(uncertainty, BinaryStateFlipUncertainty):
+            domain = DistributionDomain.BINARY
+        elif isinstance(uncertainty, CategoricalReplacementUncertainty):
+            domain = getattr(
+                getattr(uncertainty, "replacement_distribution", None),
+                "properties",
+                None,
+            )
+            domain = getattr(domain, "domain", None) if domain is not None else None
+        elif isinstance(uncertainty, CategoricalRandomReplacementUncertainty):
+            distribution = getattr(uncertainty, "distribution", None)
+            domain = getattr(getattr(distribution, "properties", None), "domain", None)
+        elif hasattr(uncertainty, "distribution"):
+            distribution = getattr(uncertainty, "distribution", None)
+            if isinstance(distribution, Distribution):
+                domain = distribution.properties.domain
+
+        return parameter_type_from_domain(domain)
+
     def _infer_parameter_type(self) -> ParameterType:
-        """Infer the parameter type based on the nominal value.
+        """Infer the parameter type from the uncertainty domain or nominal value.
+
+        An informative uncertainty/distribution domain takes precedence over
+        nominal-value inference. Nominal-value inference remains the fallback
+        when no informative domain is available.
 
         Returns
         -------
         ParameterType
-            ``BINARY`` for boolean nominal values or binary-flip uncertainty,
-            ``CATEGORICAL`` for string nominal values or categorical
-            replacement uncertainty, ``NUMERICAL`` for ``int``/``float``
-            values (including NumPy scalar equivalents), ``DISCRETE`` for
-            list/array values, and ``UNDEFINED`` otherwise.  ``bool`` is
-            checked before the numeric classes because ``bool`` is a subclass
-            of ``int`` in Python.
+            The inferred parameter type.
         """
-        if isinstance(self.nominal_value, (bool, np.bool_)) or isinstance(
-            self.uncertainty, BinaryStateFlipUncertainty
-        ):
+        domain_type = self._type_from_uncertainty_domain()
+        if domain_type is not None:
+            return domain_type
+
+        # Nominal-value fallback (unchanged behaviour).
+        if isinstance(self.nominal_value, (bool, np.bool_)):
             return ParameterType.BINARY
         if isinstance(self.nominal_value, (Integral, Real)):
             return ParameterType.NUMERICAL
-        if isinstance(self.nominal_value, str) or isinstance(
-            self.uncertainty,
-            (
-                CategoricalRandomReplacementUncertainty,
-                CategoricalReplacementUncertainty,
-            ),
-        ):
+        if isinstance(self.nominal_value, str):
             return ParameterType.CATEGORICAL
         if isinstance(self.nominal_value, (list, np.ndarray)):
             return ParameterType.DISCRETE
