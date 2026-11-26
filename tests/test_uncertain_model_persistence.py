@@ -195,21 +195,49 @@ def test_dynamic_backend_artifact_dispatch_and_config_round_trip(tmp_path, monke
             model.loaded_from = str(path)
             return model
 
-    monkeypatch.setattr(
-        "hydroforge.wdn_modelling.backends.tsnetplus_backend.TSNetPlusBackend",
-        FakeBackend,
-    )
-    monkeypatch.setattr(
-        "hydroforge.wdn_modelling.backends.tsnetplus.TSNetSPlusSimulator",
-        lambda config=None, inplace=True: type(
-            "FakeSimulator", (), {"run": lambda self, model: model}
-        )(),
-    )
-    monkeypatch.setattr(
-        "hydroforge.wdn_modelling.backends.ptsnet_backend.PTSNetBackend",
-        FakeBackend,
-    )
+    import sys
+    import types
 
+    class FakeTSNetPlusConfig:
+        def __init__(self, duration=0.0):
+            self.duration = duration
+
+    class FakeTSNetPlusSimulator:
+        def __init__(self, config=None, inplace=True):
+            self.config = config
+            self.inplace = inplace
+
+        def run(self, model):
+            return model
+
+    fake_backend_module = types.ModuleType(
+        "hydroforge.wdn_modelling.backends.tsnetplus_backend"
+    )
+    fake_backend_module.TSNetPlusBackend = FakeBackend
+    fake_tsnetplus_module = types.ModuleType(
+        "hydroforge.wdn_modelling.backends.tsnetplus"
+    )
+    fake_tsnetplus_module.__path__ = []
+    fake_tsnetplus_module.TSNetSPlusSimulator = FakeTSNetPlusSimulator
+    fake_config_module = types.ModuleType(
+        "hydroforge.wdn_modelling.backends.tsnetplus.config"
+    )
+    fake_config_module.TSNetPlusConfig = FakeTSNetPlusConfig
+    monkeypatch.setitem(
+        sys.modules,
+        "hydroforge.wdn_modelling.backends.tsnetplus_backend",
+        fake_backend_module,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "hydroforge.wdn_modelling.backends.tsnetplus",
+        fake_tsnetplus_module,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "hydroforge.wdn_modelling.backends.tsnetplus.config",
+        fake_config_module,
+    )
     from hydroforge.sampling import Scenario
     from hydroforge.uncertainty.specification import UncertaintySpecification
     from hydroforge.wdn_modelling.mapping import SimulationInstance
@@ -382,9 +410,17 @@ def test_ptsnet_bundle_restores_interior_request_and_sensor_pipeline(
             model.run()
             return FakeResults(model)
 
-    monkeypatch.setattr(
-        "hydroforge.wdn_modelling.backends.ptsnet_backend.PTSNetBackend",
-        FakeBackend,
+    import sys
+    import types
+
+    fake_backend_module = types.ModuleType(
+        "hydroforge.wdn_modelling.backends.ptsnet_backend"
+    )
+    fake_backend_module.PTSNetBackend = FakeBackend
+    monkeypatch.setitem(
+        sys.modules,
+        "hydroforge.wdn_modelling.backends.ptsnet_backend",
+        fake_backend_module,
     )
     monkeypatch.setattr(ptsnet_mapping, "PTSNetConfig", FakeConfig)
     monkeypatch.setattr(ptsnet_mapping, "PTSNetSimulator", FakeSimulator)

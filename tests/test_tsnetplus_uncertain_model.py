@@ -14,6 +14,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _make_model():
+    pytest.importorskip("tsnetplus", reason="TSNetPlus is an optional backend")
     from hydroforge.wdn_modelling.backends.tsnetplus_backend import TSNetPlusBackend
 
     backend = TSNetPlusBackend()

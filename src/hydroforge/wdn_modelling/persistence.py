@@ -8,6 +8,8 @@ import shutil
 import tempfile
 import uuid
 from pathlib import Path
+
+import numpy as np
 from typing import Any, Mapping, cast
 
 import wntr
@@ -310,6 +312,11 @@ def _apply_dynamic_configuration(backend, model, manifest):
                     pipes = binding.get("pipes")
                     if wave_speed is not None:
                         if pipes is None:
+                            if not isinstance(wave_speed, np.ndarray):
+                                raise RuntimeError(
+                                    "PTSNet shared wave-speed mapping requires "
+                                    "a NumPy-backed pipe table"
+                                )
                             wave_speed[:] = float(values[key])
                         else:
                             for pipe in pipes:

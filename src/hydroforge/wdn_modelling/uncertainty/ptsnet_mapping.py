@@ -186,12 +186,9 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
                     ss = getattr(model, "ss", None)
                     if isinstance(ss, Mapping) and "pipe" in ss:
                         wave_speed = getattr(ss["pipe"], "wave_speed", None)
-                        if wave_speed is not None:
-                            try:
-                                wave_speed[:] = float(value)
-                                model._hydroforge_wave_speed_overridden = True
-                            except Exception:
-                                pass
+                        if isinstance(wave_speed, np.ndarray):
+                            wave_speed[:] = float(value)
+                            model._hydroforge_wave_speed_overridden = True
                 else:
                     ss = getattr(model, "ss", None)
                     if isinstance(ss, Mapping) and "pipe" in ss:
