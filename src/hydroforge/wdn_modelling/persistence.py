@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import shutil
+import tempfile
+import uuid
 from pathlib import Path
 from typing import Any, Mapping, cast
 
@@ -158,6 +161,23 @@ def save_realization(
             definition, getattr(scenario, "values", {}) or {}
         )
 
+    backend_settings = kwargs.get("backend_settings")
+    if backend_settings is None and backend == "ptsnet":
+        configured_settings = getattr(model, "_hydroforge_config_settings", None)
+        if isinstance(configured_settings, Mapping):
+            backend_settings = dict(configured_settings)
+        else:
+            settings = getattr(model, "settings", None)
+            settings_to_dict = getattr(settings, "to_dict", None)
+            if callable(settings_to_dict):
+                backend_settings = settings_to_dict(simplified=True)
+                backend_settings.setdefault("parallel", False)
+                backend_settings.setdefault("gpu", False)
+    if backend_settings is None:
+        backend_settings = {}
+    if not isinstance(backend_settings, Mapping):
+        raise ValueError("backend_settings must be a mapping")
+
     manifest = {
         "manifest_version": "1.0",
         "backend": backend,
@@ -191,7 +211,7 @@ def save_realization(
                 _binding_to_dict(binding) for binding in (interior_bindings or [])
             ],
         },
-        "backend_settings": kwargs.get("backend_settings", {}),
+        "backend_settings": dict(backend_settings),
         "sensor_setup": {
             "definitions": {
                 name: definition.to_dict()
@@ -256,8 +276,11 @@ def _apply_dynamic_configuration(backend, model, manifest):
         for binding in mapping.get("interior_bindings", []) or []:
             if not isinstance(binding, Mapping):
                 continue
-            if not hasattr(model, "add_pipe_output"):
-                continue
+            if not callable(getattr(model, "add_pipe_output", None)):
+                raise RuntimeError(
+                    "interior-output persistence requires the backend "
+                    "add_pipe_output API"
+                )
             output_name = binding.get("name") or binding.get("sensor_key")
             position = (
                 binding.get("fraction")
@@ -288,13 +311,11 @@ def _apply_dynamic_configuration(backend, model, manifest):
                     pipes = binding.get("pipes")
                     if wave_speed is not None:
                         if pipes is None:
-                            try:
-                                wave_speed[:] = float(values[key])
-                            except Exception:
-                                pass
+                            wave_speed[:] = float(values[key])
                         else:
                             for pipe in pipes:
                                 wave_speed[pipe] = float(values[key])
+                        model._hydroforge_wave_speed_overridden = True
                 settings = getattr(model, "settings", None)
                 if settings is not None and binding.get("pipes") is None:
                     try:
@@ -327,6 +348,164 @@ def _apply_dynamic_configuration(backend, model, manifest):
                 else:
                     model.add_surge_protection(node_id, protection_type, area)
 
+        for binding in mapping.get("interior_bindings", []) or []:
+            if not isinstance(binding, Mapping):
+                continue
+            if not callable(getattr(model, "add_pipe_output", None)):
+                raise RuntimeError(
+                    "PTSNet interior-output persistence requires add_pipe_output; "
+                    "install the PTSNet feature branch with interior output support"
+                )
+            output_name = binding.get("name") or binding.get("sensor_key")
+            position = (
+                binding.get("fraction")
+                if binding.get("fraction") is not None
+                else binding.get("index")
+            )
+            position_type = (
+                "fraction" if binding.get("fraction") is not None else "index"
+            )
+            quantity = binding.get("quantity", "head")
+            model.add_pipe_output(
+                output_name,
+                binding.get("pipe_id"),
+                position,
+                position_type,
+                variables=(quantity,),
+            )
+
+
+def _ptsnet_mapper_from_manifest(
+    mapping: Mapping[str, Any],
+    sensor_definitions: Mapping[str, SensorDefinition],
+    backend_settings: Mapping[str, Any],
+):
+    """Rebuild PTSNet bindings and measurement callbacks from a bundle."""
+    from hydroforge.wdn_modelling.uncertainty import ptsnet_mapping
+
+    config_type = ptsnet_mapping.PTSNetConfig
+    if config_type is None or ptsnet_mapping.PTSNetSimulator is None:
+        raise RuntimeError(
+            "PTSNet persistence requires the PTSNet backend and simulator API"
+        )
+
+    def binding_list(key: str) -> list[Mapping[str, Any]]:
+        items = mapping.get(key, []) or []
+        if not isinstance(items, list) or any(
+            not isinstance(item, Mapping) for item in items
+        ):
+            raise ValueError(f"manifest mapping {key!r} must be a list of mappings")
+        return items
+
+    def required_text(binding: Mapping[str, Any], key: str) -> str:
+        value = binding.get(key)
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"PTSNet binding {key!r} must be a non-empty string")
+        return value
+
+    wave_bindings = []
+    for item in binding_list("wave_speed_bindings"):
+        parameter_key = required_text(item, "parameter_key")
+        pipes = item.get("pipes")
+        if pipes is not None and (
+            not isinstance(pipes, (list, tuple))
+            or any(not isinstance(pipe, str) or not pipe for pipe in pipes)
+        ):
+            raise ValueError("PTSNet wave-speed pipes must be a sequence of names")
+        wave_bindings.append(
+            ptsnet_mapping.PTSNetWaveSpeedBinding(parameter_key, pipes)
+        )
+
+    surge_bindings = []
+    for item in binding_list("surge_bindings"):
+        node_id = required_text(item, "node_id")
+        protection_type = item.get("protection_type", "open")
+        if protection_type not in {"open", "closed"}:
+            raise ValueError("PTSNet protection_type must be 'open' or 'closed'")
+        for key in ("area_key", "height_key", "level_key"):
+            if item.get(key) is not None and not isinstance(item[key], str):
+                raise ValueError(f"PTSNet surge binding {key} must be a string")
+        surge_bindings.append(
+            ptsnet_mapping.PTSNetSurgeProtectionBinding(
+                node_id=node_id,
+                protection_type=protection_type,
+                tank_area=float(item.get("tank_area", 1.0)),
+                tank_height=(
+                    None
+                    if item.get("tank_height") is None
+                    else float(item["tank_height"])
+                ),
+                water_level=(
+                    None
+                    if item.get("water_level") is None
+                    else float(item["water_level"])
+                ),
+                area_key=item.get("area_key"),
+                height_key=item.get("height_key"),
+                level_key=item.get("level_key"),
+            )
+        )
+
+    sensor_bindings = []
+    for item in binding_list("sensor_bindings"):
+        node_id = required_text(item, "node_id")
+        sensor_key = required_text(item, "sensor_key")
+        variable = item.get("variable", "head")
+        if variable not in {"head", "emitter_discharge", "demand_discharge"}:
+            raise ValueError(f"unsupported PTSNet node sensor variable: {variable!r}")
+        sensor_bindings.append(
+            ptsnet_mapping.PTSNetSensorBinding(node_id, sensor_key, variable)
+        )
+
+    interior_bindings = []
+    for item in binding_list("interior_bindings"):
+        pipe_id = required_text(item, "pipe_id")
+        sensor_key = required_text(item, "sensor_key")
+        quantity = item.get("quantity", "head")
+        name = item.get("name")
+        if name is not None and (not isinstance(name, str) or not name):
+            raise ValueError("PTSNet interior output name must be a non-empty string")
+        fraction = item.get("fraction")
+        index = item.get("index")
+        if fraction is not None and (
+            isinstance(fraction, bool) or not isinstance(fraction, (int, float))
+        ):
+            raise ValueError("PTSNet interior fraction must be numeric")
+        if index is not None and (
+            isinstance(index, bool) or not isinstance(index, int)
+        ):
+            raise ValueError("PTSNet interior index must be an integer")
+        try:
+            interior_bindings.append(
+                ptsnet_mapping.PTSNetInteriorSensorBinding(
+                    pipe_id=pipe_id,
+                    sensor_key=sensor_key,
+                    quantity=quantity,
+                    name=name,
+                    fraction=fraction,
+                    index=index,
+                )
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"invalid PTSNet interior binding: {exc}") from exc
+
+    allowed_settings = set(getattr(config_type, "__dataclass_fields__", {}))
+    unknown_settings = set(backend_settings).difference(allowed_settings)
+    if unknown_settings:
+        raise ValueError(
+            f"unsupported PTSNet backend settings: {sorted(unknown_settings)}"
+        )
+    config = config_type(**dict(backend_settings))
+    mapper = ptsnet_mapping.PTSNetModelMapper(
+        wave_speed_bindings=wave_bindings,
+        surge_protection_bindings=surge_bindings,
+        sensor_bindings=sensor_bindings,
+        interior_sensor_bindings=interior_bindings,
+        sensor_definitions=sensor_definitions,
+        simulator_config=config,
+    )
+    return mapper, wave_bindings, surge_bindings, sensor_bindings, interior_bindings
+
 
 def load_realization(directory: Any) -> SimulationInstance:
     """Load a saved WNTR realization bundle."""
@@ -352,6 +531,9 @@ def load_realization(directory: Any) -> SimulationInstance:
     backend = manifest.get("backend")
     if backend not in {"wntr", "tsnetplus", "ptsnet"}:
         raise ValueError(f"unsupported or missing backend: {backend!r}")
+    backend_settings = manifest.get("backend_settings", {})
+    if not isinstance(backend_settings, Mapping):
+        raise ValueError("manifest backend_settings must be a mapping")
 
     manifest_mapping = manifest.get("mapping", {})
     if not isinstance(manifest_mapping, Mapping):
@@ -380,6 +562,7 @@ def load_realization(directory: Any) -> SimulationInstance:
         )
     if not resolved_model.is_file():
         raise FileNotFoundError(f"missing model artifact: {model_path}")
+    ptsnet_source_directory = None
     if backend == "wntr":
         model = wntr.network.io.read_inpfile(str(model_path))
     elif backend == "tsnetplus":
@@ -395,7 +578,16 @@ def load_realization(directory: Any) -> SimulationInstance:
             from hydroforge.wdn_modelling.backends.ptsnet_backend import PTSNetBackend
         except Exception as exc:
             raise RuntimeError("PTSNet is not installed") from exc
-        model = PTSNetBackend().load_model(model_path)
+        ptsnet_source_directory = tempfile.TemporaryDirectory(
+            prefix="hydroforge_ptsnet_model_"
+        )
+        isolated_model_path = Path(ptsnet_source_directory.name) / artifact_path.name
+        shutil.copyfile(model_path, isolated_model_path)
+        model = PTSNetBackend().load_model(
+            isolated_model_path,
+            settings=dict(backend_settings),
+            workspace_name=f"{directory.name}_loaded_{uuid.uuid4().hex}",
+        )
     else:
         raise ValueError(f"unsupported backend: {backend!r}")
 
@@ -485,6 +677,22 @@ def load_realization(directory: Any) -> SimulationInstance:
             )
         )
 
+    ptsnet_mapper = None
+    ptsnet_wave_bindings = []
+    ptsnet_surge_bindings = []
+    ptsnet_sensor_bindings = []
+    ptsnet_interior_bindings = []
+    if backend == "ptsnet":
+        (
+            ptsnet_mapper,
+            ptsnet_wave_bindings,
+            ptsnet_surge_bindings,
+            ptsnet_sensor_bindings,
+            ptsnet_interior_bindings,
+        ) = _ptsnet_mapper_from_manifest(
+            manifest_mapping, sensor_definitions, backend_settings
+        )
+
     _apply_dynamic_configuration(backend, model, manifest)
 
     def run(loaded_model: Any) -> Any:
@@ -501,11 +709,9 @@ def load_realization(directory: Any) -> SimulationInstance:
             )
             return simulator.run(loaded_model)
         if backend == "ptsnet":
-            from hydroforge.wdn_modelling.backends.ptsnet import PTSNetSimulator
-            from hydroforge.wdn_modelling.backends.ptsnet.config import PTSNetConfig
-
-            simulator = PTSNetSimulator(config=PTSNetConfig())
-            return simulator.run(loaded_model)
+            if ptsnet_mapper is None:
+                raise RuntimeError("PTSNet mapper configuration was not restored")
+            return ptsnet_mapper._run(loaded_model)
         raise RuntimeError(f"unsupported backend: {backend}")
 
     def measure(
@@ -515,10 +721,26 @@ def load_realization(directory: Any) -> SimulationInstance:
         specification: UncertaintySpecification | None,
         definitions: Mapping[str, SensorDefinition],
     ) -> dict[str, Any]:
+        if backend == "ptsnet":
+            if ptsnet_mapper is None:
+                raise RuntimeError("PTSNet mapper configuration was not restored")
+            return ptsnet_mapper._measure(
+                loaded_model,
+                raw_results,
+                loaded_scenario,
+                specification,
+                definitions,
+            )
         if not sensor_bindings or not definitions:
             return {}
         adapter = WNTRSensorAdapter(sensor_bindings, definitions)
         return adapter.apply(loaded_model, raw_results)
+
+    ptsnet_sensor_seed_callback = None
+    if backend == "ptsnet":
+        if ptsnet_mapper is None:
+            raise RuntimeError("PTSNet mapper configuration was not restored")
+        ptsnet_sensor_seed_callback = ptsnet_mapper._sensor_seeds
 
     return SimulationInstance(
         model=model,
@@ -527,8 +749,15 @@ def load_realization(directory: Any) -> SimulationInstance:
         run=run,
         measure=measure,
         parameter_bindings=parameter_bindings,
-        sensor_bindings=sensor_bindings,
+        sensor_bindings=(
+            ptsnet_sensor_bindings if backend == "ptsnet" else sensor_bindings
+        ),
         sensor_definitions=sensor_definitions,
+        sensor_seeds=ptsnet_sensor_seed_callback,
+        wave_speed_bindings=ptsnet_wave_bindings,
+        surge_bindings=ptsnet_surge_bindings,
+        interior_bindings=ptsnet_interior_bindings,
+        ptsnet_source_directory=ptsnet_source_directory,
     )
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pathlib
+from collections.abc import Mapping
 
 from .common.backends import Backend
 from .common.events import TransientEvent
@@ -22,8 +23,18 @@ class PTSNetBackend(
         self.simulator: PTSNetSimulator | None = None
         self._config: PTSNetConfig | None = None
 
-    def load_model(self, file: str | pathlib.Path) -> PTSNetModel:
-        self.model = load_ptsnet_model(file)
+    def load_model(
+        self,
+        file: str | pathlib.Path,
+        *,
+        settings: Mapping[str, object] | None = None,
+        workspace_name: str | None = None,
+    ) -> PTSNetModel:
+        self.model = load_ptsnet_model(
+            file,
+            settings=settings,
+            workspace_name=workspace_name,
+        )
         return self.model
 
     def get_config(self) -> PTSNetConfig:

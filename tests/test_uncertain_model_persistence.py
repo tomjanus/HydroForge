@@ -288,3 +288,157 @@ def test_load_rejects_malformed_mapping(tmp_path):
 
     with pytest.raises(ValueError, match="mapping"):
         load_realization(bundle)
+
+
+def test_ptsnet_bundle_restores_interior_request_and_sensor_pipeline(
+    tmp_path, monkeypatch
+):
+    import numpy as np
+    from dataclasses import dataclass
+    from types import SimpleNamespace
+
+    import hydroforge.wdn_modelling.uncertainty.ptsnet_mapping as ptsnet_mapping
+    from hydroforge.sampling import Scenario
+    from hydroforge.uncertainty.specification import SensorDefinition
+    from hydroforge.wdn_modelling.mapping import SimulationInstance
+    from hydroforge.wdn_modelling.uncertainty.ptsnet_mapping import (
+        PTSNetInteriorSensorBinding,
+        PTSNetSurgeProtectionBinding,
+        PTSNetWaveSpeedBinding,
+    )
+
+    source = tmp_path / "source.inp"
+    source.write_text("native input", encoding="utf-8")
+
+    class NodeTable:
+        labels = ["N1"]
+        head = np.array([[4.0, 5.0]])
+
+    class FakeModel:
+        def __init__(self, inpfile, settings):
+            self.inpfile = str(inpfile)
+            self.workspace_name = "loaded"
+            self.settings = SimpleNamespace(
+                is_initialized=True,
+                duration=settings.get("duration", 0.2),
+                time_step=settings.get("time_step", 0.1),
+                default_wave_speed=settings.get("default_wave_speed", 1000.0),
+            )
+            self.settings.to_dict = lambda simplified=True: {
+                "duration": self.settings.duration,
+                "time_step": self.settings.time_step,
+                "default_wave_speed": self.settings.default_wave_speed,
+            }
+            self.ss = {
+                "pipe": SimpleNamespace(wave_speed=np.array([1000.0])),
+            }
+            self.surge_calls = []
+            self.pipe_output_requests = []
+            self.time_stamps = np.array([0.0, 0.1])
+            self.interior_results = {}
+            self.results = {"node": NodeTable()}
+
+        def add_pipe_output(self, *args, **kwargs):
+            self.pipe_output_requests.append((args, kwargs))
+
+        def add_surge_protection(self, *args, **kwargs):
+            self.surge_calls.append((args, kwargs))
+
+        def run(self):
+            self.interior_results = {"flow_sensor": {"flowrate": np.array([1.0, 2.0])}}
+
+    class FakeBackend:
+        def load_model(self, path, *, settings, workspace_name):
+            model = FakeModel(path, settings)
+            model.workspace_name = workspace_name
+            return model
+
+    class FakeResults:
+        def __init__(self, model):
+            self.model = model
+
+    @dataclass
+    class FakeConfig:
+        duration: float = 0.2
+        time_step: float = 0.1
+        default_wave_speed: float = 1000.0
+        parallel: bool = False
+        gpu: bool = False
+
+        def _to_settings(self):
+            return {
+                "duration": self.duration,
+                "time_step": self.time_step,
+                "default_wave_speed": self.default_wave_speed,
+                "parallel": self.parallel,
+                "gpu": self.gpu,
+            }
+
+    class FakeSimulator:
+        def __init__(self, config):
+            self.config = config
+
+        def run(self, model):
+            model.run()
+            return FakeResults(model)
+
+    monkeypatch.setattr(
+        "hydroforge.wdn_modelling.backends.ptsnet_backend.PTSNetBackend",
+        FakeBackend,
+    )
+    monkeypatch.setattr(ptsnet_mapping, "PTSNetConfig", FakeConfig)
+    monkeypatch.setattr(ptsnet_mapping, "PTSNetSimulator", FakeSimulator)
+    monkeypatch.setattr(ptsnet_mapping, "PTSNetSimulationResults", FakeResults)
+
+    specification = UncertaintySpecification.from_dict(
+        {"schema_version": "1.0", "sensors": {}}
+    )
+    model = FakeModel(source, FakeConfig()._to_settings())
+    instance = SimulationInstance(
+        model=model,
+        scenario=Scenario(values={"wave_speed": 1200.0}, id="dynamic"),
+        specification=specification,
+        run=lambda candidate: candidate,
+        sensor_definitions={
+            "flow_sensor": SensorDefinition(type="Offset", parameters={"offset": 0.25})
+        },
+        wave_speed_bindings=[PTSNetWaveSpeedBinding("wave_speed")],
+        surge_bindings=[PTSNetSurgeProtectionBinding("N1", "open", tank_area=1.0)],
+        interior_bindings=[
+            PTSNetInteriorSensorBinding(
+                "P1",
+                "flow_sensor",
+                "flowrate",
+                name="flow_sensor",
+                fraction=0.5,
+            )
+        ],
+    )
+    instance.backend = "ptsnet"
+
+    bundle = tmp_path / "ptsnet-bundle"
+    save_realization(instance, bundle)
+    manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["backend_settings"]["time_step"] == 0.1
+    assert manifest["mapping"]["interior_bindings"]
+
+    loaded = load_realization(bundle)
+    assert len(loaded.model.pipe_output_requests) == 1
+    assert len(loaded.model.surge_calls) == 1
+    assert not (bundle / "model.rpt").exists()
+    assert loaded.model.ss["pipe"].wave_speed[0] == 1200.0
+    assert "_loaded_" in loaded.model.workspace_name
+
+    result = loaded.run()
+    assert result.raw_results.model.interior_results["flow_sensor"][
+        "flowrate"
+    ].tolist() == [
+        1.0,
+        2.0,
+    ]
+    measured = result.measured_outputs["flowrate"]["flow_sensor"]
+    assert measured.index.tolist() == [0.0, 0.1]
+    assert measured.tolist() == [1.25, 2.25]
+    assert len(loaded.model.pipe_output_requests) == 1
+    assert len(loaded.model.surge_calls) == 1
+    assert not (bundle / "model.rpt").exists()
