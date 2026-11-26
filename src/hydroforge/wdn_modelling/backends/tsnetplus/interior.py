@@ -10,7 +10,6 @@ from typing import Any, Iterator, Literal, Sequence
 
 import numpy as np
 
-
 InteriorQuantity = Literal["head", "velocity", "flowrate"]
 
 _CAPTURE_LOCK = threading.RLock()

@@ -17,11 +17,11 @@ try:
     )
     from .tsnetplus.loader import load_tsnetplus_model
 except Exception:  # pragma: no cover - optional dependency
-    TSNetPlusConfig = Any
-    TSNetPlusModel = Any
-    TSNetPlusSimulationResults = Any
-    TSNetSPlusSimulator = Any
-    load_tsnetplus_model = None
+    TSNetPlusConfig = Any  # type: ignore[assignment,misc]
+    TSNetPlusModel = Any  # type: ignore[assignment,misc]
+    TSNetPlusSimulationResults = Any  # type: ignore[assignment,misc]
+    TSNetSPlusSimulator = Any  # type: ignore[assignment,misc]
+    load_tsnetplus_model = None  # type: ignore[assignment]
 
 
 class TSNetPlusBackend(

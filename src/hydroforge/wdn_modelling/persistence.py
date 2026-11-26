@@ -25,7 +25,6 @@ from hydroforge.wdn_modelling.uncertainty.sensors import WNTRSensorBinding
 from hydroforge.wdn_modelling.uncertainty.sensors import WNTRSensorAdapter
 from hydroforge.wdn_modelling.mapping import resolve_sensor_parameter_references
 
-
 _REQUIRED_MANIFEST_KEYS = {
     "manifest_version",
     "backend",

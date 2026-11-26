@@ -293,10 +293,10 @@ class DriftSensor(Sensor):
                 elapsed = time_values.to_numpy(dtype=float) - float(
                     time_values.to_numpy(dtype=float)[0]
                 )
-            bias = self.current_offset + self.offset_rate * elapsed
-            if len(bias) > 0:
-                self.current_offset = float(bias[-1])
-            return y + pd.Series(bias, index=y.index)
+            series_bias = self.current_offset + self.offset_rate * elapsed
+            if len(series_bias) > 0:
+                self.current_offset = float(series_bias[-1])
+            return y + pd.Series(series_bias, index=y.index)
 
         if isinstance(y, pd.DataFrame):
             time_values = pd.to_numeric(pd.Series(list(y.index)), errors="coerce")
@@ -306,16 +306,16 @@ class DriftSensor(Sensor):
                 elapsed = time_values.to_numpy(dtype=float) - float(
                     time_values.to_numpy(dtype=float)[0]
                 )
-            bias = self.current_offset + self.offset_rate * elapsed
-            if len(bias) > 0:
-                self.current_offset = float(bias[-1])
-            return y.add(bias, axis=0)
+            series_bias = self.current_offset + self.offset_rate * elapsed
+            if len(series_bias) > 0:
+                self.current_offset = float(series_bias[-1])
+            return y.add(series_bias, axis=0)
 
         if isinstance(y, np.ndarray):
             if y.ndim == 0:
-                bias = self.current_offset
+                scalar_bias = self.current_offset
                 self.current_offset = self.current_offset + self.offset_rate
-                return np.asarray(y + bias)
+                return np.asarray(y + scalar_bias)
             elapsed = np.arange(y.shape[0], dtype=float)
             bias_values = self.current_offset + self.offset_rate * elapsed
             self.current_offset = float(np.asarray(bias_values).reshape(-1)[-1])
@@ -324,9 +324,9 @@ class DriftSensor(Sensor):
             return y + bias_values.reshape(-1, *([1] * (y.ndim - 1)))
 
         if isinstance(y, (float, int)):
-            bias = self.current_offset
+            scalar_bias = self.current_offset
             self.current_offset = self.current_offset + self.offset_rate
-            return float(y + bias)
+            return float(y + scalar_bias)
 
         raise TypeError(f"Unsupported type {type(y)}")
 
