@@ -33,9 +33,9 @@ validated/executed separately), `flake8 --config=.flake8 .`, `mypy .`, and
 `python -m build`. Distribution metadata validation and a relative Markdown
 link check also passed. Both notebooks were executed in compatible Jupyter
 kernels and displayed their flow comparisons; PTSNET used Python 3.10.
-HydroForge [PR #71](https://github.com/tomjanus/HydroForge/pull/71) is pushed
-and CI run [45741372635](https://github.com/tomjanus/HydroForge/actions/runs/45741372635)
-passed lint/type checks, tests on Python 3.10–3.13, and package build/metadata
+HydroForge [PR #71](https://github.com/tomjanus/HydroForge/pull/71) is pushed;
+its [required CI checks](https://github.com/tomjanus/HydroForge/pull/71/checks)
+pass lint/type checks, tests on Python 3.10–3.13, and package build/metadata
 checks. PTSNET feature commit `d8b0855` is pushed on the separate
 `tomjanus/ptsnet` feature branch; [upstream PR #8](https://github.com/gandresr/ptsnet/pull/8)
 is open against `development`. That protected branch was not changed.
