@@ -56,7 +56,7 @@ need:
 | `wntr` | WNTR (core dependency) |
 | `tsnet` | `pip install "git+https://github.com/glorialulu/TSNet.git"` |
 | `tsnetplus` | `pip install "git+https://github.com/tomjanus/TSNetPlus.git"` |
-| `ptsnet` | `pip install "git+https://github.com/tomjanus/ptsnet.git@feature/ptsnet-interior-history-output"` |
+| `ptsnet` | `pip install "git+https://github.com/tomjanus/ptsnet.git@development"` |
 
 TSNet and TSNetPlus are installed directly from GitHub because PyPI does not
 allow direct URL requirements in published package metadata. `ptsnet` installs
@@ -65,9 +65,9 @@ missing, HydroForge explains which package is required and asks whether to
 install it. Installation happens only after an explicit `y` or `yes`; pressing
 Enter (or answering `n`) leaves the environment unchanged.
 
-PTSNET interior-pipe measurements require the
-`feature/ptsnet-interior-history-output` branch above. The released PTSNET
-package may not expose `add_pipe_output`.
+PTSNET interior-pipe measurements require the `tomjanus/ptsnet` fork's
+`development` branch above. The released upstream PTSNET package may not expose
+`add_pipe_output`.
 
 ## Quick start
 
