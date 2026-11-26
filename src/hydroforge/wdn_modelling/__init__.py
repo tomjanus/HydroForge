@@ -29,6 +29,14 @@ uncertainty
 from .backends import Backend, BackendName, get_backend
 from .epanetfile_io import EPANETNetworkModelIO
 from .graphs import EPANETNetworkGraph
+from .mapping import (
+    GenericModelMapper,
+    ModelMapper,
+    SimulationInstance,
+    SimulationResult,
+    UncertainModel,
+    resolve_sensor_parameter_references,
+)
 
 __all__ = [
     "Backend",
@@ -36,4 +44,10 @@ __all__ = [
     "get_backend",
     "EPANETNetworkGraph",
     "EPANETNetworkModelIO",
+    "GenericModelMapper",
+    "ModelMapper",
+    "SimulationInstance",
+    "SimulationResult",
+    "UncertainModel",
+    "resolve_sensor_parameter_references",
 ]

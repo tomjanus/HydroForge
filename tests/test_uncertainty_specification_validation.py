@@ -17,7 +17,7 @@ BASE = {
 def test_valid_minimal_specification_loads():
     spec = UncertaintySpecification.from_dict(BASE)
 
-    assert spec.schema_version == "1.0"
+    assert spec.schema_version == "2.0"
     assert set(spec.sensors) == {"sensor1"}
 
 
@@ -30,7 +30,7 @@ def test_missing_schema_version_is_reported():
 
 def test_unsupported_schema_version_is_reported():
     with pytest.raises(SpecificationValidationError) as exc:
-        UncertaintySpecification.from_dict({"schema_version": "2.0", "sensors": {}})
+        UncertaintySpecification.from_dict({"schema_version": "3.0", "sensors": {}})
 
     assert exc.value.errors[0].path == "schema_version"
 

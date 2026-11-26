@@ -112,6 +112,16 @@ def test_explicit_type_is_never_overridden_by_inference():
     assert parameter.type is ParameterType.NUMERICAL
 
 
+def test_explicit_undefined_type_infers_from_domain():
+    parameter = Parameter(
+        name="diameter",
+        nominal_value=1.0,
+        uncertainty=AdditiveUncertainty(NormalDistribution(mean=0.0, std_dev=1.0)),
+        type=ParameterType.UNDEFINED,
+    )
+    assert parameter.type is ParameterType.NUMERICAL
+
+
 # ---------------------------------------------------------------
 # Existing policy regressions (categorical / discrete / numerical)
 # ---------------------------------------------------------------

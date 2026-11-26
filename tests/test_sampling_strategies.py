@@ -23,9 +23,13 @@ from hydroforge.sampling import (
 )
 from hydroforge.uncertainty import (
     AdditiveUncertainty,
+    BinaryStateFlipUncertainty,
+    CategoricalRandomReplacementUncertainty,
+    CategoricalUniformDistribution,
     CategoricalHistogramDistribution,
     CategoricalReplacementUncertainty,
     ContinuousDiracDeltaDistribution,
+    DiscreteNormalDistribution,
     NormalDistribution,
     Parameter,
     ParameterType,
@@ -439,3 +443,72 @@ def test_composite_samplers_reject_child_seed_overrides():
             ],
             seed=59,
         )
+
+
+def _make_mixed_domain_parameters():
+    """Create one continuous, discrete, categorical, and binary parameter."""
+    return [
+        Parameter(
+            name="diameter",
+            nominal_value=100.0,
+            uncertainty=AdditiveUncertainty(NormalDistribution(0.0, 1.0)),
+        ),
+        Parameter(
+            name="count",
+            nominal_value=5,
+            uncertainty=AdditiveUncertainty(DiscreteNormalDistribution(5, 1.0)),
+        ),
+        Parameter(
+            name="material",
+            nominal_value="PVC",
+            uncertainty=CategoricalRandomReplacementUncertainty(
+                CategoricalUniformDistribution(
+                    categories=("PVC", "Steel"), nominal_category="PVC"
+                )
+            ),
+        ),
+        Parameter(
+            name="status",
+            nominal_value="OPEN",
+            uncertainty=BinaryStateFlipUncertainty(
+                flip_prob=0.3, states=("OPEN", "CLOSED")
+            ),
+        ),
+    ]
+
+
+@pytest.mark.parametrize("sampler_class", [LatinHypercubeSampler, SobolSampler])
+def test_mixed_domain_sampling_is_deterministic_and_domain_valid(sampler_class):
+    parameters = _make_mixed_domain_parameters()
+    global_state = np.random.get_state()
+    try:
+        first = list(sampler_class(parameters, seed=17).generate(8))
+        state_after_sampling = np.random.get_state()
+    finally:
+        np.random.set_state(global_state)
+
+    assert global_state[0] == state_after_sampling[0]
+    assert np.array_equal(global_state[1], state_after_sampling[1])
+    assert global_state[2] == state_after_sampling[2]
+    assert global_state[3] == state_after_sampling[3]
+    assert global_state[4] == state_after_sampling[4]
+
+    second_parameters = _make_mixed_domain_parameters()
+    second = list(sampler_class(second_parameters, seed=17).generate(8))
+
+    assert [scenario.values for scenario in first] == [
+        scenario.values for scenario in second
+    ]
+    assert all(
+        scenario.metadata is not None and scenario.metadata.get("effective_seed") == 17
+        for scenario in first
+    )
+
+    for scenario in first:
+        values = scenario.values
+        assert isinstance(values["diameter"], (int, float, np.integer, np.floating))
+        assert not isinstance(values["diameter"], (bool, np.bool_))
+        assert isinstance(values["count"], (int, np.integer))
+        assert not isinstance(values["count"], (bool, np.bool_))
+        assert values["material"] in ("PVC", "Steel")
+        assert values["status"] in ("OPEN", "CLOSED")

@@ -161,7 +161,7 @@ def test_numpy_scalars_are_coerced_in_definition_payloads():
     assert type(distribution_parameters["std_dev"]) is float
     json.dumps(payload)  # coercion is what makes canonical output JSON-native
     parameter = spec.create_parameter("p1")
-    assert parameter.type is ParameterType.NUMERICAL
+    assert parameter.type is ParameterType.DISCRETE
 
 
 def test_numpy_integer_seed_is_accepted_and_coerced():
@@ -285,7 +285,7 @@ def test_model_section_shape_checked_as_dict():
 
 def test_problems_across_sections_are_collected_together():
     document = {
-        "schema_version": "2.0",
+        "schema_version": "3.0",
         "sensors": {"s1": {"type": "Nope", "parameters": {}}},
         "parameters": {"p1": {"nominal_value": [1]}},
         "bogus": 1,

@@ -3,16 +3,25 @@
 from __future__ import annotations
 
 import pathlib
+from typing import Any
 
 from .common.backends import Backend
 from .common.events import TransientEvent
-from .tsnetplus import (
-    TSNetPlusConfig,
-    TSNetPlusModel,
-    TSNetPlusSimulationResults,
-    TSNetSPlusSimulator,
-)
-from .tsnetplus.loader import load_tsnetplus_model
+
+try:
+    from .tsnetplus import (
+        TSNetPlusConfig,
+        TSNetPlusModel,
+        TSNetPlusSimulationResults,
+        TSNetSPlusSimulator,
+    )
+    from .tsnetplus.loader import load_tsnetplus_model
+except Exception:  # pragma: no cover - optional dependency
+    TSNetPlusConfig = Any  # type: ignore[assignment,misc]
+    TSNetPlusModel = Any  # type: ignore[assignment,misc]
+    TSNetPlusSimulationResults = Any  # type: ignore[assignment,misc]
+    TSNetSPlusSimulator = Any  # type: ignore[assignment,misc]
+    load_tsnetplus_model = None  # type: ignore[assignment]
 
 
 class TSNetPlusBackend(
@@ -33,6 +42,8 @@ class TSNetPlusBackend(
         self._config: TSNetPlusConfig | None = None
 
     def load_model(self, file: str | pathlib.Path) -> TSNetPlusModel:
+        from .tsnetplus.loader import load_tsnetplus_model
+
         self.model = load_tsnetplus_model(file)
         return self.model
 

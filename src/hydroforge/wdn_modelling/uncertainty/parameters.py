@@ -5,7 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import isfinite
 from numbers import Real
-from typing import Literal, Mapping, Sequence, TypeAlias, cast
+from typing import (
+    Literal,
+    Mapping,
+    Protocol,
+    Sequence,
+    TypeAlias,
+    cast,
+    runtime_checkable,
+)
 
 import wntr
 from wntr.network.base import LinkStatus
@@ -17,10 +25,15 @@ WNTRParameterProperty: TypeAlias = Literal[
     "roughness",
     "base_demand",
     "valve_setting",
+    "initial_status",
 ]
 
 _PIPE_PROPERTIES = frozenset({"diameter", "diameter_multiplier", "roughness"})
-_SUPPORTED_PROPERTIES = _PIPE_PROPERTIES | {"base_demand", "valve_setting"}
+_SUPPORTED_PROPERTIES = _PIPE_PROPERTIES | {
+    "base_demand",
+    "valve_setting",
+    "initial_status",
+}
 _CONTINUOUS_VALVE_TYPES = frozenset({"PRV", "PSV", "FCV", "TCV"})
 _SUPPORTED_VALVE_TYPES = _CONTINUOUS_VALVE_TYPES | {"GPV", "PBV"}
 
@@ -44,6 +57,15 @@ class WNTRParameterBinding:
 
     component_id: str
     property: WNTRParameterProperty
+    parameter_key: str
+
+
+@runtime_checkable
+class WNTRParameterBindingProtocol(Protocol):
+    """Structural contract for WNTR parameter bindings."""
+
+    component_id: str
+    property: str
     parameter_key: str
 
 
@@ -140,7 +162,7 @@ class WNTRParameterAdapter:
 
         for index, binding in enumerate(self.bindings):
             path = f"bindings[{index}]"
-            if not isinstance(binding, WNTRParameterBinding):
+            if not isinstance(binding, WNTRParameterBindingProtocol):
                 raise ParameterApplicationError(path, "expected a WNTRParameterBinding")
             if not isinstance(binding.component_id, str) or not binding.component_id:
                 raise ParameterApplicationError(
@@ -191,6 +213,12 @@ class WNTRParameterAdapter:
                     realized_values[binding.parameter_key],
                     value_path,
                 )
+            elif binding.property == "initial_status":
+                realized_value = self._validate_initial_status(
+                    realized_values[binding.parameter_key],
+                    value_path,
+                )
+                new_value = realized_value
             else:
                 realized_value = self._coerce_realized_value(
                     realized_values[binding.parameter_key],
@@ -214,6 +242,19 @@ class WNTRParameterAdapter:
             )
 
         return prepared
+
+    @staticmethod
+    def _validate_initial_status(value: object, path: str) -> str:
+        if not isinstance(value, str):
+            raise ParameterApplicationError(
+                path, "initial status must be 'OPEN' or 'CLOSED'"
+            )
+        status = value.strip().upper()
+        if status not in {"OPEN", "CLOSED"}:
+            raise ParameterApplicationError(
+                path, f"invalid initial status {value!r}; expected 'OPEN' or 'CLOSED'"
+            )
+        return status
 
     @staticmethod
     def _coerce_realized_value(value: object, path: str) -> float:
@@ -256,7 +297,7 @@ class WNTRParameterAdapter:
                 f"unknown WNTR component {component_id!r}",
             )
 
-        if binding.property in _PIPE_PROPERTIES:
+        if binding.property in _PIPE_PROPERTIES or binding.property == "initial_status":
             if component_id in model.pipe_name_list:
                 return model.get_link(component_id)
             if component_id in model.link_name_list:
@@ -316,6 +357,15 @@ class WNTRParameterAdapter:
             return float(target.diameter)
         if property_name == "roughness":
             return float(target.roughness)
+        if property_name == "initial_status":
+            assert isinstance(target, Pipe)
+            status = target.initial_status
+            if status == LinkStatus.Open:
+                return "OPEN"
+            if status == LinkStatus.Closed:
+                return "CLOSED"
+            return str(status).strip().upper()
+            # normalize OPENED? WNTR uses Open; return OPEN/CLOSED
         if property_name == "valve_setting":
             assert isinstance(target, Valve)
             return WNTRParameterAdapter._read_valve_setting(target)
@@ -436,6 +486,13 @@ class WNTRParameterAdapter:
                 target.initial_status = status_values[value]
             else:
                 raise ValueError(f"Unsupported WNTR valve type {valve_type!r}")
+        elif property_name == "initial_status":
+            assert isinstance(target, Pipe)
+            status_values = {
+                "OPEN": LinkStatus.Open,
+                "CLOSED": LinkStatus.Closed,
+            }
+            target.initial_status = status_values[str(value)]
         elif property_name in {"diameter", "diameter_multiplier"}:
             assert isinstance(target, Pipe)
             target.diameter = value

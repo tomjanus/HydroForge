@@ -490,10 +490,10 @@ class CategoricalReplacementUncertainty(Uncertainty[CatValue]):
         replacements = np.asarray(replacements, dtype=object)
 
         # Apply replacements conditionally
-        result = values.reshape(-1).copy()
-        result[flips] = replacements[flips]
-        result = result.reshape(values.shape)
-        return result.item() if is_scalar else result
+        flat_result = values.reshape(-1).copy()
+        flat_result[flips] = replacements[flips]
+        shaped_result = flat_result.reshape(values.shape)
+        return shaped_result.item() if is_scalar else shaped_result
 
 
 @dataclass

@@ -14,6 +14,7 @@ from hydroforge.measurements import (
     SensitivityErrorSensor,
 )
 from hydroforge.uncertainty.specification import (
+    SpecificationError,
     SpecificationValidationError,
     UncertaintySpecification,
 )
@@ -156,13 +157,12 @@ def test_composite_rejects_unknown_parameter():
     assert exc.value.errors[0].path == "sensors.sensor1.parameters.components"
 
 
-def test_location_is_preserved_through_load_and_serialisation():
-    spec = _spec("FixedPrecision", {"delta_y": 0.1}, location="J1")
+def test_location_is_rejected_with_migration_guidance():
+    with pytest.raises(SpecificationValidationError) as exc:
+        _spec("FixedPrecision", {"delta_y": 0.1}, location="J1")
 
-    serialised = spec.to_dict()
-
-    assert spec.sensors["sensor1"].location == "J1"
-    assert serialised["sensors"]["sensor1"]["location"] == "J1"
+    assert exc.value.errors[0].path == "sensors.sensor1.location"
+    assert "backend mapper" in exc.value.errors[0].message
 
 
 def test_internal_state_fields_are_not_valid_parameters():
@@ -182,3 +182,35 @@ def test_unknown_sensor_name_raises_specification_error():
 
     with pytest.raises(SpecificationError):
         spec.create_sensor("missing")
+
+
+def test_tuple_valued_parameter_reference_is_detected():
+    from hydroforge.uncertainty.specification import SensorDefinition
+
+    definition = SensorDefinition(
+        type="Offset", parameters={"offset": ({"$parameter": "missing"},)}
+    )
+
+    with pytest.raises(SpecificationError):
+        definition.create_sensor()
+
+
+def test_drift_sensor_initial_offset_round_trips():
+    spec = UncertaintySpecification.from_dict(
+        {
+            "schema_version": "1.0",
+            "sensors": {
+                "drift": {
+                    "type": "Drift",
+                    "parameters": {"offset_rate": 0.1, "initial_offset": 0.25},
+                }
+            },
+        }
+    )
+
+    sensor = spec.create_sensor("drift")
+
+    assert sensor.initial_offset == 0.25
+    assert spec.to_dict()["sensors"]["drift"]["parameters"]["initial_offset"] == 0.25
+    reloaded = UncertaintySpecification.from_dict(spec.to_dict())
+    assert reloaded.create_sensor("drift").initial_offset == 0.25

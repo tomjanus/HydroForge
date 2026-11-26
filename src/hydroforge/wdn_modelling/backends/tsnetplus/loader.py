@@ -1,7 +1,12 @@
 """ """
 
 import pathlib
-from .model import TSNetPlusModel
+from typing import Any
+
+try:
+    from .model import TSNetPlusModel
+except Exception:  # pragma: no cover - optional dependency
+    TSNetPlusModel = Any  # type: ignore[misc, assignment]
 
 
 def load_tsnetplus_model(model: str | pathlib.Path) -> TSNetPlusModel:
@@ -30,4 +35,14 @@ def load_tsnetplus_model(model: str | pathlib.Path) -> TSNetPlusModel:
     model = pathlib.Path(model)
     if not model.is_file():
         raise FileNotFoundError(f"TSNetPlus model file not found: {model}")
-    return TSNetPlusModel(str(model))
+    import sys
+    import importlib
+
+    for module_name in ("tsnetplus", "tsnetplus.network", "tsnetplus.network.model"):
+        cached = sys.modules.get(module_name)
+        if cached is not None and not getattr(cached, "__file__", None):
+            del sys.modules[module_name]
+    importlib.import_module("tsnetplus")
+    network = importlib.import_module("tsnetplus.network")
+
+    return network.TransientModel(str(model))

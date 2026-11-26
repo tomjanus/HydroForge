@@ -204,6 +204,28 @@ def test_every_uncertainty_loads_constructs_and_round_trips(uncertainty_type):
     assert UncertaintySpecification.from_dict(payload) == spec
 
 
+@pytest.mark.parametrize("uncertainty_type", sorted(VALID_UNCERTAINTIES))
+def test_parameter_type_inference_is_consistent_between_runtime_and_spec(
+    uncertainty_type,
+):
+    spec = _spec(
+        uncertainty_type,
+        {
+            key: (
+                {"type": value["type"], "parameters": dict(value["parameters"])}
+                if isinstance(value, dict)
+                else value
+            )
+            for key, value in VALID_UNCERTAINTIES[uncertainty_type].items()
+        },
+    )
+
+    parameter = spec.create_parameter("p1")
+    live = Parameter(name="p1", nominal_value=1.0, uncertainty=parameter.uncertainty)
+
+    assert live.type is parameter.type
+
+
 @pytest.mark.parametrize("distribution_type", sorted(VALID_DISTRIBUTIONS))
 def test_every_distribution_loads_constructs_and_round_trips(distribution_type):
     spec = UncertaintySpecification.from_dict(

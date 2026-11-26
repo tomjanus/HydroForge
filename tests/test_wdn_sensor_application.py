@@ -8,7 +8,10 @@ import pandas as pd
 import pytest
 import wntr
 
-from hydroforge.uncertainty.specification import SensorDefinition
+from hydroforge.uncertainty.specification import (
+    SensorDefinition,
+    SpecificationValidationError,
+)
 from hydroforge.wdn_modelling.backends.wntr.results import WNTRSimulationResults
 from hydroforge.wdn_modelling.backends.wntr.simulator import WNTRSimulator
 from hydroforge.wdn_modelling.uncertainty import (
@@ -118,7 +121,7 @@ def test_each_binding_gets_a_fresh_live_sensor(simulated_network):
     definitions = _definitions(
         drift=SensorDefinition(
             type="Drift",
-            parameters={"offset_rate": 0.25},
+            parameters={"offset_rate": 0.25, "initial_offset": 0.25},
         )
     )
     original = results.raw.node["pressure"].copy(deep=True)
@@ -161,25 +164,12 @@ def test_seeded_definition_starts_each_point_with_a_fresh_rng(simulated_network)
     pd.testing.assert_series_equal(first_noise, second_noise, check_names=False)
 
 
-def test_sensor_definition_location_must_match_external_binding(simulated_network):
-    model, results = simulated_network
-    point_id = model.junction_name_list[0]
-
-    _assert_application_error(
-        model,
-        results,
-        _binding(point_id, "located", "pressure"),
-        _definitions(
-            located=SensorDefinition(
-                type="Perfect",
-                location=model.junction_name_list[1],
-            )
-        ),
-        "sensor_definitions['located'].location",
-    )
+def test_sensor_definition_location_is_rejected(simulated_network):
+    with pytest.raises(SpecificationValidationError):
+        SensorDefinition(type="Perfect", location="J1")
 
 
-def test_matching_sensor_definition_location_is_accepted(simulated_network):
+def test_sensor_definition_without_location_is_accepted(simulated_network):
     model, results = simulated_network
     point_id = model.junction_name_list[0]
 
@@ -188,7 +178,7 @@ def test_matching_sensor_definition_location_is_accepted(simulated_network):
         results,
         [_binding(point_id, "located", "pressure")],
         _definitions(
-            located=SensorDefinition(type="Perfect", location=point_id),
+            located=SensorDefinition(type="Perfect"),
         ),
     )
 
@@ -337,3 +327,28 @@ def test_pump_velocity_is_not_a_supported_measurement_variable(simulated_network
         _definitions(perfect=SensorDefinition(type="Perfect")),
         "bindings[0].variable",
     )
+
+
+def test_drift_sensor_uses_elapsed_time_and_independent_state():
+    import pandas as pd
+
+    from hydroforge.measurements import DriftSensor
+
+    signal = pd.Series([10.0, 10.0, 10.0], index=[2, 5, 9])
+    first = DriftSensor(offset_rate=0.5, initial_offset=1.0)
+    second = DriftSensor(offset_rate=0.5, initial_offset=1.0)
+
+    measured_first = first.measure(signal)
+    measured_second = second.measure(signal.copy())
+
+    expected = pd.Series([11.0, 12.5, 14.5], index=signal.index)
+    pd.testing.assert_series_equal(measured_first, expected, check_names=False)
+    pd.testing.assert_series_equal(measured_second, expected, check_names=False)
+    assert DriftSensor(offset_rate=0.1).initial_offset == 0.0
+
+
+def test_drift_sensor_default_initial_offset_is_zero():
+    from hydroforge.measurements import DriftSensor
+
+    sensor = DriftSensor(offset_rate=0.1)
+    assert sensor.initial_offset == 0.0

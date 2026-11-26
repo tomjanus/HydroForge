@@ -1,20 +1,18 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "sensors": {
     "pressure_sensor": {
       "type": "FixedPrecision",
       "parameters": {
         "delta_y": 0.01
-      },
-      "location": "J1"
+      }
     },
     "flow_sensor": {
       "type": "RandomNoise",
       "parameters": {
         "sigma": 0.05,
         "seed": 42
-      },
-      "location": "P1"
+      }
     }
   }
 }

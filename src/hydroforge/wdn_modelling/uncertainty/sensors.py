@@ -175,16 +175,6 @@ class WNTRSensorAdapter:
                     f"sensor_definitions[{binding.sensor_key!r}]",
                     "expected a generic SensorDefinition",
                 )
-            if (
-                definition.location is not None
-                and definition.location != binding.point_id
-            ):
-                raise SensorApplicationError(
-                    f"sensor_definitions[{binding.sensor_key!r}].location",
-                    f"{definition.location!r} does not match bound point "
-                    f"{binding.point_id!r}",
-                )
-
             self._validate_component(model, binding, path)
             result_table = self._result_table(results, binding)
             if binding.point_id not in result_table.columns:

@@ -262,40 +262,72 @@ class SaturationSensor(Sensor):
 class DriftSensor(Sensor):
     """A sensor that introduces a drift (bias) in the measurements.
 
-    The drift accumulates linearly with the number of `measure()` calls.
+    The drift is based on elapsed simulation time and a serializable initial
+    offset. Runtime state is independent for every sensor instance.
 
     Parameters
     ----------
     offset_rate : float
-        Rate at which the offset increases per `measure()` call.
+        Rate at which the offset increases with elapsed time.
+    initial_offset : float, default=0.0
+        Initial bias applied before elapsed-time drift.
     current_offset : float, default=0.0
-        Current accumulated offset.
+        Runtime accumulated offset. Initialized from ``initial_offset``.
     """
 
-    offset_rate: float  # bias increasing per call or per time step
-    current_offset: float = 0.0  # accumulated offset
+    offset_rate: float  # bias increasing per unit of elapsed time
+    initial_offset: float = 0.0  # serializable initial bias
+    current_offset: float = 0.0  # runtime state for this measurement
+
+    def __post_init__(self) -> None:
+        if self.current_offset == 0.0 and self.initial_offset != 0.0:
+            self.current_offset = self.initial_offset
 
     def measure(self, y: T) -> T:
-        """Return the measurement with accumulated drift applied.
+        """Return the measurement with elapsed-time drift applied."""
+        if isinstance(y, pd.Series):
+            time_values = pd.to_numeric(pd.Series(list(y.index)), errors="coerce")
+            if time_values.isna().all():
+                elapsed = np.arange(len(y), dtype=float)
+            else:
+                elapsed = time_values.to_numpy(dtype=float) - float(
+                    time_values.to_numpy(dtype=float)[0]
+                )
+            series_bias = self.current_offset + self.offset_rate * elapsed
+            if len(series_bias) > 0:
+                self.current_offset = float(series_bias[-1])
+            return y + pd.Series(series_bias, index=y.index)
 
-        Each call increases `current_offset` by `offset_rate` before
-        applying it to `y`.
+        if isinstance(y, pd.DataFrame):
+            time_values = pd.to_numeric(pd.Series(list(y.index)), errors="coerce")
+            if time_values.isna().all():
+                elapsed = np.arange(len(y), dtype=float)
+            else:
+                elapsed = time_values.to_numpy(dtype=float) - float(
+                    time_values.to_numpy(dtype=float)[0]
+                )
+            series_bias = self.current_offset + self.offset_rate * elapsed
+            if len(series_bias) > 0:
+                self.current_offset = float(series_bias[-1])
+            return y.add(series_bias, axis=0)
 
-        Parameters
-        ----------
-        y : float, numpy.ndarray, pandas.DataFrame, or pandas.Series
-            True signal value(s) to measure.
+        if isinstance(y, np.ndarray):
+            if y.ndim == 0:
+                scalar_bias = self.current_offset
+                self.current_offset = self.current_offset + self.offset_rate
+                return np.asarray(y + scalar_bias)
+            elapsed = np.arange(y.shape[0], dtype=float)
+            bias_values = self.current_offset + self.offset_rate * elapsed
+            self.current_offset = float(np.asarray(bias_values).reshape(-1)[-1])
+            if y.ndim == 1:
+                return y + bias_values
+            return y + bias_values.reshape(-1, *([1] * (y.ndim - 1)))
 
-        Returns
-        -------
-        Same type as `y`
-            Measured value(s) with the current drift offset added.
-        """
-        self.current_offset += self.offset_rate
         if isinstance(y, (float, int)):
-            return float(y + self.current_offset)
-        if isinstance(y, (np.ndarray, pd.DataFrame, pd.Series)):
-            return y + self.current_offset
+            scalar_bias = self.current_offset
+            self.current_offset = self.current_offset + self.offset_rate
+            return float(y + scalar_bias)
+
         raise TypeError(f"Unsupported type {type(y)}")
 
 
@@ -332,7 +364,7 @@ class CompositeSensor(Sensor):
         Same type as `y`
             Measured value(s) after applying all chained sensors.
         """
-        val: T = y
+        val: Any = y
         for s in self.sensors:
             val = s.measure(val)
-        return val
+        return cast(T, val)

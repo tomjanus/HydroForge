@@ -29,8 +29,16 @@ from pydantic import (
 
 from hydroforge.measurements import CompositeSensor, Sensor
 from hydroforge.uncertainty.distributions import Distribution
-from hydroforge.uncertainty.parameters import Parameter, ParameterType
-from hydroforge.uncertainty.uncertainties import NoUncertainty, Uncertainty
+from hydroforge.uncertainty.parameters import (
+    Parameter,
+    ParameterType,
+    parameter_type_from_domain,
+)
+from hydroforge.uncertainty.uncertainties import (
+    BiasUncertainty,
+    NoUncertainty,
+    Uncertainty,
+)
 
 from .exceptions import (
     SpecificationError,
@@ -50,14 +58,14 @@ from .registry import (
     uncertainty_type_names,
 )
 
-SUPPORTED_SCHEMA_VERSIONS: frozenset[str] = frozenset({"1.0"})
+SUPPORTED_SCHEMA_VERSIONS: frozenset[str] = frozenset({"1.0", "2.0"})
 
 # Constructor fields that hold internal state rather than user configuration.
 _NON_SPEC_PARAMETER_FIELDS: frozenset[str] = frozenset({"_rng", "current_offset"})
 
 # Keys permitted inside a sensor definition (also used for nested composite
 # entries, which are validated by this layer rather than by Pydantic).
-_SENSOR_DEFINITION_KEYS: frozenset[str] = frozenset({"type", "parameters", "location"})
+_SENSOR_DEFINITION_KEYS: frozenset[str] = frozenset({"type", "parameters"})
 
 # Keys permitted inside a nested uncertainty/distribution definition.
 _NESTED_DEFINITION_KEYS: frozenset[str] = frozenset({"type", "parameters"})
@@ -198,8 +206,83 @@ def _sensor_parameter_fields(cls: type[Sensor]) -> dict[str, _ParameterField]:
     return fields
 
 
+_PARAMETER_REFERENCE_KEY = "$parameter"
+
+
+def _is_parameter_reference(value: Any) -> bool:
+    """Return whether ``value`` is a ``{$parameter: name}`` reference."""
+    return (
+        isinstance(value, dict)
+        and len(value) == 1
+        and _PARAMETER_REFERENCE_KEY in value
+    )
+
+
+def _contains_parameter_reference(value: Any) -> bool:
+    """Return whether ``value`` contains an unresolved ``$parameter`` reference."""
+    if _is_parameter_reference(value):
+        return True
+    if isinstance(value, dict):
+        return any(_contains_parameter_reference(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_contains_parameter_reference(item) for item in value)
+    return False
+
+
+def _validate_parameter_references_in_value(
+    value: Any,
+    path: str,
+    parameter_names: frozenset[str] | set[str],
+    issues: list[SpecificationIssue],
+) -> None:
+    """Recursively validate ``$parameter`` references in a sensor parameter value."""
+    if _is_parameter_reference(value):
+        issues.extend(_validate_parameter_reference(value, path, parameter_names))
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            _validate_parameter_references_in_value(
+                item, _join(path, str(key)), parameter_names, issues
+            )
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _validate_parameter_references_in_value(
+                item, _join(path, str(index)), parameter_names, issues
+            )
+
+
+def _validate_parameter_reference(
+    value: dict[str, Any], path: str, parameter_names: frozenset[str] | set[str]
+) -> list[SpecificationIssue]:
+    """Validate a ``{$parameter: name}`` reference against known parameters."""
+    issues: list[SpecificationIssue] = []
+    name = value[_PARAMETER_REFERENCE_KEY]
+    if not isinstance(name, str):
+        issues.append(
+            SpecificationIssue(
+                path=path,
+                message="expected a string parameter name in $parameter reference",
+            )
+        )
+        return issues
+    if parameter_names and name not in parameter_names:
+        issues.append(
+            SpecificationIssue(
+                path=path,
+                message=(
+                    f"unknown parameter reference {name!r}; "
+                    f"defined parameters: {sorted(parameter_names)}"
+                ),
+            )
+        )
+    return issues
+
+
 def _validate_parameters(
-    cls: type[Sensor], parameters: dict[str, Any], path: str
+    cls: type[Sensor],
+    parameters: dict[str, Any],
+    path: str,
+    parameter_names: frozenset[str] | set[str] = frozenset(),
 ) -> list[SpecificationIssue]:
     """Validate a ``parameters`` mapping against a sensor class."""
     issues: list[SpecificationIssue] = []
@@ -234,7 +317,9 @@ def _validate_parameters(
                 for index, item in enumerate(nested):
                     issues.extend(
                         _validate_sensor_mapping(
-                            item, _join(_join(path, "sensors"), str(index))
+                            item,
+                            _join(_join(path, "sensors"), str(index)),
+                            parameter_names,
                         )
                     )
         return issues
@@ -255,26 +340,30 @@ def _validate_parameters(
                     path=_join(path, name), message="missing required parameter"
                 )
             )
-        elif name in parameters and not _annotation_allows(
-            parameters[name], parameter_field.annotation
-        ):
-            issues.append(
-                SpecificationIssue(
-                    path=_join(path, name),
-                    message=(
-                        f"expected {_describe(parameter_field.annotation)}, "
-                        f"got {type(parameters[name]).__name__}"
-                    ),
+        elif name in parameters:
+            value = parameters[name]
+            if _contains_parameter_reference(value):
+                _validate_parameter_references_in_value(
+                    value, _join(path, name), parameter_names, issues
                 )
-            )
+            elif not _annotation_allows(value, parameter_field.annotation):
+                issues.append(
+                    SpecificationIssue(
+                        path=_join(path, name),
+                        message=(
+                            f"expected {_describe(parameter_field.annotation)}, "
+                            f"got {type(value).__name__}"
+                        ),
+                    )
+                )
     return issues
 
 
 def _validate_definition(
     type_name: str,
     parameters: dict[str, Any],
-    location: str | None,
     path: str,
+    parameter_names: frozenset[str] | set[str] = frozenset(),
 ) -> list[SpecificationIssue]:
     """Validate one sensor definition located at ``path``."""
     issues: list[SpecificationIssue] = []
@@ -298,17 +387,17 @@ def _validate_definition(
             )
         )
         return issues
-    issues.extend(_validate_parameters(cls, parameters, _join(path, "parameters")))
-    if location is not None and not isinstance(location, str):
-        issues.append(
-            SpecificationIssue(
-                path=_join(path, "location"), message="expected a string or null"
-            )
+    issues.extend(
+        _validate_parameters(
+            cls, parameters, _join(path, "parameters"), parameter_names
         )
+    )
     return issues
 
 
-def _validate_sensor_mapping(raw: Any, path: str) -> list[SpecificationIssue]:
+def _validate_sensor_mapping(
+    raw: Any, path: str, parameter_names: frozenset[str] | set[str] = frozenset()
+) -> list[SpecificationIssue]:
     """Validate a raw sensor-definition mapping located at ``path``."""
     if isinstance(raw, SensorDefinition):
         return []
@@ -321,7 +410,18 @@ def _validate_sensor_mapping(raw: Any, path: str) -> list[SpecificationIssue]:
 
     issues: list[SpecificationIssue] = []
     for key in raw:
-        if key not in _SENSOR_DEFINITION_KEYS:
+        if key == "location":
+            issues.append(
+                SpecificationIssue(
+                    path=_join(path, "location"),
+                    message=(
+                        "sensor locations are no longer part of the generic "
+                        "specification; configure the sensor location in the "
+                        "backend mapper configuration"
+                    ),
+                )
+            )
+        elif key not in _SENSOR_DEFINITION_KEYS:
             issues.append(
                 SpecificationIssue(
                     path=_join(path, str(key)),
@@ -343,9 +443,7 @@ def _validate_sensor_mapping(raw: Any, path: str) -> list[SpecificationIssue]:
     parameters = raw.get("parameters", {})
     if parameters is None:
         parameters = {}
-    issues.extend(
-        _validate_definition(type_name, parameters, raw.get("location"), path)
-    )
+    issues.extend(_validate_definition(type_name, parameters, path, parameter_names))
     return issues
 
 
@@ -358,17 +456,14 @@ class SensorDefinition(BaseModel):
         Sensor type name, either the short name (``FixedPrecision``) or the
         full class name (``FixedPrecisionSensor``).
     parameters : dict[str, Any]
-        Constructor arguments for the sensor class.
-    location : str, optional
-        Network location (node or link id) associated with the observation
-        point. It is carried through but not validated against a network.
+        Constructor arguments for the sensor class. Values may be
+        ``{"$parameter": name}`` references to top-level parameter definitions.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     type: str
     parameters: dict[str, Any] = Field(default_factory=dict)
-    location: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -408,9 +503,7 @@ class SensorDefinition(BaseModel):
 
     @model_validator(mode="after")
     def _validate_against_registry(self) -> "SensorDefinition":
-        issues = _validate_definition(
-            self.type, self.parameters, self.location, path=""
-        )
+        issues = _validate_definition(self.type, self.parameters, path="")
         if issues:
             raise SpecificationValidationError(issues)
         return self
@@ -425,9 +518,17 @@ class SensorDefinition(BaseModel):
 
         Raises
         ------
+        SpecificationError
+            If the definition contains unresolved ``$parameter`` references.
         SpecificationValidationError
             If the definition is not valid.
         """
+        if _contains_parameter_reference(self.parameters):
+            raise SpecificationError(
+                "sensor definition contains unresolved $parameter references; "
+                "resolve them with sampled parameter values before constructing "
+                "a live sensor"
+            )
         cls = resolve_sensor_type(self.type)
         if cls is CompositeSensor:
             nested = [
@@ -692,6 +793,58 @@ def _validate_uncertainty_mapping(raw: Any, path: str) -> list[SpecificationIssu
     return issues
 
 
+def _infer_parameter_type_from_uncertainty(
+    raw_uncertainty: Any,
+) -> ParameterType | None:
+    """Infer a ``ParameterType`` from an informative uncertainty domain.
+
+    Returns ``None`` when the uncertainty carries no informative domain (or
+    cannot be resolved), so callers fall back to nominal-value inference.
+    """
+    if not isinstance(raw_uncertainty, dict):
+        return None
+    type_name = raw_uncertainty.get("type")
+    if not isinstance(type_name, str):
+        return None
+    uncertainty_cls = lookup_uncertainty_type(type_name)
+    if uncertainty_cls is None:
+        return None
+
+    from hydroforge.uncertainty.uncertainties import (
+        BinaryStateFlipUncertainty,
+        CategoricalReplacementUncertainty,
+    )
+
+    if uncertainty_cls is BinaryStateFlipUncertainty:
+        return ParameterType.BINARY
+
+    # Uncertainties without a distribution carry no informative domain.
+    if uncertainty_cls in (NoUncertainty, BiasUncertainty):
+        return None
+
+    parameters = raw_uncertainty.get("parameters")
+    if not isinstance(parameters, dict):
+        return None
+
+    if uncertainty_cls is CategoricalReplacementUncertainty:
+        distribution_raw = parameters.get("replacement_distribution")
+    else:
+        distribution_raw = parameters.get("distribution")
+
+    if not isinstance(distribution_raw, dict):
+        return None
+    distribution_type_name = distribution_raw.get("type")
+    if not isinstance(distribution_type_name, str):
+        return None
+    distribution_cls = lookup_distribution_type(distribution_type_name)
+    if distribution_cls is None:
+        return None
+
+    domain = getattr(distribution_cls, "properties", None)
+    domain = getattr(domain, "domain", None) if domain is not None else None
+    return parameter_type_from_domain(domain)
+
+
 def _validate_parameter_mapping(raw: Any, path: str) -> list[SpecificationIssue]:
     """Validate a raw parameter-definition mapping located at ``path``."""
     if isinstance(raw, ParameterDefinition):
@@ -774,6 +927,25 @@ def _validate_parameter_mapping(raw: Any, path: str) -> list[SpecificationIssue]
         issues.extend(
             _validate_uncertainty_mapping(uncertainty, _join(path, "uncertainty"))
         )
+
+    type_name = raw.get("type")
+    if (
+        isinstance(type_name, str)
+        and type_name in _PARAMETER_TYPE_NAMES
+        and type_name != "UNDEFINED"
+        and raw.get("uncertainty") is not None
+    ):
+        inferred = _infer_parameter_type_from_uncertainty(raw.get("uncertainty"))
+        if inferred is not None and ParameterType[type_name] != inferred:
+            issues.append(
+                SpecificationIssue(
+                    path=_join(path, "type"),
+                    message=(
+                        f"explicit type {type_name!r} conflicts with type "
+                        f"{inferred.name!r} inferred from the uncertainty domain"
+                    ),
+                )
+            )
     return issues
 
 
@@ -1093,6 +1265,11 @@ class UncertaintySpecification(BaseModel):
                 )
             )
 
+        raw_parameters = document.get("parameters")
+        raw_parameter_names: set[str] = (
+            set(raw_parameters) if isinstance(raw_parameters, dict) else set()
+        )
+
         raw_sensors = document.get("sensors", document.get("measurements"))
         if isinstance(raw_sensors, dict):
             for name, raw in raw_sensors.items():
@@ -1104,9 +1281,12 @@ class UncertaintySpecification(BaseModel):
                         )
                     )
                     continue
-                issues.extend(_validate_sensor_mapping(raw, f"sensors.{name}"))
+                issues.extend(
+                    _validate_sensor_mapping(
+                        raw, f"sensors.{name}", raw_parameter_names
+                    )
+                )
 
-        raw_parameters = document.get("parameters")
         if raw_parameters is not None and not isinstance(raw_parameters, dict):
             issues.append(
                 SpecificationIssue(
@@ -1125,6 +1305,25 @@ class UncertaintySpecification(BaseModel):
                     )
                     continue
                 issues.extend(_validate_parameter_mapping(raw, f"parameters.{name}"))
+
+        # Version 1.0 documents are accepted only without the removed sensor
+        # location field; normalize accepted documents to the current schema.
+        if version == "1.0":
+            if isinstance(raw_sensors, dict):
+                for name, raw in raw_sensors.items():
+                    if isinstance(raw, dict) and "location" in raw:
+                        issues.append(
+                            SpecificationIssue(
+                                path=f"sensors.{name}.location",
+                                message=(
+                                    "sensor locations are no longer part of the "
+                                    "generic specification; configure the sensor "
+                                    "location in the backend mapper configuration"
+                                ),
+                            )
+                        )
+            if not any(issue.path.endswith(".location") for issue in issues):
+                document["schema_version"] = "2.0"
 
         if issues:
             raise SpecificationValidationError(issues)

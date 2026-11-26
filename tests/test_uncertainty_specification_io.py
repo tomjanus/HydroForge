@@ -114,9 +114,8 @@ def test_canonical_example_loads():
 
     spec = load_specification(example)
 
-    assert spec.schema_version == "1.0"
+    assert spec.schema_version == "2.0"
     assert set(spec.sensors) == {"pressure_sensor", "flow_sensor"}
-    assert spec.sensors["pressure_sensor"].location == "J1"
 
 
 def test_round_trip_preserves_explicit_none_optional_parameter(tmp_path):
