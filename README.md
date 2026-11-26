@@ -56,7 +56,7 @@ need:
 | `wntr` | WNTR (core dependency) |
 | `tsnet` | `pip install "git+https://github.com/glorialulu/TSNet.git"` |
 | `tsnetplus` | `pip install "git+https://github.com/tomjanus/TSNetPlus.git"` |
-| `ptsnet` | `pip install "hydroforge-tools[ptsnet]"` |
+| `ptsnet` | `pip install "git+https://github.com/gandresr/ptsnet.git@feature/ptsnet-interior-history-output"` |
 
 TSNet and TSNetPlus are installed directly from GitHub because PyPI does not
 allow direct URL requirements in published package metadata. `ptsnet` installs
@@ -64,6 +64,10 @@ the package from PyPI. If code requests a transient backend whose package is
 missing, HydroForge explains which package is required and asks whether to
 install it. Installation happens only after an explicit `y` or `yes`; pressing
 Enter (or answering `n`) leaves the environment unchanged.
+
+PTSNET interior-pipe measurements require the
+`feature/ptsnet-interior-history-output` branch above. The released PTSNET
+package may not expose `add_pipe_output`.
 
 ## Quick start
 
@@ -101,7 +105,7 @@ are not implemented and exit with a non-zero status.
 | `hydroforge.wdn_modelling.graphs` | EPANET network graph analysis and visualization | Supported |
 | `hydroforge.wdn_modelling.networks` | Model/graph selectors and `JunctionLeaks` | Supported |
 | `hydroforge.wdn_modelling.modifiers` | WNTR model and graph modifiers | Supported |
-| `hydroforge.wdn_modelling.uncertainty` | Apply realized parameters and generic sensors to WNTR models/results | Supported |
+| `hydroforge.wdn_modelling.uncertainty` | Apply realized parameters and sensors to WNTR, TSNetPlus, and PTSNET realizations | Supported; dynamic solvers are optional |
 | `hydroforge.wdn_modelling.measurement_placement` | Sensor placement and sensor-network graph (depends on `graphs`) | Supported |
 
 ## API overview
@@ -243,6 +247,19 @@ Backend configuration is split into persistent model options
 (`backend.create_simulator(...)`). WNTR uses `WNTRConfig`,
 `WNTRSimulatorConfig`, and `EPANETSimulatorConfig`; the transient backends
 currently use one configuration type for both scopes.
+
+### Uncertainty-to-simulation workflow
+
+The Stage 3 workflow, supported quantities, reproducibility rules, persistence
+format, and limitations are documented in
+[`docs/uncertainty-to-simulation.md`](docs/uncertainty-to-simulation.md).
+Runnable examples are paired as
+[`WNTR Python`](examples/wntr_static_uncertainty.py) /
+[`WNTR notebook`](examples/wntr_static_uncertainty.ipynb) and
+[`PTSNET Python`](examples/ptsnet_dynamic_uncertainty.py) /
+[`PTSNET notebook`](examples/ptsnet_dynamic_uncertainty.ipynb). The
+acceptance evidence is linked from
+[`docs/stage3-traceability.md`](docs/stage3-traceability.md).
 
 ### EPANET file I/O
 

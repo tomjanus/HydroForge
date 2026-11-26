@@ -16,12 +16,14 @@ def test_example_script_and_notebook_have_matching_code():
             encoding="utf-8"
         )
     )
-    notebook_code = "\n".join(
+    code_cells = [
         "".join(cell.get("source", []))
         for cell in notebook["cells"]
         if cell.get("cell_type") == "code"
-    )
-    assert notebook_code == script
+    ]
+    assert code_cells[0] == script
+    assert len(code_cells) == 2
+    assert "display(" in code_cells[1] and "Image(" in code_cells[1]
 
 
 def test_example_script_runs_deterministically(tmp_path):

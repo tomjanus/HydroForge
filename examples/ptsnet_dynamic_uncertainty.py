@@ -53,7 +53,7 @@ MODEL_PATH = REPOSITORY_ROOT / "tests/base_networks/Net1.inp"
 def build_specification() -> UncertaintySpecification:
     return UncertaintySpecification.from_dict(
         {
-            "schema_version": "1.0",
+            "schema_version": "2.0",
             "parameters": {
                 "wave_speed": {
                     "nominal_value": 1000.0,

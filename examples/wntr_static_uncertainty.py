@@ -8,6 +8,7 @@ Run with::
 from __future__ import annotations
 
 import argparse
+import sys
 import tempfile
 from pathlib import Path
 
@@ -26,11 +27,18 @@ from hydroforge.wdn_modelling.uncertainty import (
 )
 from hydroforge.wdn_modelling.persistence import load_realization, save_realization
 
+try:
+    REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+except NameError:  # Jupyter notebooks do not define __file__.
+    REPOSITORY_ROOT = Path.cwd()
+    if not (REPOSITORY_ROOT / "tests/base_networks/Net1.inp").is_file():
+        REPOSITORY_ROOT = REPOSITORY_ROOT.parent
+
 
 def build_specification() -> UncertaintySpecification:
     return UncertaintySpecification.from_dict(
         {
-            "schema_version": "1.0",
+            "schema_version": "2.0",
             "parameters": {
                 "pipe_diameter": {
                     "nominal_value": 0.30,
@@ -72,16 +80,19 @@ def build_specification() -> UncertaintySpecification:
 
 def main(output_path: Path | None = None) -> None:
     if output_path is None:
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            "--output",
-            type=Path,
-            default=Path(tempfile.gettempdir()) / "wntr_static_uncertainty.png",
-        )
-        args = parser.parse_args()
-        output_path = args.output
+        if "ipykernel" in sys.modules:
+            output_path = Path(tempfile.gettempdir()) / "wntr_static_uncertainty.png"
+        else:
+            parser = argparse.ArgumentParser()
+            parser.add_argument(
+                "--output",
+                type=Path,
+                default=Path(tempfile.gettempdir()) / "wntr_static_uncertainty.png",
+            )
+            args = parser.parse_args()
+            output_path = args.output
 
-    model_path = Path("tests/base_networks/Net1.inp")
+    model_path = REPOSITORY_ROOT / "tests/base_networks/Net1.inp"
     model = wntr.network.WaterNetworkModel(str(model_path))
     model.options.time.duration = 0
 
