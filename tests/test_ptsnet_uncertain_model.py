@@ -53,10 +53,10 @@ class _FakeResults:
         self.results = {
             "node": type("NodeTable", (), {"head": [[1.0, 2.0]], "labels": ["N1"]})()
         }
-        self.simulation_timestamps = [0, 1]
+        self.time_stamps = [0.0, 0.01]
 
     def get_node_variable(self, variable, nodes, as_dataframe=False):
-        return pd.DataFrame({"N1": [1.0, 2.0]}, index=[0, 1])
+        return pd.DataFrame({"N1": [1.0, 2.0]}, index=self.time_stamps)
 
 
 def _make_mapper(**kwargs):
@@ -153,7 +153,9 @@ def test_ptsnet_node_measurement_preserves_raw_results_and_time_index():
     result = uncertain_model.realize(Scenario(values={}, id="scenario")).run()
 
     assert result.raw_results is not None
-    assert result.measured_outputs["head"]["N1"].index.equals(pd.Index([0, 1]))
+    assert result.measured_outputs["head"]["N1"].index.equals(
+        pd.Index([0.0, 0.01], name="time")
+    )
     assert result.provenance["scenario_id"] == "scenario"
 
 
@@ -220,7 +222,7 @@ class _FakeInteriorModel:
         self.node_name_list = ["N1"]
         self.pipe_output_requests = []
         self.interior_results = {}
-        self.simulation_timestamps = [0, 1]
+        self.time_stamps = [0.0, 0.01]
 
     def pipes(self):
         return [("P1", self)]
@@ -341,7 +343,7 @@ def test_ptsnet_interior_measured_output_preserves_timestamps_and_provenance():
     ).run()
 
     assert result.raw_results is not None
-    assert result.measured_outputs["head"]["interior"].index.tolist() == [0, 1]
+    assert result.measured_outputs["head"]["interior"].index.tolist() == [0.0, 0.01]
     assert result.provenance["scenario_id"] == "scenario"
 
 
@@ -399,7 +401,7 @@ class _FakeRawResults:
                         {"head": node_values, "labels": ["N1"]},
                     )()
                 },
-                "simulation_timestamps": timestamps,
+                "time_stamps": timestamps,
                 "interior_results": interior_values,
             },
         )()
@@ -436,14 +438,14 @@ def test_ptsnet_fake_raw_node_and_interior_measurement_output():
         },
     )
     mapper._run = lambda model: _FakeRawResults(
-        [[1.0, 2.0]], {"interior": {"head": [3.0, 4.0]}}, [0, 1]
+        [[1.0, 2.0]], {"interior": {"head": [3.0, 4.0]}}, [0.0, 0.01]
     )
     uncertain_model = mapper.map(specification, model)
     result = uncertain_model.realize(Scenario(values={}, id="scenario")).run()
 
     assert result.raw_results is not None
-    assert result.measured_outputs["head"]["N1"].index.tolist() == [0, 1]
-    assert result.measured_outputs["head"]["interior"].index.tolist() == [0, 1]
+    assert result.measured_outputs["head"]["N1"].index.tolist() == [0.0, 0.01]
+    assert result.measured_outputs["head"]["interior"].index.tolist() == [0.0, 0.01]
 
 
 def test_ptsnet_fake_raw_missing_interior_output_fails():
@@ -525,12 +527,102 @@ def test_ptsnet_raw_dict_of_tables_measurement_output():
         "node": _FakeTable([[1.0, 2.0]], ["N1"]),
         "pipe.start": _FakeTable([[3.0, 4.0]], ["P1"]),
         "interior_results": {"interior": {"flowrate": [5.0, 6.0]}},
-        "simulation_timestamps": [0, 1],
+        "time_stamps": [0.0, 0.01],
     }
     mapper._run = lambda model: raw_results
     uncertain_model = mapper.map(specification, model)
     result = uncertain_model.realize(Scenario(values={}, id="scenario")).run()
 
     assert result.raw_results is raw_results
-    assert result.measured_outputs["head"]["N1"].index.tolist() == [0, 1]
-    assert result.measured_outputs["flowrate"]["interior"].index.tolist() == [0, 1]
+    assert result.measured_outputs["head"]["N1"].index.tolist() == [0.0, 0.01]
+    assert result.measured_outputs["flowrate"]["interior"].index.tolist() == [0.0, 0.01]
+
+
+def test_ptsnet_default_simulator_receives_config_and_runs(monkeypatch):
+    import hydroforge.wdn_modelling.uncertainty.ptsnet_mapping as ptsnet_mapping
+
+    config = object()
+    model = _FakeModel()
+    expected = object()
+    calls = []
+
+    class RecordingSimulator:
+        def __init__(self, config):
+            calls.append(("init", config))
+
+        def run(self, candidate):
+            calls.append(("run", candidate))
+            return expected
+
+    monkeypatch.setattr(ptsnet_mapping, "PTSNetSimulator", RecordingSimulator)
+    monkeypatch.setattr(ptsnet_mapping, "PTSNetConfig", object)
+    mapper = ptsnet_mapping.PTSNetModelMapper(simulator_config=config)
+
+    assert mapper._run(model) is expected
+    assert calls == [("init", config), ("run", model)]
+
+
+def test_ptsnet_mapper_uses_injected_simulator():
+    from hydroforge.wdn_modelling.uncertainty.ptsnet_mapping import PTSNetModelMapper
+
+    model = _FakeModel()
+    expected = object()
+
+    class InjectedSimulator:
+        def __init__(self):
+            self.models = []
+
+        def run(self, candidate):
+            self.models.append(candidate)
+            return expected
+
+    simulator = InjectedSimulator()
+    mapper = PTSNetModelMapper(simulator=simulator)
+
+    assert mapper._run(model) is expected
+    assert simulator.models == [model]
+
+
+def test_ptsnet_clones_pathlike_input_with_unique_workspace_names(
+    tmp_path, monkeypatch
+):
+    import sys
+    import types
+
+    import hydroforge.wdn_modelling.uncertainty.ptsnet_mapping as ptsnet_mapping
+
+    class Config:
+        @staticmethod
+        def _to_settings():
+            return {"duration": 2.0, "time_step": 0.1}
+
+    class FakePTSNETSimulation:
+        def __init__(self, workspace_name, inpfile, settings):
+            self.workspace_name = workspace_name
+            self.inpfile = inpfile
+            self.settings = settings
+
+    ptsnet_package = types.ModuleType("ptsnet")
+    ptsnet_package.__path__ = []
+    simulation_package = types.ModuleType("ptsnet.simulation")
+    simulation_package.__path__ = []
+    simulation_module = types.ModuleType("ptsnet.simulation.sim")
+    simulation_module.PTSNETSimulation = FakePTSNETSimulation
+    monkeypatch.setitem(sys.modules, "ptsnet", ptsnet_package)
+    monkeypatch.setitem(sys.modules, "ptsnet.simulation", simulation_package)
+    monkeypatch.setitem(sys.modules, "ptsnet.simulation.sim", simulation_module)
+    monkeypatch.setattr(ptsnet_mapping, "PTSNetConfig", Config)
+
+    source = tmp_path / "network.inp"
+    model = _FakeModel()
+    model.inpfile = source
+    model.workspace_name = "network"
+    mapper = ptsnet_mapping.PTSNetModelMapper(simulator_config=Config())
+
+    first = mapper._clone(model)
+    second = mapper._clone(model)
+
+    assert first.inpfile == str(source)
+    assert first.settings == {"duration": 2.0, "time_step": 0.1}
+    assert first.workspace_name != second.workspace_name
+    assert first.workspace_name.startswith("network_realization_")

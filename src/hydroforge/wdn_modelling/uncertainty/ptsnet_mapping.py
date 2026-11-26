@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import copy
+import os
+import uuid
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
@@ -187,6 +189,7 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
                         if wave_speed is not None:
                             try:
                                 wave_speed[:] = float(value)
+                                model._hydroforge_wave_speed_overridden = True
                             except Exception:
                                 pass
                 else:
@@ -196,6 +199,7 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
                         if wave_speed is not None:
                             for pipe in pipes:
                                 wave_speed[pipe] = float(value)
+                            model._hydroforge_wave_speed_overridden = True
 
             # Apply surge protection.
             for protection in self.surge_protection_bindings:
@@ -229,16 +233,8 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
             if active_simulator is None:
                 if PTSNetSimulator is None or PTSNetConfig is None:
                     raise RuntimeError("PTSNet is not installed")
-                config = self._simulator_config
-                if config is None:
-                    config = PTSNetConfig()
+                config = self._simulator_config or PTSNetConfig()
                 active_simulator = PTSNetSimulator(config=config)
-            config = getattr(active_simulator, "config", None)
-            if config is not None:
-                try:
-                    config.apply_to(model)
-                except Exception:
-                    pass
             return active_simulator.run(model)
 
         def measure(
@@ -309,11 +305,13 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
                         f"PTSNet interior output {output_name!r} has no {interior_binding.quantity!r}"
                     )
                 values = quantity_results[interior_binding.quantity]
-                timestamps = getattr(
-                    getattr(raw_results, "model", None), "simulation_timestamps", None
-                )
+                timestamps = _ptsnet_timestamps(raw_results)
                 if timestamps is None:
-                    timestamps = range(len(np.asarray(values)))
+                    raise ValueError("PTSNet results do not expose a time_stamps axis")
+                if len(timestamps) != len(np.asarray(values)):
+                    raise ValueError(
+                        "PTSNet timestamps and interior output have different lengths"
+                    )
                 import pandas as pd
 
                 series = pd.Series(
@@ -361,8 +359,53 @@ class PTSNetModelMapper(GenericModelMapper[PTSNetModel, PTSNetSimulationResults]
                     seeds[key] = seed
             return seeds
 
+        def _clone(model: PTSNetModel) -> PTSNetModel:
+            if clone_model is not None:
+                return clone_model(model)
+
+            inpfile = getattr(model, "inpfile", None) or getattr(
+                model, "_inpfile", None
+            )
+            if inpfile is None:
+                return copy.deepcopy(model)
+
+            try:
+                inpfile_path = os.fspath(inpfile)
+            except TypeError as exc:
+                raise ValueError(
+                    "PTSNet model inpfile must be a filesystem path"
+                ) from exc
+            if not inpfile_path:
+                raise ValueError("PTSNet model inpfile cannot be empty")
+
+            if PTSNetConfig is None:
+                raise RuntimeError("PTSNet is required to clone this model")
+            from ptsnet.simulation.sim import PTSNETSimulation
+
+            config = self._simulator_config
+            if config is None and self._simulator is not None:
+                config = getattr(self._simulator, "config", None)
+            if config is None:
+                config = PTSNetConfig()
+            settings_factory = getattr(config, "_to_settings", None)
+            if not callable(settings_factory):
+                raise TypeError(
+                    "PTSNet simulator config must provide a _to_settings() method"
+                )
+
+            workspace = getattr(model, "workspace_name", "hydroforge")
+            unique_workspace = f"{workspace}_realization_{uuid.uuid4().hex}"
+            settings = settings_factory()
+            cloned = PTSNETSimulation(
+                workspace_name=unique_workspace,
+                inpfile=inpfile_path,
+                settings=settings,
+            )
+            cloned._hydroforge_config_settings = settings
+            return cloned
+
         super().__init__(
-            clone_model=clone_model or copy.deepcopy,
+            clone_model=_clone,
             apply_parameters=apply,
             run_model=run,
             measure_sensors=measure,
@@ -493,13 +536,24 @@ def _ptsnet_node_series(raw_results: Any, variable: str, node_id: str) -> Any:
 
 
 def _ptsnet_timestamps(raw_results: Any) -> Any:
+    """Return the native PTSNet time axis, when available."""
     model = getattr(raw_results, "model", raw_results)
-    timestamps = getattr(model, "simulation_timestamps", None)
-    if timestamps is not None:
-        return timestamps
+    for attribute in ("time_stamps", "simulation_timestamps", "time"):
+        timestamps = getattr(model, attribute, None)
+        if timestamps is not None:
+            return timestamps
     if isinstance(raw_results, Mapping):
-        timestamps = raw_results.get("simulation_timestamps")
-    return timestamps
+        for key in ("time_stamps", "simulation_timestamps", "time"):
+            timestamps = raw_results.get(key)
+            if timestamps is not None:
+                return timestamps
+        nested_model = raw_results.get("model")
+        if nested_model is not None:
+            for attribute in ("time_stamps", "simulation_timestamps", "time"):
+                timestamps = getattr(nested_model, attribute, None)
+                if timestamps is not None:
+                    return timestamps
+    return None
 
 
 __all__ = [
