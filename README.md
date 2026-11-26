@@ -56,7 +56,7 @@ need:
 | `wntr` | WNTR (core dependency) |
 | `tsnet` | `pip install "git+https://github.com/glorialulu/TSNet.git"` |
 | `tsnetplus` | `pip install "git+https://github.com/tomjanus/TSNetPlus.git"` |
-| `ptsnet` | `pip install "git+https://github.com/gandresr/ptsnet.git@feature/ptsnet-interior-history-output"` |
+| `ptsnet` | `pip install "git+https://github.com/tomjanus/ptsnet.git@feature/ptsnet-interior-history-output"` |
 
 TSNet and TSNetPlus are installed directly from GitHub because PyPI does not
 allow direct URL requirements in published package metadata. `ptsnet` installs

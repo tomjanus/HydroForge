@@ -160,7 +160,7 @@ are separate from the model artifact and manifest.
 
 PTSNET and TSNetPlus require their optional solver dependencies. PTSNET
 interior capture specifically requires the
-[`feature/ptsnet-interior-history-output` branch](https://github.com/gandresr/ptsnet/tree/feature/ptsnet-interior-history-output),
+[`feature/ptsnet-interior-history-output` branch](https://github.com/tomjanus/ptsnet/tree/feature/ptsnet-interior-history-output),
 which provides `add_pipe_output` and `interior_results`. Without that API the
 mapper fails with an actionable compatibility error.
 
