@@ -18,7 +18,7 @@ not imply that optional dependencies are installed in every environment.
 | AC-08 | Saved realizations reload as runnable instances with mapping, sensor, settings, and provenance intact. | [#66](https://github.com/tomjanus/HydroForge/issues/66), [#67](https://github.com/tomjanus/HydroForge/issues/67) | `tests/test_uncertain_model_persistence.py`; dynamic PTSNET execution tests in `tests/test_ptsnet_dynamic_example.py` | [Persistence](uncertainty-to-simulation.md#5-save-and-reload-a-realization) | Both examples save and rerun one bundle | Verified |
 | AC-09 | WNTR and PTSNET Python/notebook pairs run multiple realizations and plot raw versus measured flow. | [#68](https://github.com/tomjanus/HydroForge/issues/68), [#69](https://github.com/tomjanus/HydroForge/issues/69) | `tests/test_wntr_static_example.py`; `tests/test_ptsnet_dynamic_example.py` | [Examples](uncertainty-to-simulation.md) | Both `.py` and `.ipynb` pairs; PTSNET notebook executed in a compatible kernel | Verified |
 | AC-10 | Every acceptance criterion has ticket, test, documentation, and example evidence. | [#70](https://github.com/tomjanus/HydroForge/issues/70) | This matrix | This matrix and [workflow guide](uncertainty-to-simulation.md) | Linked per criterion above | Verified |
-| AC-11 | Local quality gates pass; Stage 3 issues are closed; work is pushed and CI is green. | [#70](https://github.com/tomjanus/HydroForge/issues/70) | Final command and CI results recorded below | This matrix | Both end-to-end examples executed | Pending final push and CI |
+| AC-11 | Local quality gates pass; Stage 3 issues are closed; work is pushed and CI is green. | [#70](https://github.com/tomjanus/HydroForge/issues/70) | Final command and CI results recorded below | This matrix | Both end-to-end examples executed | Verified |
 
 ## Local verification record
 
@@ -33,5 +33,9 @@ validated/executed separately), `flake8 --config=.flake8 .`, `mypy .`, and
 `python -m build`. Distribution metadata validation and a relative Markdown
 link check also passed. Both notebooks were executed in compatible Jupyter
 kernels and displayed their flow comparisons; PTSNET used Python 3.10.
-The HydroForge feature branch is pushed and its pull request/CI result will be
-recorded here after opening the PR.
+HydroForge [PR #71](https://github.com/tomjanus/HydroForge/pull/71) is pushed
+and CI run [45741372635](https://github.com/tomjanus/HydroForge/actions/runs/45741372635)
+passed lint/type checks, tests on Python 3.10–3.13, and package build/metadata
+checks. PTSNET feature commit `d8b0855` is pushed on the separate
+`tomjanus/ptsnet` feature branch; [upstream PR #8](https://github.com/gandresr/ptsnet/pull/8)
+is open against `development`. That protected branch was not changed.
