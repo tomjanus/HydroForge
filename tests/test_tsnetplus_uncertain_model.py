@@ -18,7 +18,10 @@ def _make_model():
     from hydroforge.wdn_modelling.backends.tsnetplus_backend import TSNetPlusBackend
 
     backend = TSNetPlusBackend()
-    return backend.load_model("tests/base_networks/Net1.inp")
+    try:
+        return backend.load_model("tests/base_networks/Net1.inp")
+    except ImportError as exc:
+        pytest.skip(f"TSNetPlus optional dependencies are unavailable: {exc}")
 
 
 def test_tsnetplus_mapper_applies_shared_wave_speed():

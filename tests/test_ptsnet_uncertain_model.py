@@ -372,8 +372,12 @@ def test_ptsnet_missing_interior_output_fails_clearly():
         sensor_definitions={
             "missing": SensorDefinition(type="Offset", parameters={"offset": 0.0})
         },
+        simulator=type(
+            "FakeSimulator",
+            (),
+            {"run": lambda self, candidate: _FakeInteriorResults(candidate)},
+        )(),
     )
-    mapper._run = lambda candidate: _FakeInteriorResults(candidate)
     uncertain_model = mapper.map(specification, model)
     with pytest.raises(ValueError, match="interior output"):
         uncertain_model.realize(Scenario(values={}, id="scenario")).run()
